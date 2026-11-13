@@ -1,5 +1,7 @@
 # Python Algorithm Handbook
 
+**[Read the handbook online](https://supercodingden.github.io/python-algorithm-handbook/)** · English first · 中文 available
+
 A bilingual, Python-first algorithm study handbook with **233 tutorials in English and Chinese**, organized into **12 topics**. Each tutorial explains the problem, develops the reasoning, walks through an example, presents a complete Python 3 implementation, and discusses complexity and common mistakes.
 
 English is the primary language. Every fresh visit or page refresh starts in English, regardless of the browser language or a previous selection. Use the **中文 / English** button to switch languages while staying on the same tutorial.
