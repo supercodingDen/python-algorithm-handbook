@@ -1,0 +1,3118 @@
+[
+  {
+    "id": "backtracking-theory",
+    "chapter": "回溯算法",
+    "title": "回溯算法：在选择树上管理状态",
+    "problem": "",
+    "kind": "理论",
+    "summary": "把当前路径、候选范围和撤销动作分开，才能写出可推理的递归搜索。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "回溯适合枚举满足条件的方案：组合问选哪些元素，排列问元素按什么顺序，切分问边界放在哪里。先画出一层决策，不要急着写递归。树的节点表示已经完成的选择，边表示一个新选择；叶子不一定都是合法答案，必须明确何时收集，以及哪些节点已经不可能完成。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "递归函数应只解释一个状态：当前路径是什么，下一步还能用哪些选择。进入函数时路径必须满足已处理部分的约束；每次向路径加入一个元素，再把候选范围交给下一层。递归返回后恢复路径和相关标记，让下一个兄弟分支从同一个父状态出发。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "组合用递增下标排除顺序重复，排列用使用标记保证每个位置只放一次，切分用起始位置保证片段连续覆盖。剪枝必须有理由：例如剩余元素不足以填满组合时就可以停止。只因目前的选择看起来不好而跳过，会把正确答案一起删除。",
+          "调试时可以打印递归深度、当前路径和下一起点，观察一次选择对应的一条边。若同一父节点的第二个分支带着第一个分支的标记，说明恢复不完整。先让未剪枝版本正确，再逐项加入有证明的过滤条件，比较答案集合是否一致。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "下面模板枚举大小为 k 的下标组合。path.append 与 path.pop 成对出现；收集时复制路径，防止结果中的列表继续被修改。递归深度由答案长度决定，而运行时间主要由访问的搜索节点和复制答案决定。函数结束后 path 应恢复为空，这是调试状态泄漏的实用检查。"
+        ]
+      }
+    ],
+    "code": "def choose_indices(n, k):\n    out, path = [], []\n    def dfs(start):\n        if len(path) == k:\n            out.append(path.copy())\n            return\n        for i in range(start, n):\n            path.append(i)\n            dfs(i + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(0)\n    return out\n",
+    "time": "O(Σ(d=0..k) C(n,d) + k·C(n,k))，包括答案复制",
+    "space": "O(k) 递归与路径，输出占 O(k·C(n,k))",
+    "example": {
+      "input": "n=3, k=2",
+      "output": "[[0,1],[0,2],[1,2]]",
+      "walkthrough": [
+        "根节点先选择 0，下一层只允许选择 1 或 2。",
+        "撤销 0 后选择 1，只能再选择 2。"
+      ]
+    },
+    "pitfalls": [
+      "不要把可变路径本身直接放进结果。",
+      "恢复状态必须包含路径之外的使用标记或棋盘。"
+    ],
+    "tests": [
+      {
+        "expression": "choose_indices(3,2)",
+        "expected": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combinations-basic",
+    "chapter": "回溯算法",
+    "title": "77. 组合：先写完整搜索树",
+    "problem": "77",
+    "kind": "题解",
+    "summary": "用递增的下一起点，让每个无序组合只出现一次。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "从 1 到 n 选 k 个不同整数，结果只关心成员，不关心排列顺序。例如 [1,3] 与 [3,1] 是同一个组合。为了让输出唯一，我们规定路径始终严格递增。这不是增加限制，而是给每个无序集合选定一种标准表示。k=0 时存在一个空组合；k>n 时没有解。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "递归状态由 start 和 path 决定。path 中的值已按递增顺序选择，start 是当前还能选择的最小值。把 i 加入后，下一层从 i+1 开始，因此既不会重用 i，也不会返回比 i 小的数。只用一个起点就同时实现了不重复使用和消除排列重复。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "当路径长度等于 k 时立即收集并返回，继续往下只会产生过长路径。否则依次尝试 start 到 n 的每个数。任意合法组合都有一个最小元素，该元素所在分支会接着选第二小元素，因此没有组合遗漏；不同分支首次选择不同，又保证结果互不相同。",
+          "例如 k=2 时，根节点的每个候选决定组合的第一项；第二层的候选决定第二项。可以用这个小例子检查 start 的含义，再推广到更深层，而不需要把每层写成独立循环。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "基线代码故意不剪掉剩余元素不足的分支，方便观察完整搜索。for 的右边界是 n+1，因为 Python range 不包含右端点。结果必须保存 path.copy()，而 pop 在递归返回后执行。空间要区分当前路径与全部结果；输出本身往往比搜索栈大得多。"
+        ]
+      }
+    ],
+    "code": "def solve(n, k):\n    ans, path = [], []\n    def dfs(start):\n        if len(path) == k:\n            ans.append(path.copy())\n            return\n        for x in range(start, n + 1):\n            path.append(x)\n            dfs(x + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(1)\n    return ans\n",
+    "time": "O(Σ(d=0..k) C(n,d) + k·C(n,k))；非法 k 直接返回",
+    "space": "O(k) 搜索辅助空间；输出 O(k·C(n,k))",
+    "example": {
+      "input": "n=4, k=2",
+      "output": "[[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]",
+      "walkthrough": [
+        "选 1 后只尝试 2、3、4。",
+        "根节点选 4 后没有可用的第二个数，这条分支自然结束。"
+      ]
+    },
+    "pitfalls": [
+      "下一层从 i 开始会重复使用同一个数。",
+      "这段代码没有剩余数量剪枝，复杂度不能只数有效答案。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(4,2)",
+        "expected": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "solve(3,0)",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combinations-pruning",
+    "chapter": "回溯算法",
+    "title": "77. 组合：剩余数量剪枝",
+    "problem": "77",
+    "kind": "题解",
+    "summary": "由还需选择的数量推导循环上界，提前消除无法填满的分支。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "组合基线会尝试很多必然失败的节点，例如从 1 到 5 选 3 个数时，第一步选择 4 就已经没有足够的后续数字。本节保留组合定义和输出顺序，只改变候选循环的上界。理解这个边界比记忆公式更重要，因为同样的推导还会用于固定长度的字符串和切分任务。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "设当前已有 d 个数，还需要 need=k-d 个。若这一步选择 x，则之后至少要留 need-1 个更大的数；从 x+1 到 n 一共有 n-x 个，因此必须满足 n-x≥need-1，即 x≤n-need+1。这个条件是必要条件，所以删除违反它的候选不会删掉正确答案。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "每层只遍历 start 到 last，其中 last=n-need+1。长度已经达到 k 时先返回，此时无需再算候选。路径仍然严格递增，完整性与唯一性的证明和基线一致：每个合法组合的下一项都满足剩余数量条件，所以它的搜索路径全部保留下来。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "Python 的 range(start,last+1) 把含端点的不等式转为半开区间。不要把 last 写成 n-k+1，因为 need 会随递归深度变化。剪枝减少访问节点，但枚举全部答案依然有输出下界；每个结果复制 k 个元素，不能把总时间写成 O(k)。"
+        ]
+      }
+    ],
+    "code": "def solve(n, k):\n    ans, path = [], []\n    def dfs(start):\n        need = k - len(path)\n        if need == 0:\n            ans.append(path.copy())\n            return\n        last = n - need + 1\n        for x in range(start, last + 1):\n            path.append(x)\n            dfs(x + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(1)\n    return ans\n",
+    "time": "O(k·C(n,k))（1≤k≤n）；k=0 为 O(1)",
+    "space": "O(k) 搜索辅助空间；输出 O(k·C(n,k))",
+    "example": {
+      "input": "n=5, k=3",
+      "output": "共 10 个组合，第一项为 [1,2,3]，最后一项为 [3,4,5]",
+      "walkthrough": [
+        "根节点 need=3，最大候选为 3。",
+        "选择 3 后 need=2，下一层只能从 4 开始。"
+      ]
+    },
+    "pitfalls": [
+      "上界需要随当前路径长度更新。",
+      "剪枝只减少无效分支，无法省去输出所有组合的成本。"
+    ],
+    "tests": [
+      {
+        "expression": "len(solve(5,3))",
+        "expected": 10
+      },
+      {
+        "expression": "solve(5,3)[-1]",
+        "expected": [
+          3,
+          4,
+          5
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-three",
+    "chapter": "回溯算法",
+    "title": "216. 组合总和 III",
+    "problem": "216",
+    "kind": "题解",
+    "summary": "同时用剩余个数与最小、最大可达和判断分支是否有希望。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "只允许使用 1 到 9，每个数字最多一次，选择恰好 k 个数且总和为 n。它比普通组合多一个和的约束，比可重复的组合总和多一个个数约束。路径仍按递增顺序构造，因此同一组数字不会因顺序不同重复出现。只有长度和总和同时正确才收集。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "递归传入 start 与 remain，remain 表示还欠的总和，need 表示还缺的数字个数。最小可达和是 start 开始连续 need 个数的和；最大可达和是 9、8 等最大的 need 个数字之和。若可用数量不足，或者 remain 超出这两个界限，该分支一定无解。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "达到 need=0 时检查 remain 是否为零。否则先执行边界检查，再按递增顺序试数字 x；因为所有数字为正，x>remain 时后续更大的数字也不可能可用，可以停止循环。每次递归同时减少剩余个数和剩余和，约束在每个节点都一致。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "等差数列公式避免为剪枝建立临时列表。min_sum=need*(2*start+need-1)//2，max_sum=need*(19-need)//2。剪枝公式假设候选值固定在 1 到 9，不能直接挪到任意输入数组。输出保存副本；输入 k 超出 0 到 9 的范围时直接返回空列表。"
+        ]
+      }
+    ],
+    "code": "def solve(k, n):\n    ans, path = [], []\n    def dfs(start, remain):\n        need = k - len(path)\n        if need == 0:\n            if remain == 0:\n                ans.append(path.copy())\n            return\n        if 10 - start < need:\n            return\n        low = need * (2 * start + need - 1) // 2\n        high = need * (19 - need) // 2\n        if remain < low or remain > high:\n            return\n        for x in range(start, 11 - need):\n            if x > remain:\n                break\n            path.append(x)\n            dfs(x + 1, remain - x)\n            path.pop()\n    if 0 <= k <= 9:\n        dfs(1, n)\n    return ans\n",
+    "time": "O(Σ(d=0..k) C(9,d)+k·C(9,k))，剪枝后通常更少",
+    "space": "O(k) 搜索辅助空间，不含结果",
+    "example": {
+      "input": "k=3, n=9",
+      "output": "[[1,2,6],[1,3,5],[2,3,4]]",
+      "walkthrough": [
+        "先选 1 后还需两个数字，总和为 8。",
+        "[1,2] 后最后一个只能是 6；[1,3] 后只能是 5。"
+      ]
+    },
+    "pitfalls": [
+      "达到目标和但数字数量不足时不能收集。",
+      "最大和剪枝与最小和剪枝必须建立在仍有足够候选的前提下。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(3,9)",
+        "expected": [
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            1,
+            3,
+            5
+          ],
+          [
+            2,
+            3,
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "solve(4,1)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "phone-letter-combinations",
+    "chapter": "回溯算法",
+    "title": "17. 电话号码的字母组合",
+    "problem": "17",
+    "kind": "题解",
+    "summary": "每层负责一个数字，结果长度天然由输入长度决定。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "给定只含 2 到 9 的数字串，为每个数字选一个键盘字母，返回所有可能字符串。不同位置即使数字相同也分别选择，例如 22 会产生 aa 和 ab。这里不是从同一个集合中选若干元素，而是多个候选集合的笛卡尔积；因此不需要 start 或 used。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "递归下标 pos 表示已经处理的数字个数，path 的长度始终等于 pos。第 pos 层只能选择 digits[pos] 对应的字母，选定后进入 pos+1。这个不变量让终止条件非常直接：当 pos 等于输入长度，路径恰好包含每个数字的一个字母。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "对于任意合法结果，它在第一个位置所选的字母对应根节点的一条边，以后每个位置依次对应一条边，所以它一定被访问。相反，每条到达末尾的路径都从每个映射里取了一个字母，必然合法。层与层的候选独立，不存在需要去重的重排列。",
+          "若某一位是 7 或 9，它提供四种候选，其余数字提供三种。结果数量应恰好等于这些数量的乘积，这给出一个独立的检查办法：先数结果，再检查每个字符串长度与各位置所属的映射。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "用列表记录字符，到叶子执行 ''.join(path)，避免反复拼接递归中的长字符串。空输入按本题约定返回空列表，而不是包含空串的列表。示例实现对 0、1 和其他字符明确报错，帮助区分输入不合法与合法输入没有结果。"
+        ]
+      }
+    ],
+    "code": "def solve(digits):\n    keys = {\"2\":\"abc\",\"3\":\"def\",\"4\":\"ghi\",\"5\":\"jkl\",\n            \"6\":\"mno\",\"7\":\"pqrs\",\"8\":\"tuv\",\"9\":\"wxyz\"}\n    if not digits:\n        return []\n    if any(d not in keys for d in digits):\n        raise ValueError(\"digits must contain only 2..9\")\n    ans, path = [], []\n    def dfs(pos):\n        if pos == len(digits):\n            ans.append(\"\".join(path))\n            return\n        for c in keys[digits[pos]]:\n            path.append(c)\n            dfs(pos + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(m·P)，m 为数字个数，P 为各位置字母数量的乘积",
+    "space": "O(m) 搜索辅助空间；结果 O(m·P)",
+    "example": {
+      "input": "digits='23'",
+      "output": "['ad','ae','af','bd','be','bf','cd','ce','cf']",
+      "walkthrough": [
+        "第一层选 a，第二层依次选 d、e、f。",
+        "撤销 a 后第一层改为 b，再重复第二层选择。"
+      ]
+    },
+    "pitfalls": [
+      "空输入约定要与题目一致。",
+      "不要把第一个数字的候选集重复用于每一层。"
+    ],
+    "tests": [
+      {
+        "expression": "solve('23')",
+        "expected": [
+          "ad",
+          "ae",
+          "af",
+          "bd",
+          "be",
+          "bf",
+          "cd",
+          "ce",
+          "cf"
+        ]
+      },
+      {
+        "expression": "solve('')",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-reuse",
+    "chapter": "回溯算法",
+    "title": "39. 组合总和：候选可以重复使用",
+    "problem": "39",
+    "kind": "题解",
+    "summary": "递归继续使用当前下标允许重复，递增下标负责去除顺序重复。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "给定互不相同的正整数 candidates，每个候选可以使用任意次，寻找总和为 target 的组合。正数条件是算法终止与剪枝的基础；若含零，重复使用会使递归无法前进，若含负数，超出目标也不能证明后续无解。下面实现明确检查正数，并对候选排序。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "状态 start 表示仍能使用的最小下标，remain 表示还欠的和。选择 nums[i] 后下一层仍从 i 开始，这允许再次使用当前值；又不会回到更小下标，因此一个组合只有非降序形式。path 的和与 remain 加起来始终等于初始 target。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "remain=0 时保存答案。遍历候选时，如果当前值大于 remain，由于后面的值不小于当前值，可以直接 break。每次递归的 remain 都至少减少最小候选值，所以递归一定结束。每个合法非降序组合可逐项沿对应下标进入，完整性与唯一性都得到保证。",
+          "例如只含候选 2、目标 5 时，剩余和最终变成 1，此时没有可用候选，分支自然返回。搜索不是每层都必须选出元素；无解节点结束循环即可，只有剩余和为零的节点才贡献答案。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "示例把候选转成排序后的新列表，避免改变调用者数据；重复候选会被 set 合并，因为本题值相同的候选没有额外身份。target=0 返回一个空组合，这符合选零个数的数学约定。时间随目标和与最小候选变化，不能只根据 candidates 长度给多项式界。"
+        ]
+      }
+    ],
+    "code": "def solve(candidates, target):\n    if any(x <= 0 for x in candidates):\n        raise ValueError(\"positive candidates required\")\n    nums = sorted(set(candidates))\n    ans, path = [], []\n    def dfs(start, remain):\n        if remain == 0:\n            ans.append(path.copy())\n            return\n        for i in range(start, len(nums)):\n            x = nums[i]\n            if x > remain:\n                break\n            path.append(x)\n            dfs(i, remain - x)\n            path.pop()\n    if target >= 0:\n        dfs(0, target)\n    return ans\n",
+    "time": "排序 O(m log m)；搜索保守上界 O((m+1)^D·(D+1))，D=target/min(nums)，取下整",
+    "space": "O(m+D) 辅助空间，不含输出；无候选时 D=0",
+    "example": {
+      "input": "candidates=[2,3,6,7], target=7",
+      "output": "[[2,2,3],[7]]",
+      "walkthrough": [
+        "连续选两个 2 后 remain=3。",
+        "选 3 得到答案；选 7 也直接把剩余和减为零。"
+      ]
+    },
+    "pitfalls": [
+      "可重复使用时递归起点是 i，而不是 i+1。",
+      "正数假设不能删除，含零或负数时本算法不适用。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,6,7],7)",
+        "expected": [
+          [
+            2,
+            2,
+            3
+          ],
+          [
+            7
+          ]
+        ]
+      },
+      {
+        "expression": "solve([],0)",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-once",
+    "chapter": "回溯算法",
+    "title": "40. 组合总和 II：同层跳过重复值",
+    "problem": "40",
+    "kind": "题解",
+    "summary": "把元素身份与答案值分开，同层去重、下一层前进一步。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "数组允许出现重复值，每个数组位置最多使用一次，目标是输出不重复的数值组合。两张值为 1 的卡片可以一起使用形成 [1,1]，但分别选择第一张或第二张作为单个 1 不应产生重复答案。排序后才能把这些等价选择放到相邻位置比较。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "状态 start 保证下标不回头，选择 i 后递归从 i+1 开始，确保每个位置最多使用一次。条件 i>start 且 nums[i]==nums[i-1] 只跳过当前层的重复候选。i==start 时允许使用与上一层相等的值，所以合法的 [1,1] 不会被误删。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "当前层第一个相等值已经代表了所有以这个数值开头的方案；再从后面的相等值开始，只会重复或减少可用位置，不会增加新数值组合。remain=0 收集，候选值大于 remain 时停止循环。正数输入保证剩余和不断下降，并使 break 合法。",
+          "观察 [1,1,2] 与目标 2：根节点第一个 1 进入后还能再选第二个 1，得到 [1,1]；根节点第二个 1 跳过，而值 2 仍独立生成 [2]。这个例子同时检验使用次数和去重范围。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "这里不能预先把 nums 变成集合，因为重复值的数量决定某些组合能否存在。通过 sorted 获得副本，然后检查候选为正。去重条件最好写成完整的两个判断，便于看清它比较的是兄弟分支，而不是禁止路径相邻的两个值相同。"
+        ]
+      }
+    ],
+    "code": "def solve(candidates, target):\n    nums = sorted(candidates)\n    if any(x <= 0 for x in nums):\n        raise ValueError(\"positive candidates required\")\n    ans, path = [], []\n    def dfs(start, remain):\n        if remain == 0:\n            ans.append(path.copy())\n            return\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            if nums[i] > remain:\n                break\n            path.append(nums[i])\n            dfs(i + 1, remain - nums[i])\n            path.pop()\n    if target >= 0:\n        dfs(0, target)\n    return ans\n",
+    "time": "O(n log n+n·2^n) 的保守上界，包含结果复制",
+    "space": "O(n) 搜索与排序副本，不含输出",
+    "example": {
+      "input": "candidates=[10,1,2,7,6,1,5], target=8",
+      "output": "[[1,1,6],[1,2,5],[1,7],[2,6]]",
+      "walkthrough": [
+        "根节点第一个 1 保留，第二个 1 作为兄弟分支跳过。",
+        "进入第一个 1 的下一层后，第二个 1 是该层起点，可以选择。"
+      ]
+    },
+    "pitfalls": [
+      "全局集合不能代替本题的数组。",
+      "用 i>0 去重会错误删除不同层之间需要的重复数字。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([10,1,2,7,6,1,5],8)",
+        "expected": [
+          [
+            1,
+            1,
+            6
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            6
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "palindrome-partition",
+    "chapter": "回溯算法",
+    "title": "131. 分割回文串",
+    "problem": "131",
+    "kind": "题解",
+    "summary": "先预处理回文区间，再枚举从当前位置开始的合法下一段。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "将字符串完全切成若干非空片段，要求每一段都是回文，返回所有切分方案。切分保留原字符顺序，不能把字符重新排列。每次决策是下一个片段的结束位置；例如 aab 的第一段可以是 a 或 aa，但 aab 不是回文，所以不能直接作为完整方案。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "递归 start 表示前缀 s[:start] 已经被合法切分，path 存储这些片段。尝试所有 end≥start，只有 s[start:end+1] 回文时才继续。为避免多次扫描同一区间，用 pal[i][j] 表示闭区间是否回文，它由两端字符相等与内部区间回文共同决定。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "预处理按 i 从右向左进行，使 pal[i+1][j-1] 在需要时已经算好；长度一或二的区间只比较端点。搜索到 start=n 时整个字符串被覆盖，立即收集。每个切分的边界序列唯一，而循环枚举了所有可选边界，所以不会漏解或重复。",
+          "对于 aaaa，所有非空连续片段都回文，任意相邻字符之间都可以选择切或不切，所以输出达到最坏的指数规模。预处理优化的是重复校验，并不能把枚举全部切分降成多项式时间。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "Python 字符串切片会复制字符，因此成本不能只算递归次数。预处理使用 O(n²) 布尔表，每条输出方案的所有片段总长度为 n，最坏有 2^(n-1) 种切分。空串在这段通用实现中对应一个空切分；题目若约定输入非空，这个分支只用于补全接口。"
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    n = len(s)\n    pal = [[False] * n for _ in range(n)]\n    for i in range(n - 1, -1, -1):\n        for j in range(i, n):\n            pal[i][j] = s[i] == s[j] and (j - i < 2 or pal[i + 1][j - 1])\n    ans, path = [], []\n    def dfs(start):\n        if start == n:\n            ans.append(path.copy())\n            return\n        for end in range(start, n):\n            if pal[start][end]:\n                path.append(s[start:end + 1])\n                dfs(end + 1)\n                path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n²+n·2^n) 最坏，包括字符串切片与输出",
+    "space": "O(n²) 回文表，加 O(n) 搜索栈，不含输出",
+    "example": {
+      "input": "s='aab'",
+      "output": "[['a','a','b'],['aa','b']]",
+      "walkthrough": [
+        "第一段选 a，余下 ab 只能切成 a 与 b。",
+        "第一段选 aa，余下 b 自身回文。"
+      ]
+    },
+    "pitfalls": [
+      "切分下一层起点必须是 end+1。",
+      "二维布尔表不能用 [[False]*n]*n 创建，否则各行共享。"
+    ],
+    "tests": [
+      {
+        "expression": "solve('aab')",
+        "expected": [
+          [
+            "a",
+            "a",
+            "b"
+          ],
+          [
+            "aa",
+            "b"
+          ]
+        ]
+      },
+      {
+        "expression": "solve('')",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "restore-ip-addresses",
+    "chapter": "回溯算法",
+    "title": "93. 复原 IP 地址",
+    "problem": "93",
+    "kind": "题解",
+    "summary": "用剩余段数限制剩余字符长度，再校验每个数字段的格式。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "把纯数字字符串分成四段，每段取值在 0 到 255，且多位数字不能以 0 开头。分割必须使用全部字符，不能删除字符或改变顺序。合法性不只是数值范围，例如 00 的数值虽然是零，但格式不合法；0 作为单独一段则合法。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "状态 start 是下一段的起点，path 长度是已经产生的段数。若还需 parts=4-len(path) 段，剩余字符必须在 parts 到 3*parts 之间，因为每段至少一位、最多三位。这个数量条件可以在尝试具体段之前排除大量不可能的分支。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "每层按长度一到三尝试下一段。遇到多位段以 0 开头就停止，因为更长的段仍有相同问题；遇到数值大于 255 也停止，更长的非负十进制数字不会变小。四段都完成且字符也用完才输出，这两个条件必须同时成立。",
+          "若输入长为 13，即使每段取三位也只能覆盖十二位，根节点便能停止。若输入是 010010，第一段只能是 0；选择 01 会违反格式，应在递归之前拒绝。这样的边界样例比只试普通地址更能发现错误。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "代码保留片段字符串，最终用点连接，避免数值转换后丢失格式信息。int 只负责校验取值，不能替代前导零检查。输入包含非数字时返回空列表。四段与每段三位的限制固定，因此候选数量有很小的绝对上界；不应误写成随字符串长度任意增长的指数搜索。"
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    if not s.isdigit():\n        return []\n    ans, path = [], []\n    def dfs(start):\n        parts = 4 - len(path)\n        left = len(s) - start\n        if left < parts or left > 3 * parts:\n            return\n        if parts == 0:\n            ans.append(\".\".join(path))\n            return\n        for end in range(start + 1, min(start + 3, len(s)) + 1):\n            piece = s[start:end]\n            if len(piece) > 1 and piece[0] == \"0\":\n                break\n            if int(piece) > 255:\n                break\n            path.append(piece)\n            dfs(end)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n+3^4)，n 为输入长度；合法长度仅 4..12",
+    "space": "O(4) 搜索辅助空间，不含输出",
+    "example": {
+      "input": "s='25525511135'",
+      "output": "['255.255.11.135','255.255.111.35']",
+      "walkthrough": [
+        "长度约束迫使前两段都选三位的 255。",
+        "剩余 11135 分成 11|135 或 111|35。"
+      ]
+    },
+    "pitfalls": [
+      "不能只判断整数值而忽略前导零。",
+      "到四段时还剩字符不能输出。"
+    ],
+    "tests": [
+      {
+        "expression": "solve('25525511135')",
+        "expected": [
+          "255.255.11.135",
+          "255.255.111.35"
+        ]
+      },
+      {
+        "expression": "solve('0000')",
+        "expected": [
+          "0.0.0.0"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "subsets-distinct",
+    "chapter": "回溯算法",
+    "title": "78. 子集：每个节点都代表答案",
+    "problem": "78",
+    "kind": "题解",
+    "summary": "不用等到叶子，合法的当前路径本身就是一个子集。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "给定互不相同的整数，返回全部子集，包含空集和全集。子集没有固定长度，不能沿用组合的长度等于 k 才收集的条件。将元素下标规定为递增顺序，每个路径就唯一对应一个子集，路径长度只是这个子集的大小。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "状态 start 表示后续只能使用这个下标及以后的位置，path 表示当前子集。进入每次递归时先保存 path，因为无论是否还能继续添加，它已经是合法答案。然后选择一个未来元素，把起点移到 i+1，保证元素不重用，也消除顺序重复。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "根节点的空路径贡献空集。其他任何非空子集都有唯一的最小下标，它在对应分支被选择，剩余下标依次由后续递归加入。搜索所有节点而不是仅收集叶子，就能覆盖所有大小的子集；不需要额外为不同 k 重复运行组合算法。",
+          "子集 [2] 不需要通过固定层数的叶子表示，它就是根节点选择第二项后到达的节点。把这个节点马上记录，既不会漏掉 [2]，也不会妨碍下一层继续生成 [2,3] 等更大的子集。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "结果必须复制路径，输入数组无需排序，因为题目保证元素不重复，使用原下标顺序足以唯一表示。n 个元素有 2^n 个子集，所有输出元素总数为 n·2^(n-1)，所以 O(n·2^n) 的时间和输出规模是自然的，当前路径与递归栈只需要 O(n)。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n·2^n)，n=0 时 O(1)",
+    "space": "O(n) 辅助空间；输出 O(n·2^n)",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "根节点先记录 []。",
+        "选择 1 记录 [1]，继续选择 2 记录 [1,2]，最后根节点选择 2。"
+      ]
+    },
+    "pitfalls": [
+      "只在末尾收集会漏掉许多较短子集。",
+      "本题去重依赖输入元素互不相同。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      {
+        "expression": "solve([])",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "subsets-duplicates",
+    "chapter": "回溯算法",
+    "title": "90. 子集 II：重复值只在同层跳过",
+    "problem": "90",
+    "kind": "题解",
+    "summary": "排序后跳过等价的兄弟分支，同时保留一条路径上的重复值。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "数组可能有重复整数，输出的子集按数值判断相同，不能重复。例如 [1,2,2] 同时允许 [2] 与 [2,2]，但两个不同位置的单个 2 只能产生一个 [2]。先排序让相等值相邻，再用本层起点区分重复分支与合法的重复成员。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "每个节点先收集当前路径，然后尝试后面的下标。若 i>start 且 nums[i]==nums[i-1]，说明这个值在当前层已经被试过，跳过它。选中第一个 2 后下一层可以选第二个 2，因为此时它正好是新层的 start，不满足跳过条件。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "为什么只留同层第一个相等值够用？它的位置最靠前，后面可用的相等元素不少于任何后续同值位置，所以所有可能的重复次数都能从它开始构造。跳过后续位置只是去掉重复表达，不会丢失 [2,2] 等需要多张相同元素的子集。",
+          "对于只有三个 2 的数组，合法数值子集只有 []、[2]、[2,2]、[2,2,2]。搜索每层保留一个同值起点，却允许逐层继续使用剩余位置；这个样例能清楚观察去重后节点数量减少的原因。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "代码使用 sorted(nums) 保留调用者输入不变。不要用全局 set 删除输入重复，因为元素数量是答案的一部分；也不要以 path[-1]==nums[i] 禁止添加，那会直接删掉合法重复成员。输出数量最多 2^n，若重复很多实际更少，但最坏复杂度仍按互异输入计算。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n log n+n·2^n) 最坏",
+    "space": "O(n) 辅助空间，不含输出",
+    "example": {
+      "input": "nums=[1,2,2]",
+      "output": "[[],[1],[1,2],[1,2,2],[2],[2,2]]",
+      "walkthrough": [
+        "在 [1] 下面第一次选 2，再进入下一层选择另一个 2。",
+        "回到 [1] 的同层后，第二个 2 被跳过。"
+      ]
+    },
+    "pitfalls": [
+      "去重限制只应用于兄弟分支。",
+      "输入先转集合会丢失重复值数量。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            2
+          ],
+          [
+            2,
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "increasing-subsequences",
+    "chapter": "回溯算法",
+    "title": "491. 非递减子序列：不能排序输入",
+    "problem": "491",
+    "kind": "题解",
+    "summary": "保留原序列顺序，用每层独立的集合去掉同值候选。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "寻找长度至少为二的非递减子序列，元素可以不连续，但必须保持在原数组中的先后顺序。这里的非递减允许相邻数相等。与子集 II 不同，排序会改变哪些元素可以先出现，直接改变问题，所以不能先排序再套相邻去重公式。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "状态 start 限制后续元素来自当前位置之后，path 的最后一个值提供非递减门槛。如果 nums[i] 小于最后一个值就不能加入。每次递归新建一个 seen 集合，记录本层已经尝试过的值，阻止等价的兄弟分支；不同层的 seen 必须独立。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "本层第一次选择某值的位置最早，拥有最多的后续候选；以后再选择同值位置不会产生额外的数值序列。因此本层跳过重复值安全。路径达到长度二时立即记录，之后仍可继续延长，从而同时包含短序列与长序列。后续递归从 i+1 开始保持原序。",
+          "以 [7,4,7] 为例，不能因为第一次见过 7 就全局禁止最后一个 7，否则会漏掉 [7,7]。根节点最后的 7 可以与第一个 7 竞争，但进入第一个 7 的下一层时，最后的 7 是合法延长。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "seen 不是记录所有曾访问过的元素，也不是记录当前路径已有的值；全局复用会误删合法结果。代码把 seen.add 放在合法性检查之后，明确集合只登记实际展开的候选。负数不影响比较逻辑。最坏搜索仍可指数增长，输出复制与各层集合都应计入分析。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    ans, path = [], []\n    def dfs(start):\n        if len(path) >= 2:\n            ans.append(path.copy())\n        seen = set()\n        for i in range(start, len(nums)):\n            x = nums[i]\n            if x in seen or (path and x < path[-1]):\n                continue\n            seen.add(x)\n            path.append(x)\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n·2^n) 最坏，包括候选扫描与答案复制",
+    "space": "O(n²) 辅助空间保守上界：递归各层 seen 集合，加 O(n) 路径",
+    "example": {
+      "input": "nums=[4,6,7,7]",
+      "output": "[[4,6],[4,6,7],[4,6,7,7],[4,7],[4,7,7],[6,7],[6,7,7],[7,7]]",
+      "walkthrough": [
+        "根节点第一次选 7 后仍可在下一层选第二个 7。",
+        "根节点再次遇到 7 时，当前层 seen 已有 7，跳过等价分支。"
+      ]
+    },
+    "pitfalls": [
+      "输入排序会破坏子序列的原顺序。",
+      "seen 必须在每次 dfs 内重新建立。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([4,6,7,7])",
+        "expected": [
+          [
+            4,
+            6
+          ],
+          [
+            4,
+            6,
+            7
+          ],
+          [
+            4,
+            6,
+            7,
+            7
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            4,
+            7,
+            7
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            7,
+            7
+          ],
+          [
+            7,
+            7
+          ]
+        ]
+      },
+      {
+        "expression": "solve([3,2,1])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "permutations-distinct",
+    "chapter": "回溯算法",
+    "title": "46. 全排列：下标使用标记",
+    "problem": "46",
+    "kind": "题解",
+    "summary": "排列的每一层都从全部元素中选择，用 used 防止位置重复。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "给定互不相同的整数，返回全部排列。组合可以靠递增下标消除顺序，但排列必须保留 [1,2] 与 [2,1] 两种结果，因此下一层不能从 i+1 开始。每个输入元素在一条完整路径中恰好用一次，路径中的位置表示排列位置。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "used[i] 表示第 i 个输入元素是否已经放进当前排列。进入深度 d 的递归时，path 长度为 d，used 中恰好有 d 个真值，且这些值与 path 中元素一一对应。每层遍历全部下标，跳过已经使用的元素，其余下标都可以成为下一项。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "路径长度达到 n 时，所有元素恰好被用一次，收集后返回。任意排列的第一项、第二项等都能在相应层被选择，因此搜索完整；元素互不相同意味着不同选择序列对应不同结果。递归回来时要同时撤销 path 与 used，否则兄弟分支会受到之前选择污染。",
+          "used 使用的是下标而不是数值，这让元素身份与当前位置分开。即使改用字符串或其他可比较对象，遍历下标的框架也不变；只是在元素值相同时需要另加排列去重，不能假设布尔标记自动消除相同结果。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "本例用布尔数组而不是通过 x in path 查找，检查使用状态为常数时间。初始化长度零时得到一个空排列，便于把它作为其他算法的组合单位。n! 个结果，每个复制 n 项，所以时间写 O(n·n!)；used、路径与递归栈只需要线性辅助空间。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    n = len(nums)\n    used = [False] * n\n    ans, path = [], []\n    def dfs():\n        if len(path) == n:\n            ans.append(path.copy())\n            return\n        for i in range(n):\n            if used[i]:\n                continue\n            used[i] = True\n            path.append(nums[i])\n            dfs()\n            path.pop()\n            used[i] = False\n    dfs()\n    return ans\n",
+    "time": "O(n·n!)，n=0 时 O(1)",
+    "space": "O(n) 辅助空间；输出 O(n·n!)",
+    "example": {
+      "input": "nums=[1,2,3]",
+      "output": "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]",
+      "walkthrough": [
+        "第一位选 1 后，第二位允许选 2 或 3。",
+        "回到根节点撤销 1，第二条大分支可以从 2 开始。"
+      ]
+    },
+    "pitfalls": [
+      "排列不能用递增 start 限制候选。",
+      "忘记撤销 used 会让后续分支少解。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2])",
+        "expected": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "solve([])",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "permutations-duplicates",
+    "chapter": "回溯算法",
+    "title": "47. 全排列 II：区分树层与树枝",
+    "problem": "47",
+    "kind": "题解",
+    "summary": "排序后让相同元素按下标顺序进入路径，避免交换等值元素制造重复。",
+    "sections": [
+      {
+        "heading": "理解问题与边界",
+        "paragraphs": [
+          "输入可以包含重复值，输出所有不同的排列。相同数值的不同位置有独立的使用次数，但交换它们不会产生新答案。例如 [1,1,2] 有三个排列，而把两张 1 当成带编号的对象搜索会生成六条叶子路径，需要消除其中的等价表达。"
+        ]
+      },
+      {
+        "heading": "选择与不变量",
+        "paragraphs": [
+          "先排序，然后继续使用 used 数组。候选 i 已被使用则跳过；若 nums[i]==nums[i-1] 且前一位置尚未使用，也跳过。这个规则表示相同数值必须依照原下标顺序进入路径。若前一位置已经在当前路径里，则本次加入后一个相同数值完全合法。"
+        ]
+      },
+      {
+        "heading": "搜索过程与正确性",
+        "paragraphs": [
+          "同层两个相同值会产生相同的后续数值排列，保留最靠前的未使用位置作为代表就够了。更直观地看，每种数值排列都能唯一地把第一个 1 分配给第一张 1，第二个 1 分配给第二张 1；这个规范匹配留下恰好一条搜索路径。",
+          "把 [1,1] 单独运行一次，应只得到一个排列 [1,1]。第一层拒绝第二张 1 开头，第二层允许它接在第一张后面；这样既保留两次使用数量，又排除两张卡片互换身份导致的重复。"
+        ]
+      },
+      {
+        "heading": "Python 实现与取舍",
+        "paragraphs": [
+          "这里的去重条件与组合中的 i>start 不同，因为排列没有递增起点。not used[i-1] 判断的是前一个相同元素是否仍可在当前层竞争；把它反过来可能也得到一种不同搜索策略，但证明与搜索效率改变，初学时应保留这套一致的不变量。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    nums = sorted(nums)\n    n = len(nums)\n    used = [False] * n\n    ans, path = [], []\n    def dfs():\n        if len(path) == n:\n            ans.append(path.copy())\n            return\n        for i in range(n):\n            if used[i]:\n                continue\n            if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                continue\n            used[i] = True\n            path.append(nums[i])\n            dfs()\n            path.pop()\n            used[i] = False\n    dfs()\n    return ans\n",
+    "time": "O(n log n+n·n!) 的保守最坏上界",
+    "space": "O(n) 辅助空间，不含输出",
+    "example": {
+      "input": "nums=[1,1,2]",
+      "output": "[[1,1,2],[1,2,1],[2,1,1]]",
+      "walkthrough": [
+        "根节点只允许第一张 1 作为开头。",
+        "第一张 1 已在路径后，第二张 1 可以在下一层加入。"
+      ]
+    },
+    "pitfalls": [
+      "两个相同值仍有两次可用次数，不能把输入转成集合。",
+      "使用标记去重条件与组合的起点去重条件不能混用。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,1,2])",
+        "expected": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            1,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dedup-set-or-sort",
+    "chapter": "回溯算法",
+    "title": "去重专题：本层集合与排序相邻判断",
+    "problem": "",
+    "kind": "理论",
+    "summary": "去重的对象是等价的候选分支，排序和集合只是表达这个事实的两种工具。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "重复答案往往来自相同数值的不同下标在同一层产生相同后续方案。若输入顺序没有语义，可以排序，让重复值相邻，用 i>start 与前一项相等判断；若输入顺序决定答案，如非递减子序列，则必须保留顺序，在每层用集合记录已经尝试的值。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "下面两种函数都生成不重复子集，便于比较机制。排序版本产生非降序的规范路径。集合版本保留原下标顺序，因此不能直接对任意乱序重复输入声称数值子集唯一：例如 [1,2,1] 会同时出现 [1,2] 与 [2,1]。为公平比较，本例集合版本也先排序。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "集合在每次递归中创建，只约束该节点的兄弟分支；路径上重复值不受限制。排序判断利用相邻相等，把本层已经选择过这个值的信息隐式存储在循环下标里。两者本质相同，但集合需要额外哈希存储，排序判断则依赖相同值相邻。",
+          "不要只比较两种方法的最终数量，也要比较具体值序列和重复情况。若集合版保留原序用于子序列题，应结合非递减或其他合法性条件重新分析；本节排序子集的等价性不会自动迁移到有顺序要求的问题。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "选择方案时先问能否重排输入，再问重复值是否意味着不同可用次数。集合不能先全局删除重复输入，那会删除 [2,2]。如果输出中的顺序也有语义，不能把集合版本当成任何问题的通用去重器；应重新证明同值候选能代表相同后续答案。"
+        ]
+      }
+    ],
+    "code": "def subsets_sorted(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n\ndef subsets_layer_set(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        seen = set()\n        for i in range(start, len(nums)):\n            if nums[i] in seen:\n                continue\n            seen.add(nums[i])\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "两者最坏 O(n log n+n·2^n)",
+    "space": "排序判断辅助 O(n)；本层集合版本辅助 O(n²) 保守上界，不含结果",
+    "example": {
+      "input": "nums=[2,1,2]",
+      "output": "两种实现都得到 [[],[1],[1,2],[1,2,2],[2],[2,2]]",
+      "walkthrough": [
+        "先排序为 [1,2,2]，同层第二个 2 被排除。",
+        "在选择第一个 2 后，新层仍能继续选择第二个 2。"
+      ]
+    },
+    "pitfalls": [
+      "不能在要求保留原顺序的题里排序。",
+      "本层集合不等于全局删除重复值。"
+    ],
+    "tests": [
+      {
+        "expression": "subsets_sorted([2,1,2]) == subsets_layer_set([2,1,2])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "reconstruct-itinerary",
+    "chapter": "回溯算法",
+    "title": "332. 重新安排行程：欧拉路径的逆序构造",
+    "problem": "332",
+    "kind": "题解",
+    "summary": "先消耗边，再在无法继续时加入答案，避免把字典序小的死路放在路线前端。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "每张机票是一条有向边，要求从 JFK 出发，恰好使用所有机票一次，并在可行行程中选择字典序最小者。机场可以多次出现，重复机票也是不同边。因此 visited 机场集合不适用；真正需要消耗的是边。题目通常保证存在使用全部机票的行程。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "这是有向图的欧拉路径。对每个机场把目的地逆序排序，弹出末尾就得到当前字典序最小的边。沿边走到无法继续时，把机场加入 route，然后回退。记录的是完成顺序而不是出发顺序，最后反转才是行程；死路自然被安放到路线末尾。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "迭代栈模拟 Hierholzer 算法：栈顶有边时继续压入目的地，没有边时弹出并加入逆序答案。后找到的回路会插入先前路径的对应位置，使每条已消耗边都连接在完整路径里。按小目的地先探索，在欧拉路径存在的前提下得到字典序最小的可行拼接。",
+          "如果在 JFK 就直接把 KUL 记作第二站，会立刻卡死并留下另外两张机票。逆序构造允许先探索这个终点，却把它留到最后。这个反例说明字典序选择必须与可用全部边的全局结构一起使用。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "仅检查答案长度不足以验证任意非法输入的行程，因为不满足欧拉条件时反转后的相邻机场可能不对应机票。本实现额外用 Counter 校验每条相邻边的使用次数；不满足条件时返回空列表。迭代栈避免 Python 递归深度限制，重边由邻接列表自然保留。"
+        ]
+      }
+    ],
+    "code": "from collections import defaultdict, Counter\n\ndef solve(tickets):\n    graph = defaultdict(list)\n    for a, b in tickets:\n        graph[a].append(b)\n    for destinations in graph.values():\n        destinations.sort(reverse=True)\n    stack, route = [\"JFK\"], []\n    while stack:\n        airport = stack[-1]\n        if graph[airport]:\n            stack.append(graph[airport].pop())\n        else:\n            route.append(stack.pop())\n    route.reverse()\n    if len(route) != len(tickets) + 1:\n        return []\n    counts = Counter((a, b) for a, b in tickets)\n    for a, b in zip(route, route[1:]):\n        if counts[(a, b)] == 0:\n            return []\n        counts[(a, b)] -= 1\n    return route\n",
+    "time": "O(E log E)，E 为机票数；遍历和校验 O(E)",
+    "space": "O(E+V)，包括邻接表、栈与边计数",
+    "example": {
+      "input": "tickets=[['JFK','KUL'],['JFK','NRT'],['NRT','JFK']]",
+      "output": "['JFK','NRT','JFK','KUL']",
+      "walkthrough": [
+        "先探索 KUL，它无出边，被先放入逆序结果。",
+        "随后探索 NRT→JFK，反转后 KUL 正好成为终点。"
+      ]
+    },
+    "pitfalls": [
+      "立即输出最小目的地可能导致无法使用剩余机票。",
+      "机场不能全局标记为访问过，边才是消耗单位。",
+      "排序前不能把重边转成集合。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([['JFK','KUL'],['JFK','NRT'],['NRT','JFK']])",
+        "expected": [
+          "JFK",
+          "NRT",
+          "JFK",
+          "KUL"
+        ]
+      },
+      {
+        "expression": "solve([['JFK','A'],['JFK','B']])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "n-queens",
+    "chapter": "回溯算法",
+    "title": "51. N 皇后：按行搜索与对角线编号",
+    "problem": "51",
+    "kind": "题解",
+    "summary": "每行只放一个皇后，再用列与两组对角线集合检查冲突。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "在 n×n 棋盘放 n 个皇后，使任意两个皇后不在同一行、同一列或同一对角线上，返回全部棋盘。若按行递归，每层只放一个皇后，同行冲突自动消失。剩余需要管理的是列和两种斜线；不必每次扫描整张棋盘检查所有已放皇后。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "坐标 (r,c) 的一组对角线共享 r-c，另一组共享 r+c。cols、diag_down、diag_up 分别保存已占用的列与斜线编号。进入第 r 层时，前三组集合恰好描述前 r 行的皇后，位置列表中的第 i 项表示第 i 行皇后所在列。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "尝试每一列，如果三个编号都未占用就加入状态并递归到下一行。失败返回时撤销全部三个集合与位置列表。到 r=n 时所有行都有一个皇后，且每次插入都通过冲突检查，因此整张棋盘合法。任意合法棋盘也对应唯一的逐行列选择路径。",
+          "n=2 与 n=3 都没有解，搜索会完整回退到根节点而返回空列表。n=1 只有一个方案，可以用它检查棋盘字符串生成。对 n=4，还可以逐行读取输出皇后列，独立验证列和两个斜线编号没有重复。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "用位置列表存储搜索状态，只有找到解时才生成 Q 与点组成的字符串，减少无效分支中的棋盘复制。r-c 可以为负，集合完全支持负整数，无需偏移。n=0 在此实现中得到一个空棋盘方案；负 n 返回空结果。生成每个完整棋盘需要 O(n²) 字符成本。"
+        ]
+      }
+    ],
+    "code": "def solve(n):\n    if n < 0:\n        return []\n    cols, down, up = set(), set(), set()\n    positions, ans = [], []\n    def dfs(r):\n        if r == n:\n            ans.append([\".\" * c + \"Q\" + \".\" * (n - c - 1)\n                        for c in positions])\n            return\n        for c in range(n):\n            if c in cols or r - c in down or r + c in up:\n                continue\n            cols.add(c); down.add(r - c); up.add(r + c)\n            positions.append(c)\n            dfs(r + 1)\n            positions.pop()\n            cols.remove(c); down.remove(r - c); up.remove(r + c)\n    dfs(0)\n    return ans\n",
+    "time": "O(n·n!+S·n²) 保守上界，S 为解数；每节点扫描 n 列",
+    "space": "O(n) 搜索辅助空间；输出 O(S·n²)",
+    "example": {
+      "input": "n=4",
+      "output": "2 个棋盘，其中一个为 ['.Q..','...Q','Q...','..Q.']",
+      "walkthrough": [
+        "第一行选列 1，第二行只能在无列或斜线冲突的位置继续。",
+        "选择列序列 [1,3,0,2] 后生成完整棋盘。"
+      ]
+    },
+    "pitfalls": [
+      "必须撤销两个对角线集合，不能只恢复列。",
+      "两组对角线分别由差与和编号。"
+    ],
+    "tests": [
+      {
+        "expression": "len(solve(4))",
+        "expected": 2
+      },
+      {
+        "expression": "solve(1)",
+        "expected": [
+          [
+            "Q"
+          ]
+        ]
+      },
+      {
+        "expression": "solve(2)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "sudoku",
+    "chapter": "回溯算法",
+    "title": "37. 解数独：候选最少的空格优先",
+    "problem": "37",
+    "kind": "题解",
+    "summary": "维护行列宫约束，用最少剩余候选的空格减少试错。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "填充 9×9 棋盘中的点号，使每行、每列以及每个 3×3 宫都包含数字 1 到 9 且不重复。棋盘中已有数字是固定条件，不能在搜索中改动。下面接口复制输入并返回一个解，无解或初始约束冲突返回 None，便于独立测试且不修改调用者棋盘。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "维护九个行集合、列集合和宫集合。坐标 (r,c) 对应宫编号 (r//3)*3+c//3。某空格的可填数字就是 1..9 减去三个已用集合的并集。所有集合与当前棋盘保持一致；放入数字必须同步更新，失败时也必须同步撤销。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "每次在剩余空格中选择候选最少的那个，这是最少剩余值策略。若某空格没有候选，本分支立刻失败；若只剩一个候选，优先填它常能触发更多确定选择。这只是改变搜索顺序，不删去任何合法数字，所以不影响完整性。全部空格填完即返回成功。",
+          "搜索成功后没有撤销选择，是因为函数已经选择返回首个完整解，而不是继续枚举全部解。若任务改为列举所有数独解，则成功节点也要记录副本并继续恢复状态；返回布尔值的接口和终止方式都需要相应改变。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "为了避免递归中不断复制空格列表，把选中的空格交换到当前位置，返回时交换回去。找到解后沿成功路径直接返回，不需要撤销已经完成的棋盘。初始化时检查重复固定数字，防止把非法棋盘误当已解棋盘。通用上界仍是指数级，启发式无法保证多项式时间。"
+        ]
+      }
+    ],
+    "code": "def solve(board):\n    if len(board) != 9 or any(len(row) != 9 for row in board):\n        return None\n    board = [list(row) for row in board]\n    rows, cols, boxes = [set() for _ in range(9)], [set() for _ in range(9)], [set() for _ in range(9)]\n    empty = []\n    digits = set(\"123456789\")\n    for r in range(9):\n        for c in range(9):\n            x = board[r][c]\n            b = (r // 3) * 3 + c // 3\n            if x == \".\":\n                empty.append((r, c))\n            elif x not in digits or x in rows[r] or x in cols[c] or x in boxes[b]:\n                return None\n            else:\n                rows[r].add(x); cols[c].add(x); boxes[b].add(x)\n    def candidates(r, c):\n        return digits - rows[r] - cols[c] - boxes[(r // 3) * 3 + c // 3]\n    def dfs(pos):\n        if pos == len(empty):\n            return True\n        best = min(range(pos, len(empty)),\n                   key=lambda i: len(candidates(*empty[i])))\n        empty[pos], empty[best] = empty[best], empty[pos]\n        r, c = empty[pos]\n        b = (r // 3) * 3 + c // 3\n        for x in sorted(candidates(r, c)):\n            board[r][c] = x\n            rows[r].add(x); cols[c].add(x); boxes[b].add(x)\n            if dfs(pos + 1):\n                return True\n            rows[r].remove(x); cols[c].remove(x); boxes[b].remove(x)\n            board[r][c] = \".\"\n        empty[pos], empty[best] = empty[best], empty[pos]\n        return False\n    return board if dfs(0) else None\n",
+    "time": "O(m·9^m) 保守上界，m 为空格数量；每次选空格扫描剩余位置",
+    "space": "O(m+81) 辅助空间，包括棋盘副本和递归栈",
+    "example": {
+      "input": "棋盘第一行 '.34678912'，其余行采用示例测试中的完整有效数独",
+      "output": "第一行恢复为 '534678912'",
+      "walkthrough": [
+        "唯一空格所在行缺 5，列和宫也允许 5。",
+        "填 5 后空格列表全部完成，返回棋盘。"
+      ]
+    },
+    "pitfalls": [
+      "宫编号需要两个整除结果，不能直接用 r+c。",
+      "固定数字的重复必须在搜索前检验。",
+      "试错失败要恢复棋盘与三个集合。"
+    ],
+    "tests": [
+      {
+        "expression": "''.join(solve(['.34678912','672195348','198342567','859761423','426853791','713924856','961537284','287419635','345286179'])[0])",
+        "expected": "534678912"
+      },
+      {
+        "expression": "solve(['111111111']*9)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-combinations",
+    "chapter": "回溯算法",
+    "title": "阶段复盘：固定长度、重复使用与切分",
+    "problem": "",
+    "kind": "总结",
+    "summary": "先确定每层负责什么，再选择 start、remain 和长度边界。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "77 的每层选择一个数字，216 同时要求数字数量与总和，17 的每层绑定一个输入位置。它们看起来都是 append 后递归，但候选集合来源不同。先写出当前层的一句话职责，比只背一个万能模板更容易得到正确参数。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "39 允许候选重复，所以选择 i 后仍从 i 继续；40 每个位置一次，所以下层从 i+1 开始。二者都让路径按下标非降序构造，但重复输入与重复使用是两个不同概念。前者影响等价分支去重，后者影响能否再次选择已用位置。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "131 与 93 的候选是连续片段，下一起点是当前片段结束位置之后。回文表属于合法性预处理，IP 的剩余字符数量属于可达性剪枝。把校验与剪枝分开列出，能避免错误地把一条暂时不满足最终目标的前缀当成无解。",
+          "复盘时把 77、39、40 的下一层起点分别写成 i+1、i、i+1，并逐个解释。再把 131 的下一起点写成 end+1，就能发现真正统一的是已处理资源不能无意重用，而不是某个固定的参数公式。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "下面子集模板用于观察起点推进：每选一个下标，后续只向右。把收集位置改成长度等于 k 可以得到组合，把值选择改成区间选择可以得到切分。改动前先重新检查不变量，特别是收集条件、递归起点和空输入的输出约定。"
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "见所比较算法；示例模板为 O(n·2^n)",
+    "space": "示例辅助 O(n)，不含输出",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "先判断答案是否要求顺序与固定长度。",
+        "再决定收集节点、候选范围和是否允许重复使用。"
+      ]
+    },
+    "pitfalls": [
+      "先定义递归状态，再套代码结构。",
+      "剪枝与去重必须分别解释，不要混为一谈。"
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-dedup",
+    "chapter": "回溯算法",
+    "title": "阶段复盘：子集、子序列与排列去重",
+    "problem": "",
+    "kind": "总结",
+    "summary": "顺序是否有语义，决定能否排序；当前层是否等价，决定怎样去重。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "78 的输入互异，递增下标即可唯一生成子集；90 的重复值需要排序后同层跳过。491 必须保持原先后关系，所以不能排序，改用本层集合。三题的路径都只向右，但答案合法条件和等价判断不同，不能只看递归形状就交换去重代码。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "46 的下一位置可以选任何未使用元素，起点限制被 used 数组替代。47 在此基础上要求相同值按下标顺序进入路径，用前一个同值元素尚未使用来判断同层竞争。used 描述当前分支的使用状态，不是记录整个搜索过程已经访问过的元素。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "判断一个去重条件是否过强，可以拿两个相同值组成的合法路径做测试，例如 [2,2] 或排列 [1,1,2]。若第二个相同值永远不能进入下一层，就把树枝上的重复也禁掉了。判断去重是否过弱，则检查从不同同值下标开头是否会再次生成同一数值结果。",
+          "去重判断中的前一个相等元素并非永远不能选，它只帮助指定代表。排序组合用本层起点识别代表，排序排列用前一个元素的使用状态识别代表，保序子序列用本层集合识别代表。三者管理的都是兄弟分支的等价。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "下面模板不去重，刻意保留重复输入产生的重复路径，用来观察问题来源。先测试互异输入，再加入重复值比较。实作去重时只改变候选过滤规则，保留收集与撤销机制；这样能把遗漏答案与状态恢复错误区分开来。"
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "见所比较算法；示例模板为 O(n·2^n)",
+    "space": "示例辅助 O(n)，不含输出",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "先判断答案是否要求顺序与固定长度。",
+        "再决定收集节点、候选范围和是否允许重复使用。"
+      ]
+    },
+    "pitfalls": [
+      "先定义递归状态，再套代码结构。",
+      "剪枝与去重必须分别解释，不要混为一谈。"
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-constraints",
+    "chapter": "回溯算法",
+    "title": "阶段复盘：图上的边与棋盘上的约束",
+    "problem": "",
+    "kind": "总结",
+    "summary": "约束问题先识别资源单位，再维护能快速判断冲突的状态。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "机票行程消耗的是边，不是机场；皇后问题占用的是列与斜线，不只是棋盘格；数独占用的是每个行列宫中的数字。把资源单位认错，即使递归结构看起来完整也会误删合法重复访问，或漏掉必要冲突。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "332 利用欧拉路径结构避免枚举全部路线，答案在边耗尽时逆序加入。51 按行搜索天然保证每行一个皇后，把剩余约束压缩为三个集合。37 保留所有空格，却按候选最少的格子安排顺序，让矛盾尽早暴露。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "从约束计算能否继续与决定先搜索谁是两件事。皇后的冲突检查删去不合法候选，数独的最少候选策略只是重排搜索顺序。优化之后仍需说明每个合法解对应哪条搜索路径，不能用跑得快代替正确性理由。",
+          "复杂度也要与状态表示一致。皇后用集合常数检查冲突，但每个节点仍要扫描各列；数独选择最少候选时会扫描剩余空格；行程排序要付出邻接边排序成本。减少合法性判断的成本不等于整个搜索变成线性。因此应分别计数访问的状态、每个状态的处理量和复制答案的成本。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "下面枚举模板展示路径撤销的基本结构。棋盘题还需要把 append/pop 扩展为占用与释放约束集合；图题则可能采用每条边只消耗一次的全局构造，不能机械恢复边。状态生命周期应由算法含义决定，而不是固定要求任何递归都写撤销。"
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "见所比较算法；示例模板为 O(n·2^n)",
+    "space": "示例辅助 O(n)，不含输出",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "先判断答案是否要求顺序与固定长度。",
+        "再决定收集节点、候选范围和是否允许重复使用。"
+      ]
+    },
+    "pitfalls": [
+      "先定义递归状态，再套代码结构。",
+      "剪枝与去重必须分别解释，不要混为一谈。"
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-summary",
+    "chapter": "回溯算法",
+    "title": "回溯算法总结：让搜索树与代码一一对应",
+    "problem": "",
+    "kind": "总结",
+    "summary": "以状态、候选、收集、恢复、剪枝和去重六项检查完成回溯设计。",
+    "sections": [
+      {
+        "heading": "问题与适用范围",
+        "paragraphs": [
+          "设计搜索时先用最小样例画两层树。组合的边选择元素，排列的边填一个位置，切分的边决定下一段，棋盘的边选择一个落点。随后用一句话说明函数入口处哪些条件已经成立；递归参数只保存推进搜索必需的信息，其他可从路径推导的量不必重复存储。"
+        ]
+      },
+      {
+        "heading": "状态与关键不变量",
+        "paragraphs": [
+          "收集条件决定答案在哪些节点：子集在每个节点，固定长度组合与排列在指定深度，切分在字符全部覆盖，约束求解在全部位置完成。提前结束只应在不可能成功时触发。剩余数量不足与正数剩余和过小有数学保证，主观判断选择不好没有保证。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "去重删除等价表达，剪枝删除无解前缀，二者需要不同证明。同层相同值代表的后续方案相同，排序或本层集合能去重；剩余资源达不到目标则能剪枝。排列的 used 和组合的 start 管理使用次数，本身也不应和数值去重混为一谈。",
+          "遇到结果少解时，先检查候选范围和收集条件；遇到结果重复时，检查标准表示与同层等价；遇到结果内容全部相同时，检查是否保存路径副本。把错误按这三类定位，通常比随机更换递归模板更有效。"
+        ]
+      },
+      {
+        "heading": "实现细节与决策",
+        "paragraphs": [
+          "完成代码后检查每次修改的逆操作，测试空输入、无解、多个解以及重复值。复杂度至少包含输出复制、递归深度与辅助约束表。下面小模板作为检查练习：找出它的状态、收集位置和恢复动作，再尝试改写为固定长度组合并独立推导循环上界。"
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "见所比较算法；示例模板为 O(n·2^n)",
+    "space": "示例辅助 O(n)，不含输出",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "先判断答案是否要求顺序与固定长度。",
+        "再决定收集节点、候选范围和是否允许重复使用。"
+      ]
+    },
+    "pitfalls": [
+      "先定义递归状态，再套代码结构。",
+      "剪枝与去重必须分别解释，不要混为一谈。"
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "greedy-theory",
+    "chapter": "贪心算法",
+    "title": "贪心算法：证明局部选择可以保留",
+    "problem": "",
+    "kind": "理论",
+    "summary": "贪心的关键是不可撤销的选择有依据，而不是每一步选看起来最大的值。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "贪心算法按某个顺序处理输入，在每一步作出选择后不再回溯。它能高效解决的问题具有结构，例如当前选择可以被放进某个最优解，而余下部分仍是同类问题。局部最好没有统一含义：可能是结束最早、消耗最少、覆盖最远，也可能是暂时不做任何决定。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "常见证明有交换论证与边界不变量。交换论证从一个最优方案出发，把它的第一个选择换成贪心选择，证明答案不变差。边界不变量说明处理完当前前缀后，算法保存了足以代表未来的信息，例如最远可达位置，或者完成当前跳数后所有可能落点的最远边界。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "寻找策略时先明确最终优化目标，再比较两种局部选择对后续空间的影响。区间结束越早，给未来留下的时间越多；小饼干优先满足小胃口，保留大饼干给更大需求。若选择同时损害另一个独立指标，通常需要排序分阶段处理或使用更丰富的状态。",
+          "一个实用练习是用所有区间数量不超过四的小输入枚举最佳保留集合，再与结束最早策略比较。若找到反例，检查是策略本身错误还是端点条件不同；若没找到反例，也仍需完成交换论证才能推广。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "下面区间调度模板选择最多个互不重叠的半开区间，端点相接允许兼容。按结束时间排序后，总是拿第一个可接上的区间。每次选择都留下不晚于其他选择的结束位置，交换后剩余候选不会减少。注意半开端点规则属于输入语义，换成闭区间时条件也要改。"
+        ]
+      }
+    ],
+    "code": "def select_intervals(intervals):\n    chosen = []\n    end = None\n    for start, finish in sorted(intervals, key=lambda x: x[1]):\n        if end is None or start >= end:\n            chosen.append([start, finish])\n            end = finish\n    return chosen\n",
+    "time": "O(n log n)，排序主导",
+    "space": "O(n) 排序副本，不含输出",
+    "example": {
+      "input": "intervals=[[1,4],[2,3],[3,5]]",
+      "output": "[[2,3],[3,5]]",
+      "walkthrough": [
+        "先选结束最早的 [2,3]。",
+        "[3,5] 与其端点相接，因此还能选。"
+      ]
+    },
+    "pitfalls": [
+      "贪心策略需要针对目标证明，不能从一个问题照搬。",
+      "区间端点的开闭规则会改变相容判断。"
+    ],
+    "tests": [
+      {
+        "expression": "select_intervals([[1,4],[2,3],[3,5]])",
+        "expected": [
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "assign-cookies",
+    "chapter": "贪心算法",
+    "title": "455. 分发饼干",
+    "problem": "455",
+    "kind": "题解",
+    "summary": "用能满足最小未满足胃口的最小饼干，把更大资源留给未来。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "每个孩子最多得到一块饼干，饼干尺寸至少等于胃口才能满足，目标是满足尽可能多的孩子。题目不要求让某个孩子吃得最多，也不要求分发所有饼干。胃口与饼干都按升序排序后，小需求与小资源之间的比较可以用两个指针完成。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "指针 child 表示最小的未满足胃口。依次看从小到大的饼干：太小就丢过，因为连当前最小胃口都满足不了，更不可能满足后面的孩子；够大就分给当前孩子并推进 child。每一步都保持已满足孩子数为处理过这些饼干能达到的最大值。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "若某个最优分配把当前可用饼干给了胃口更大的孩子，可以把它改给最小未满足孩子。原来给小孩子的饼干若存在，换给大孩子不会更糟，因为它至少可以安排通过标准交换；或者直接用小需求替换一个大需求，满足总数不减少。取最小够用资源则保留更大饼干。",
+          "严格交换时应只看剩余饼干：当前饼干是剩余中最小的。如果最优方案将它给更大胃口，而最小胃口拿了另一块饼干，那块不会更小，可交换给较大胃口；若最小胃口没被满足，直接替换受益孩子即可保持人数。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "代码排序副本，不改变输入。只要 child 到末尾就可以停止，因为所有孩子都已满足。循环无需为每个孩子重新扫描饼干；每块饼干只检查一次。额外空间除了指针还有两个排序副本，因此本实现不能写成 O(1)，即使核心扫描只使用常数状态。"
+        ]
+      }
+    ],
+    "code": "def solve(greed, cookies):\n    greed, cookies = sorted(greed), sorted(cookies)\n    child = 0\n    for size in cookies:\n        if child == len(greed):\n            break\n        if size >= greed[child]:\n            child += 1\n    return child\n",
+    "time": "O(g log g+s log s)，g、s 分别为孩子与饼干数",
+    "space": "O(g+s)，排序副本",
+    "example": {
+      "input": "greed=[1,2,3], cookies=[1,1]",
+      "output": "1",
+      "walkthrough": [
+        "第一块 1 满足胃口 1。",
+        "第二块 1 不能满足剩余最小胃口 2，跳过。"
+      ]
+    },
+    "pitfalls": [
+      "不足以满足最小胃口的饼干无需再尝试其他孩子。",
+      "目标是满足人数，不是饼干总尺寸。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,3],[1,1])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([],[1])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "wiggle-subsequence",
+    "chapter": "贪心算法",
+    "title": "376. 摆动序列",
+    "problem": "376",
+    "kind": "题解",
+    "summary": "同向变化只更新极值，方向真正反转时才增加长度。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "寻找最长子序列，使相邻差值严格正负交替。子序列允许删除元素但保留顺序，差值为零不能作为上升或下降的一步。长度为零或一的输入直接返回自身长度。难点是相邻同向变化时应保留哪一个端点，而不是立即计算所有子序列。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "保存 prev_sign 表示最近一次被接受的变化方向，count 表示目前的摆动长度。遇到零差值忽略；遇到与上次相同方向的差值，长度不增加；方向不同则接受一个新的转折并增加长度。虽然不显式保存子序列，连续上升默认把端点替换为更高峰，连续下降默认替换为更低谷。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "保留更高的峰值不会妨碍后来下降，保留更低的谷值不会妨碍后来上升，因此同向中间点可以删除而不降低最佳长度。每一次方向变化对应一个不可省的峰谷切换，算法恰好记录这些切换。首个非零差值建立第二个元素，之后只在正负翻转时增长。",
+          "例如 [1,4,7,3] 中，4 不必保留，用 7 代替上升段末点后还能下降到 3，长度为三。若下降只到 5，保留 4 反而无法形成下降；因此更高峰值确实使未来可选择的下降范围更宽。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "用 (diff>0)-(diff<0) 得到 -1、0、1，避免乘积判断的额外表达。prev_sign 只在接受非零新方向时更新，不能把它清零，否则平台会截断已有方向信息。这里计算长度而非返回实际序列，如果需要序列，需要同时保存并替换末端极值位置。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return 0\n    count, prev_sign = 1, 0\n    for i in range(1, len(nums)):\n        diff = nums[i] - nums[i - 1]\n        sign = (diff > 0) - (diff < 0)\n        if sign and sign != prev_sign:\n            count += 1\n            prev_sign = sign\n    return count\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[1,7,4,9,2,5]",
+      "output": "6",
+      "walkthrough": [
+        "差值符号为 +、-、+、-、+。",
+        "每次都发生方向反转，因此所有元素都可保留。"
+      ]
+    },
+    "pitfalls": [
+      "零差值不能算一段摆动。",
+      "遇到相同方向不增加长度，但实际构造时应更新峰谷端点。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,7,4,9,2,5])",
+        "expected": 6
+      },
+      {
+        "expression": "solve([1,1,1])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([1,2,3,4])",
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "maximum-subarray",
+    "chapter": "贪心算法",
+    "title": "53. 最大子数组和",
+    "problem": "53",
+    "kind": "题解",
+    "summary": "负的前缀只会拖累后续，重新开始当前连续段。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "从非空整数数组中选一个非空连续子数组，最大化元素和。连续意味着只能取一段，不能跳过中间负数。数组可能全为负数，这时答案是最大的单个元素，不能允许空子数组返回零。下面实现为空输入报错，明确非空前提。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "current 表示必须以当前元素结尾的最大子数组和。加入 x 时只有两种选择：把 x 接到之前的最佳结尾段，或只从 x 开始，取 max(x,current+x)。best 记录截至目前所有结尾位置中的最大值，所以最终 best 就是全局最优。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "若之前的 current 为负，将它加到 x 前面只会使总和更小，直接抛弃；若 current 为正，接上它优于只取 x。这是局部丢弃负前缀的贪心解释，也可看作只有一个状态的动态规划。保留这个状态足够，因为任何更差的同结尾前缀在相同未来后缀下也更差。",
+          "例如 [2,-1,3] 的最佳连续段包含 -1，和为 4。负元素并不等于负前缀；判断是否重新开始的是之前整段 current 的符号，而不是看到当前 x 为负就把它删掉。用这个样例可避免常见的过度贪心。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "初始 current 与 best 都取 nums[0]，从第二项开始更新，保证始终选择非空段。不要先把 current 截为零然后无条件用零更新 best，否则全负数会出错。若还要输出左右边界，在重新从 x 开始时记录新起点，在 best 更新时记录当前终点即可。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        raise ValueError(\"nonempty array required\")\n    current = best = nums[0]\n    for i in range(1, len(nums)):\n        x = nums[i]\n        current = max(x, current + x)\n        best = max(best, current)\n    return best\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[-2,1,-3,4,-1,2,1,-5,4]",
+      "output": "6",
+      "walkthrough": [
+        "负前缀被舍弃，在 4 处重新开始。",
+        "连续段 [4,-1,2,1] 的和为 6。"
+      ]
+    },
+    "pitfalls": [
+      "非空子数组要求使全负输入不能返回零。",
+      "不能删除段中任意负数，那会变成子序列问题。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([-2,1,-3,4,-1,2,1,-5,4])",
+        "expected": 6
+      },
+      {
+        "expression": "solve([-5,-2,-7])",
+        "expected": -2
+      }
+    ]
+  },
+  {
+    "id": "stock-unlimited",
+    "chapter": "贪心算法",
+    "title": "122. 买卖股票的最佳时机 II",
+    "problem": "122",
+    "kind": "题解",
+    "summary": "不限交易次数时，把每一段上涨拆成相邻正收益即可。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "给出每天价格，可以多次买卖，但任意时刻最多持有一股。目标是最大利润，允许一天卖出后再买入，因为这不会额外产生收益。题目没有手续费、冷冻期或交易次数上限，这些条件是把上涨拆开的基础，增加其中任何一个限制都要重新设计算法。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "把一次从第 a 天买到第 b 天卖的利润写成相邻差值之和。每个正差都贡献收益，每个负差只会拖累持有区间。因此累加所有大于零的相邻涨幅，等价于在每段上升区间的谷底买入、峰顶卖出。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "任何交易利润都是一段差值总和，它不会超过该段所有正差之和；多笔不重叠交易的总利润也不会超过全数组正差之和。反过来，每一段连续正差都能通过一次合法买卖取得其和，所以这个上界可达到，算法得到全局最优。",
+          "连续上涨 [1,2,3,4] 的三笔相邻收益都是 1，合起来等于从 1 买入到 4 卖出的收益 3。算法的累加写法不强制实际每天交易，只是一个易于计算的等价收益表达；价格平台既没有收益，也不会影响后续上涨。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "循环从下标 1 开始，比较当天与前一天，不必显式记录持股状态。空数组和单日数组自然返回零。Python 整数可以安全累加，但现实交易成本不属于本题模型；不要把这种策略直接套到包含手续费的股票题，拆分越多可能支付越多成本。"
+        ]
+      }
+    ],
+    "code": "def solve(prices):\n    profit = 0\n    for i in range(1, len(prices)):\n        profit += max(0, prices[i] - prices[i - 1])\n    return profit\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "prices=[7,1,5,3,6,4]",
+      "output": "7",
+      "walkthrough": [
+        "从 1 到 5 收益 4。",
+        "从 3 到 6 收益 3，总收益为 7。"
+      ]
+    },
+    "pitfalls": [
+      "有手续费或交易次数限制时不能直接累加正差。",
+      "不能把下降段也累加进去。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([7,1,5,3,6,4])",
+        "expected": 7
+      },
+      {
+        "expression": "solve([7,6,4,3,1])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "jump-game-reachability",
+    "chapter": "贪心算法",
+    "title": "55. 跳跃游戏：维护最远可达位置",
+    "problem": "55",
+    "kind": "题解",
+    "summary": "只有已可达的位置才能扩展覆盖范围。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "nums[i] 表示从下标 i 最多向右跳多少步，问能否从 0 到达最后一个位置。可以跳小于最大步数的距离，因此从一个可达位置扩展出来的是连续区间。数组通常非空且值非负；本实现把空数组定义为无法到达，单元素无需跳跃即可成功。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "far 是处理过的可达位置能覆盖到的最远下标。扫描 i 时，若 i>far，说明它不可达，后面的下标也没有已知途径到达，立即失败。否则用 max(far,i+nums[i]) 更新边界。扫描过程中从 0 到 far 的每一个下标都可达。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "归纳证明：初始只有 0 可达。若 i 可达，它可以选择任意允许步长，因此新覆盖区间与已有可达前缀相连，不会产生空洞。遇到第一个超出 far 的位置时，所有已经可达的起点都不能跨过边界，所以不可能通过尚未可达的位置自行启动新跳跃。",
+          "例如 [2,0,0] 虽然中间和末尾都不能再跳，起点已经可以直接到末尾，所以结果为真。不能把看到零就当成失败，只有零使整个已可达前缀无法继续扩展且终点仍在范围之外时才真正失败。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "当 far 已覆盖最后一个位置即可返回 True，不需要继续扫描。这里优化目标只是可达性，不是最少跳数，far 不表示已经实际走出的某条路线。不要在扫描不可达位置时更新 far，否则会把无法抵达的巨大跳跃值错误纳入能力。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return False\n    far = 0\n    for i, step in enumerate(nums):\n        if i > far:\n            return False\n        far = max(far, i + step)\n        if far >= len(nums) - 1:\n            return True\n    return False\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[3,2,1,0,4]",
+      "output": "False",
+      "walkthrough": [
+        "前三个位置最多都只覆盖到下标 3。",
+        "下标 3 的步长为零，无法覆盖下标 4。"
+      ]
+    },
+    "pitfalls": [
+      "不可达位置不能参与边界扩展。",
+      "最远覆盖范围不是每次必须跳到的落点。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,1,1,4])",
+        "expected": true
+      },
+      {
+        "expression": "solve([3,2,1,0,4])",
+        "expected": false
+      },
+      {
+        "expression": "solve([0])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "jump-game-minimum",
+    "chapter": "贪心算法",
+    "title": "45. 跳跃游戏 II：按覆盖层数计数",
+    "problem": "45",
+    "kind": "题解",
+    "summary": "把一次跳跃能到的整个区间当成一层，在层边界决定增加跳数。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "同样给定最大向右步长，这次求最少跳跃次数。原题保证最后位置可达，下面实现额外对不可达输入返回 -1。不能每次直接跳到当前最远落点，因为较近位置可能具有更大的下一跳能力；真正要比较的是当前一整层所有可达落点的扩展。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "end 是当前跳数能到的最远边界，far 是扫描当前层各位置后，下一跳可以达到的最远位置。遍历到 i==end 时，当前层的候选已经全部考虑，需要再跳一次，把 end 更新成 far。这个过程相当于广度优先搜索，但利用连续覆盖区间压缩了队列。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "在当前层结束前不增加跳数，因为仍在比较同样跳数下的不同落点；层结束后任何更远位置至少需要一次新跳跃，因此增加一次是必要的。用本层最远扩展作为下一边界，又涵盖所有一步可达位置，保证不遗漏更优路线。",
+          "样例中第一跳不一定落在下标 2，实际最优路线是 0→1→4。扫描到边界 2 时增加跳数，只是在确认第一跳的全部候选，绝不是要求实际路线先落在 2。把边界当成指定落点，会误读算法并设计出错误路径。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "只遍历到倒数第二个位置，到终点后不需要再起跳。若 far==end，当前覆盖层无法向前扩展，立即返回 -1。单元素返回零，空输入返回 -1。代码中的 end 和 far 必须分开，混用会在扫描每个位置时过早增加跳数。"
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return -1\n    if len(nums) == 1:\n        return 0\n    jumps = end = far = 0\n    for i in range(len(nums) - 1):\n        if i > far:\n            return -1\n        far = max(far, i + nums[i])\n        if i == end:\n            if far == end:\n                return -1\n            jumps += 1\n            end = far\n            if end >= len(nums) - 1:\n                return jumps\n    return -1\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[2,3,1,1,4]",
+      "output": "2",
+      "walkthrough": [
+        "第一层从下标 0 扩展到 2，跳数变为 1。",
+        "扫描 1、2 后下一层边界到 4，跳数变为 2。"
+      ]
+    },
+    "pitfalls": [
+      "遍历到最后一个位置再计跳会多算一次。",
+      "不能只选择当前最远落点而忽略本层其他位置。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,1,1,4])",
+        "expected": 2
+      },
+      {
+        "expression": "solve([0,1])",
+        "expected": -1
+      },
+      {
+        "expression": "solve([0])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "maximize-sum-negations",
+    "chapter": "贪心算法",
+    "title": "1005. K 次取反后的最大数组和",
+    "problem": "1005",
+    "kind": "题解",
+    "summary": "先把最有价值的负数翻正，剩余奇数次只翻绝对值最小的一项。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "每次可以把一个元素取反，必须执行恰好 k 次，同一个元素可以反复选择。对负数取反增加总和，对正数取反减少总和。若 k 很大，多余的两次可以落在同一元素上而完全抵消，所以最后只需要考虑剩余次数的奇偶性。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "按绝对值从大到小排序。遇到负数且还剩操作次数，就翻为正；越负的数字翻转收益越大，因此优先处理其绝对值较大的项。处理完后若仍有奇数次操作，需要一次不可抵消的取反，应选择绝对值最小的项，使损失最小。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "交换论证：若方案翻了一个较小绝对值的负数，却没翻较大绝对值的负数，交换这次操作会增加或保持总和。所有负数已翻完后，任何一对额外操作都可抵消，奇数次必须使至少一个数符号相反；其损失至少是最小绝对值的两倍，选择它达到下界。",
+          "对 [-5,-1,2]、k=1，只翻 -5 收益最大；若 k=3，两个负数都翻正后仍剩一次，应翻绝对值 1 的项，让最终和从 8 降到 6。这个例子区分了先最大化收益与最后最小化损失两个阶段。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "排序的绝对值次序不会因取反变化，所以最后一项仍是绝对值最小的项。代码创建列表副本并明确拒绝负 k；空数组只有 k=0 时有效。零是很有用的特殊值：剩余奇数次翻零没有损失，公式自然处理，不必另设搜索分支。"
+        ]
+      }
+    ],
+    "code": "def solve(nums, k):\n    if k < 0 or (not nums and k):\n        raise ValueError(\"invalid operation count\")\n    if not nums:\n        return 0\n    nums = sorted(nums, key=abs, reverse=True)\n    for i, x in enumerate(nums):\n        if x < 0 and k:\n            nums[i] = -x\n            k -= 1\n    if k % 2:\n        nums[-1] = -nums[-1]\n    return sum(nums)\n",
+    "time": "O(n log n)",
+    "space": "O(n) 排序副本",
+    "example": {
+      "input": "nums=[-4,-2,3], k=2",
+      "output": "9",
+      "walkthrough": [
+        "绝对值较大的 -4 先变为 4。",
+        "再把 -2 变为 2，两次用完，和为 9。"
+      ]
+    },
+    "pitfalls": [
+      "题目要求恰好 k 次，不能把多余奇数次忽略。",
+      "最后取反的是绝对值最小项，不是数值最小项。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([-4,-2,3],2)",
+        "expected": 9
+      },
+      {
+        "expression": "solve([4,2,3],1)",
+        "expected": 5
+      },
+      {
+        "expression": "solve([-2,0,3],4)",
+        "expected": 5
+      }
+    ]
+  },
+  {
+    "id": "gas-station",
+    "chapter": "贪心算法",
+    "title": "134. 加油站：失败区间整体淘汰",
+    "problem": "134",
+    "kind": "题解",
+    "summary": "一段路的累计油量为负时，该段内所有起点都可以排除。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "在环形路线中，每站加 gas[i] 升油，开往下一站消耗 cost[i] 升，油箱无上限，初始为空。寻找能绕一圈的起点，无解返回 -1。每站的净收益 diff=gas[i]-cost[i] 表示经过该站后增加或减少的油量，总净收益为负时任何起点都不可能完成。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "start 是当前候选起点，tank 是从该起点走到当前站后的累计净收益。若 tank<0，说明本起点无法越过当前边，而且从 start 到当前站之间任何位置出发也无法成功，于是把下一站作为新候选并将 tank 清零。total 独立记录整圈的净收益。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "为什么可以淘汰中间起点？在首次失败以前，从 start 到任意中间站之前的累计和都非负。改从中间站出发，就去掉这段非负储备，走到失败处的油量只会更少。扫描结束后，若 total≥0，最后候选处在最低前缀之后，环形后半段与前半段都不会出现负油量。",
+          "例如净收益序列 [-2,3,-1]，第一站立即失败，候选变为第二站。第二站累积到 3，第三站变 2，绕回第一站变 0，恰好可以完成。零油量允许继续，它只是没有储备而非已经失败。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "局部 tank 与全局 total 必须分开，重置候选时不能重置 total。代码检查两个数组长度相同，空路线返回 -1。直接累加净收益而不用额外 diff 数组，可保持常数辅助空间。返回值是起点下标，并不是最少油量或总收益。"
+        ]
+      }
+    ],
+    "code": "def solve(gas, cost):\n    if len(gas) != len(cost):\n        raise ValueError(\"matching lengths required\")\n    if not gas:\n        return -1\n    total = tank = 0\n    start = 0\n    for i in range(len(gas)):\n        gain = gas[i] - cost[i]\n        total += gain\n        tank += gain\n        if tank < 0:\n            start = i + 1\n            tank = 0\n    return start if total >= 0 else -1\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "gas=[1,2,3,4,5], cost=[3,4,5,1,2]",
+      "output": "3",
+      "walkthrough": [
+        "下标 0、1、2 分别失败，候选推进到 3。",
+        "从 3 开始积累 3、6，回到前段后仍不会欠油。"
+      ]
+    },
+    "pitfalls": [
+      "重置局部油量不能重置全局总和。",
+      "tank 等于零仍能继续，只有小于零才失败。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,3,4,5],[3,4,5,1,2])",
+        "expected": 3
+      },
+      {
+        "expression": "solve([2,3,4],[3,4,3])",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "candy",
+    "chapter": "贪心算法",
+    "title": "135. 分发糖果：左右约束分别求下界",
+    "problem": "135",
+    "kind": "题解",
+    "summary": "两次扫描求出来自左右邻居的最低要求，再逐项取最大值。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "每个孩子至少一颗糖，相邻两人中评分更高的人必须得到更多糖，评分相等没有大小要求。目标是最小总糖数。一个孩子可能同时比左右邻居评分高，因此只从左到右扫描无法满足右侧约束；也不能把评分排序，因为相邻关系必须保留。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "先把每人糖数设为 1，从左到右处理评分上升：若 ratings[i]>ratings[i-1]，candies[i]=candies[i-1]+1。这给出只考虑左侧时的最小下界。然后从右到左处理下降对应的右侧要求，用 max 保留之前已经满足的左侧下界。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "最终每个孩子同时不低于两个方向的要求，因此所有约束成立。任何合法分配都必须沿连续上升链逐级增加，至少达到左扫描的下界；也必须沿右侧的上升链逐级增加，至少达到右下界。逐点取最大值正好达到这些必要下界，所以总和最小。",
+          "山峰样例 [1,2,3,2,1] 的左下界为 [1,2,3,1,1]，右合并后得到 [1,2,3,2,1]。若峰后下降更长，峰值也可能被右扫描抬高，这不会破坏它比左邻居更多的要求，正是 max 合并的作用。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "右扫描不能直接覆盖 candies[i]，否则山峰可能被降低而破坏左边关系。相等评分不增加糖数，用严格大于即可。空输入返回零。这里只保存一份糖数数组，右扫描直接合并；可以用更复杂的坡度方法省空间，但两趟实现更便于证明和调试。"
+        ]
+      }
+    ],
+    "code": "def solve(ratings):\n    n = len(ratings)\n    candies = [1] * n\n    for i in range(1, n):\n        if ratings[i] > ratings[i - 1]:\n            candies[i] = candies[i - 1] + 1\n    for i in range(n - 2, -1, -1):\n        if ratings[i] > ratings[i + 1]:\n            candies[i] = max(candies[i], candies[i + 1] + 1)\n    return sum(candies)\n",
+    "time": "O(n)",
+    "space": "O(n)",
+    "example": {
+      "input": "ratings=[1,0,2]",
+      "output": "5",
+      "walkthrough": [
+        "左扫描得到 [1,1,2]。",
+        "右扫描把第一个孩子补为 2，最终 [2,1,2]。"
+      ]
+    },
+    "pitfalls": [
+      "评分相等不要求糖数相等或增加。",
+      "右扫描需要 max，不能覆盖更大的左侧要求。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,0,2])",
+        "expected": 5
+      },
+      {
+        "expression": "solve([1,2,2])",
+        "expected": 4
+      },
+      {
+        "expression": "solve([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "lemonade-change",
+    "chapter": "贪心算法",
+    "title": "860. 柠檬水找零",
+    "problem": "860",
+    "kind": "题解",
+    "summary": "给 20 元找零优先用 10+5，把灵活的 5 元留给后续顾客。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "商品售价 5 元，顾客按给定顺序用 5、10 或 20 元付款，必须立即正确找零，开始没有零钱。不能改变顾客顺序，也不能向未来顾客借钱。只需维护 5 元与 10 元数量，因为 20 元无法用于以后小于 20 元的找零。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "收到 5 元直接保存；收到 10 元必须消耗一个 5 元，再增加一个 10 元；收到 20 元需要找 15，优先使用一张 10 加一张 5，只有不具备这个组合时才考虑三张 5。余额总额够不够不是唯一标准，面额组合才决定能否找出规定金额。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "20 元的两种找零方案中，10 元只有在给 20 元找零时才有价值，5 元还需要服务 10 元付款。因此先花掉一个 10 元、少花两张 5 元，保留了更灵活的零钱。任何使用三张 5 的成功后续安排，都不会因保留更多 5 而变差。",
+          "考虑库存三张 5 和一张 10 后连续遇到 20、10 两位顾客：第一位若用三张 5 找零，第二位便失败；先用 10+5 则还有两张 5，第二位可以正常找零。这是优先策略的具体反例对照。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "代码将每种面额分支写清楚，失败即返回 False，不需要继续遍历。未知面额返回 False，空队列返回 True。不能把顾客刚付的 10 元当作给自己找 5 元的来源；新增 10 元之前必须确认已有 5 元可以消耗。"
+        ]
+      }
+    ],
+    "code": "def solve(bills):\n    five = ten = 0\n    for bill in bills:\n        if bill == 5:\n            five += 1\n        elif bill == 10:\n            if five == 0:\n                return False\n            five -= 1\n            ten += 1\n        elif bill == 20:\n            if ten and five:\n                ten -= 1\n                five -= 1\n            elif five >= 3:\n                five -= 3\n            else:\n                return False\n        else:\n            return False\n    return True\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "bills=[5,5,5,10,20]",
+      "output": "True",
+      "walkthrough": [
+        "前三位留下三张 5；10 元付款后留下两张 5 与一张 10。",
+        "20 元顾客用 10+5 找零，仍保留一张 5。"
+      ]
+    },
+    "pitfalls": [
+      "不能只维护零钱总额。",
+      "给 20 元找零时优先 10+5，而不是三张 5。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([5,5,5,10,20])",
+        "expected": true
+      },
+      {
+        "expression": "solve([5,5,10,10,20])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "queue-reconstruction",
+    "chapter": "贪心算法",
+    "title": "406. 根据身高重建队列",
+    "problem": "406",
+    "kind": "题解",
+    "summary": "先安排高个子，再把矮个子插入其所需的高个子数量位置。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "每个人用 [h,k] 表示，h 是身高，k 是队列前方身高至少为 h 的人数。目标是重建一个符合所有条件的队列。k 不是原下标，也不是前方总人数；只有在已经放入的每个人都不比当前人矮时，插到下标 k 才具有所需含义。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "将人按身高降序排序，同身高按 k 升序排序。处理当前人时，队列里所有人都至少与他一样高，因此插在位置 k 恰好使前方有 k 个符合身高条件的人。之后加入的更矮者不计入当前人的 k，所以不会破坏已经满足的约束。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "同身高的人为何 k 升序？先插前方需要更少同高人数的人，再插需要更多的人，后者不会挤到前者的前面造成计数增加。例如两个身高 5 的人分别要求 k=0 与 k=2，先处理 k=2 可能没有足够位置，也没有正确的前方计数语义。",
+          "可在得到答案后逐人扫描其前缀，重新计算身高至少为当前人的个数，核对是否等于 k。这种检查与排序插入逻辑独立，能够发现同身高排序方向或插入位置写错；教学样例虽小，也应检查每个人而非只看队列长度。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "Python list.insert(k,p) 会把后面的元素右移，不是 O(1)。排序 O(n log n)，n 次插入最坏 O(n²)，因此整体由插入主导。代码复制每个记录，避免结果共享输入子列表；输入按原题保证可重建，若处理任意外部数据，还应额外校验 k 范围和最终条件。"
+        ]
+      }
+    ],
+    "code": "def solve(people):\n    ordered = sorted(people, key=lambda p: (-p[0], p[1]))\n    queue = []\n    for h, k in ordered:\n        queue.insert(k, [h, k])\n    return queue\n",
+    "time": "O(n²)，排序 O(n log n)，列表插入最坏总 O(n²)",
+    "space": "O(n)，排序引用副本与队列",
+    "example": {
+      "input": "people=[[7,0],[4,4],[7,1],[5,0],[6,1],[5,2]]",
+      "output": "[[5,0],[7,0],[5,2],[6,1],[4,4],[7,1]]",
+      "walkthrough": [
+        "先插 [7,0]、[7,1]，高个子之间的条件先完成。",
+        "插 [5,0] 到前端，不影响 7 的计数，因为 5 比 7 矮。"
+      ]
+    },
+    "pitfalls": [
+      "同身高要按 k 升序，而不是降序。",
+      "list.insert 有移动成本，不能把总时间写成排序复杂度。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([[7,0],[4,4],[7,1],[5,0],[6,1],[5,2]])",
+        "expected": [
+          [
+            5,
+            0
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            5,
+            2
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            7,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "queue-insertion-analysis",
+    "chapter": "贪心算法",
+    "title": "406. 插入过程专题：为什么已安排的人不受破坏",
+    "problem": "406",
+    "kind": "题解",
+    "summary": "逐类分析新插入者对旧计数的影响，比把双关键字排序当口诀更可靠。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "这节把队列重建的证明单独展开。插入会改变许多人的数组下标，但题目约束不是下标，而是前方不矮于自己的数量。一个旧元素虽然被右移，只要新来的元素比它矮，它的计数就完全不变；不能把物理位置变化与约束变化混为一谈。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "对于当前人 [h,k]，已有队列只含身高≥h 的人，所以下标 k 就等于他前方符合条件的人数。对身高大于 h 的旧人，新插入者不计数；对身高等于 h 的旧人，由排序知其 k 不大于当前 k，需要证明当前人不会插到这些旧人的前方。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "已有同高者在处理自己的时刻位于其 k 位置，后续更高者不会出现，后续已处理的同高者按不小的 k 插入，都不会破坏它。当前插入位置因此在已有同高者之后。于是等高旧人的计数也不增加。这一步解释了为何只按身高排序还不够，第二关键字不可省。",
+          "若输入不满足可重建条件，Python insert 遇到超出列表长度的 k 会直接追加，并不会报错提醒。因而不能把没有异常当作重建成功。处理通用数据时，独立 valid_queue 校验是必要的输入与结果防线。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "示例函数返回每次插入后的快照，专门用于观察，不适合大量输入。每次深拷贝队列中的小记录增加 O(n²) 总复制量，与原列表插入同阶，但快照输出本身也是 O(n²)。检查最终结果时可直接数前方满足身高条件的人，作为独立于构造过程的验证。"
+        ]
+      }
+    ],
+    "code": "def insertion_trace(people):\n    queue, trace = [], []\n    for h, k in sorted(people, key=lambda p: (-p[0], p[1])):\n        queue.insert(k, [h, k])\n        trace.append([p.copy() for p in queue])\n    return trace\n\ndef valid_queue(queue):\n    return all(sum(prev[0] >= h for prev in queue[:i]) == k\n               for i, (h, k) in enumerate(queue))\n",
+    "time": "构造与快照 O(n²)；独立校验 O(n²)",
+    "space": "辅助 O(n)；快照输出 O(n²)",
+    "example": {
+      "input": "people=[[6,0],[5,0],[5,1]]",
+      "output": "最后队列 [[5,0],[5,1],[6,0]]",
+      "walkthrough": [
+        "高个子 6 先就位。",
+        "[5,0] 插到开头，[5,1] 插到它后面；6 的计数仍为零。"
+      ]
+    },
+    "pitfalls": [
+      "数组下标右移不等于题目计数增加。",
+      "解释等高者的处理顺序才能完成证明。"
+    ],
+    "tests": [
+      {
+        "expression": "insertion_trace([[6,0],[5,0],[5,1]])[-1]",
+        "expected": [
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            6,
+            0
+          ]
+        ]
+      },
+      {
+        "expression": "valid_queue(insertion_trace([[6,0],[5,0],[5,1]])[-1])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "minimum-arrows",
+    "chapter": "贪心算法",
+    "title": "452. 用最少数量的箭引爆气球",
+    "problem": "452",
+    "kind": "题解",
+    "summary": "把箭放在最早结束的气球右端点，可以兼顾所有与它重叠的后续气球。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "每个气球覆盖闭区间 [start,end]，箭的横坐标落在区间内就能引爆它，一支箭可以同时引爆多个气球。目标是覆盖所有区间的最少箭数。闭区间允许箭射在端点，所以 [1,2] 与 [2,3] 可以用同一支在 2 的箭引爆。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "按右端点升序排序，在尚未覆盖的最早结束气球的右端点射箭，记为 shot。后面气球若 start≤shot 就已被这一箭覆盖；若 start>shot，就需要新箭，把 shot 改为这个气球的右端点。排序确保后面气球右端点不会小于 shot。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "任何方案都要有一支箭覆盖最早结束的气球。这支箭可以向右移动到该气球的右端点：原来它覆盖的后续气球右端点不小于该端点，左端点不大于原箭坐标，因此移动后仍被覆盖。如此交换不会增加箭数，然后在剩余未覆盖气球上重复。",
+          "射箭位置不必取任何区间的中点。右端点既覆盖当前最早结束区间，也尽量向右兼顾后续区间；这是排序后的交换依据。若先按起点射在左端点，像 [1,10] 与 [2,3] 可能多用一箭，失去最优性。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "用 None 或第一项初始化箭位置，避免用浮点哨兵影响大整数端点。空输入返回零。判断新增箭的条件是严格大于，不能写成大于等于，否则端点相接的气球被误分为两组。排序副本占 O(n) 空间，扫描仅维护一个位置和计数。"
+        ]
+      }
+    ],
+    "code": "def solve(points):\n    if not points:\n        return 0\n    points = sorted(points, key=lambda p: p[1])\n    arrows, shot = 1, points[0][1]\n    for start, end in points[1:]:\n        if start > shot:\n            arrows += 1\n            shot = end\n    return arrows\n",
+    "time": "O(n log n)",
+    "space": "O(n)，排序与扫描切片",
+    "example": {
+      "input": "points=[[10,16],[2,8],[1,6],[7,12]]",
+      "output": "2",
+      "walkthrough": [
+        "第一支箭放在 6，覆盖 [1,6] 与 [2,8]。",
+        "[7,12] 还未覆盖，第二支放在 12，同时覆盖 [10,16]。"
+      ]
+    },
+    "pitfalls": [
+      "闭区间端点相接可以共用箭。",
+      "不能按左端点每遇到不同区间就增加一箭。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([[10,16],[2,8],[1,6],[7,12]])",
+        "expected": 2
+      },
+      {
+        "expression": "solve([[1,2],[2,3]])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "erase-overlap-intervals",
+    "chapter": "贪心算法",
+    "title": "435. 无重叠区间",
+    "problem": "435",
+    "kind": "题解",
+    "summary": "最大化可保留区间数，再用总数减去它。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "删除最少区间，使剩余区间两两不重叠，题目约定端点相接不算重叠。例如 [1,2] 与 [2,3] 都能保留。把最少删除改写成最多保留，可以得到经典区间调度问题；它与射气球的目标不同，不能仅凭输入都是区间就复用计数逻辑。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "按右端点从小到大处理，保留第一个区间，然后只保留起点不小于当前 end 的区间。end 是已经保留的最后一个区间的结束时刻。结束更早意味着给后面保留更多空间，因此当前可选区间中先结束的最适合作为下一项。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "假设最优方案的第一项不是结束最早的区间，将它换成最早结束项不会与后面冲突，因为新结束点不晚于旧结束点。替换后保留数量不变，对剩余兼容区间继续应用这个交换。最终得到贪心保留集合也有最大数量，删除数就是 n-kept。",
+          "重复区间若长度为正，最多保留其中一个，其他都必须删除。包含关系中优先保留较短、较早结束的内部区间，可能让后续更早接上。空列表的删除数为零，代码中的 None 初值自然使所有这些边界无需特殊分支。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "端点相接可以保留，所以条件使用 start>=end。以 end=None 处理第一项，避免设一个可能与输入范围冲突的整数初值。代码不返回具体删除下标，只求最少数量；若要返回区间集合，可以在保留分支记录当前区间，证明无需改变。"
+        ]
+      }
+    ],
+    "code": "def solve(intervals):\n    kept = 0\n    end = None\n    for start, finish in sorted(intervals, key=lambda p: p[1]):\n        if end is None or start >= end:\n            kept += 1\n            end = finish\n    return len(intervals) - kept\n",
+    "time": "O(n log n)",
+    "space": "O(n)，排序副本",
+    "example": {
+      "input": "intervals=[[1,2],[2,3],[3,4],[1,3]]",
+      "output": "1",
+      "walkthrough": [
+        "保留 [1,2]，再保留 [2,3]。",
+        "[1,3] 冲突被跳过，[3,4] 可以接上，保留三个。"
+      ]
+    },
+    "pitfalls": [
+      "本题相接允许兼容，与闭区间共同点的语义不同。",
+      "求的是删除数量，不能直接返回 kept。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([[1,2],[2,3],[3,4],[1,3]])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([[1,2],[1,2],[1,2]])",
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "partition-labels",
+    "chapter": "贪心算法",
+    "title": "763. 划分字母区间",
+    "problem": "763",
+    "kind": "题解",
+    "summary": "只有当前片段涉及的所有字符都已到最后一次出现，才能安全切开。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "把字符串切成尽可能多的连续片段，使每个字符只出现在其中一个片段中，返回各段长度。同一个字符在字符串里相隔很远，也会把之间的全部位置连成同一片段。目标不是让每段长度均匀，而是在满足约束的前提下尽早完成一个片段。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "先统计每个字符的最后出现位置 last。扫描当前片段时维护 end=max(end,last[c])，表示为了容纳目前出现过的所有字符，片段至少必须延伸到哪里。每遇到一个新字符，可能使边界继续向右推，直到当前位置 i==end 时才能切开。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "若在 end 之前切开，必有一个已经出现的字符在 end 或更早的未来位置再次出现，违反一个字符只属于一个片段的要求。到 i==end 时，当前片段每个字符都不会在后面出现，所以切分安全。选择最早安全点只会增加片段数量，不会限制后面的合法切分。",
+          "比如 abac，看到第一个 a 后边界是下标 2；随后 b 的最后位置虽只有 1，也不能把边界缩回去。到第二个 a 后切开 aba，剩余 c 单独一段。这个小例子验证 max 与切段时机是否正确。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "用 start 保存当前段起点，长度计算为 i-start+1，切开后 start=i+1。字符不限于小写字母，字典支持任意字符串字符；空间由不同字符数量决定。空串自然返回空列表。不要在某个字符达到自己的最后位置时立即切开，要检查整个片段维护的最大边界。"
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    last = {c: i for i, c in enumerate(s)}\n    ans = []\n    start = end = 0\n    for i, c in enumerate(s):\n        end = max(end, last[c])\n        if i == end:\n            ans.append(i - start + 1)\n            start = i + 1\n    return ans\n",
+    "time": "O(n)",
+    "space": "O(σ) 辅助空间，σ 为不同字符数，不含输出",
+    "example": {
+      "input": "s='ababcbacadefegdehijhklij'",
+      "output": "[9,7,8]",
+      "walkthrough": [
+        "前段出现 a、b、c，它们的最后位置将边界推到 8。",
+        "走到下标 8 才能切开，长度为 9。"
+      ]
+    },
+    "pitfalls": [
+      "要维护片段中所有字符的最大末次位置。",
+      "闭区间长度计算需要加一。"
+    ],
+    "tests": [
+      {
+        "expression": "solve('ababcbacadefegdehijhklij')",
+        "expected": [
+          9,
+          7,
+          8
+        ]
+      },
+      {
+        "expression": "solve('eccbbbbdec')",
+        "expected": [
+          10
+        ]
+      }
+    ]
+  },
+  {
+    "id": "merge-intervals",
+    "chapter": "贪心算法",
+    "title": "56. 合并区间",
+    "problem": "56",
+    "kind": "题解",
+    "summary": "按左端点排序后，只需判断下一个区间能否延长当前合并段。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "给定闭区间，合并所有重叠的区间，返回覆盖同样集合的互不重叠区间。例如 [1,3] 与 [3,5] 共享端点，应合成 [1,5]。这题不是选择一些区间或删除一些区间，而是完整保留所有覆盖位置，通过改变区间表达减少段数。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "按左端点升序扫描，result 最后一段是目前最右侧的合并段。若下一段 start 大于最后段右端点，则两者之间有空隙，必须新建段；否则两者重叠或相接，把右端点更新为 max(旧右端点,end)。已经完成的更早段永远不需要再修改。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "排序保证未来区间起点不会向左回退。如果当前区间与最后段之间存在空隙，未来起点更大的区间也不可能填补这个空隙，之前的合并段因此可以最终确定。若有重叠，两段的并集仍是从较小左端点到较大右端点的一个区间，更新保持覆盖等价。",
+          "排序只保证左端点递增，不保证右端点递增，因此 [1,10] 后跟 [2,3] 时必须保留 10。直接把右端点改成当前 end 会丢失区间覆盖中的 4 到 10。用包含关系作为测试，比只试交叉重叠更容易发现缩短问题。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "代码把每个新合并段建成新列表，不直接改输入的区间对象。仅比较相邻原区间是不够的，因为一个长区间可能包住多个短区间，应始终比较正在合并的最新右端点。空输入返回空列表。若端点语义改为开区间或不合并相接区间，条件要按任务调整。"
+        ]
+      }
+    ],
+    "code": "def solve(intervals):\n    ans = []\n    for start, end in sorted(intervals, key=lambda p: p[0]):\n        if not ans or start > ans[-1][1]:\n            ans.append([start, end])\n        else:\n            ans[-1][1] = max(ans[-1][1], end)\n    return ans\n",
+    "time": "O(n log n)",
+    "space": "O(n) 排序副本；输出最多 O(n)",
+    "example": {
+      "input": "intervals=[[1,3],[2,6],[8,10],[15,18]]",
+      "output": "[[1,6],[8,10],[15,18]]",
+      "walkthrough": [
+        "[2,6] 与 [1,3] 重叠，把当前右端点扩到 6。",
+        "8 大于 6，有空隙，因此另开一段。"
+      ]
+    },
+    "pitfalls": [
+      "更新右端点取 max，不能把长区间缩短。",
+      "本题闭区间共享端点应合并。"
+    ],
+    "tests": [
+      {
+        "expression": "solve([[1,3],[2,6],[8,10],[15,18]])",
+        "expected": [
+          [
+            1,
+            6
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            15,
+            18
+          ]
+        ]
+      },
+      {
+        "expression": "solve([[1,4],[2,3]])",
+        "expected": [
+          [
+            1,
+            4
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "monotone-increasing-digits",
+    "chapter": "贪心算法",
+    "title": "738. 单调递增的数字",
+    "problem": "738",
+    "kind": "题解",
+    "summary": "出现逆序就降低左边一位，并把受影响后缀最大化为 9。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "求不大于非负整数 n 的最大整数，使十进制各位从左到右非递减。这里允许相等，如 1123。直接从 n 逐个向下试在大输入时太慢；需要确定哪个高位必须减小，以及一旦高位变小，后面的低位怎样选择能使结果尽可能大。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "把数字转成字符列表，从右向左检查相邻位。若 digits[i-1]>digits[i]，当前高位太大，必须减一，并记录后缀从 i 开始应全部变成 9。从右向左是为了处理连锁影响，例如 332 中第二位减为 2 后，第一位 3 又大于它，需要继续回退。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "第一次改变某个高位后，结果已经严格小于原数，右边各位都可尽量增大；填 9 能得到最大后缀且与前面的不超过 9 的数字兼容。若更左边也逆序，需要把改变点继续向左推。最终最左的被减位决定了必要的最小高位损失，9 后缀补到允许的最大值。",
+          "对于 120，末位 0 使中间 2 减为 1，前两位变成 11，后缀填 9 得到 119；不需要把第一位再减小。对于 1110，减位会向左连锁到首位，结果 999。两者对比能检查 mark 是否随连锁不断左移。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "mark 保存最早需要填 9 的位置，扫描结束后再统一填充，避免在扫描中用 9 掩盖连锁冲突。字符比较对单个数字等价于数值比较，减一时用 int 转换。像 1000 会变成 0999，最后 int 自动移除前导零，得到 999。"
+        ]
+      }
+    ],
+    "code": "def solve(n):\n    if n < 0:\n        raise ValueError(\"nonnegative integer required\")\n    digits = list(str(n))\n    mark = len(digits)\n    for i in range(len(digits) - 1, 0, -1):\n        if digits[i - 1] > digits[i]:\n            digits[i - 1] = str(int(digits[i - 1]) - 1)\n            mark = i\n    for i in range(mark, len(digits)):\n        digits[i] = \"9\"\n    return int(\"\".join(digits))\n",
+    "time": "O(d)，d 为十进制位数；通常采用整数转换线性成本模型",
+    "space": "O(d)",
+    "example": {
+      "input": "n=332",
+      "output": "299",
+      "walkthrough": [
+        "右侧 3>2，将中间 3 减成 2，mark=2。",
+        "左侧 3>2，再减成 2，mark=1，后缀全部变 9。"
+      ]
+    },
+    "pitfalls": [
+      "需要从右向左检查以传播借位后的逆序。",
+      "应最后统一填 9，避免提前填充遮住问题。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(332)",
+        "expected": 299
+      },
+      {
+        "expression": "solve(1000)",
+        "expected": 999
+      },
+      {
+        "expression": "solve(1234)",
+        "expected": 1234
+      },
+      {
+        "expression": "solve(0)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "binary-tree-cameras",
+    "chapter": "贪心算法",
+    "title": "968. 监控二叉树：后序处理三个状态",
+    "problem": "968",
+    "kind": "题解",
+    "summary": "子节点尚未覆盖时才在父节点装摄像头，把设备尽量放到能覆盖更多关系的位置。",
+    "sections": [
+      {
+        "heading": "理解目标与边界",
+        "paragraphs": [
+          "摄像头可以覆盖安装节点、它的父节点和直接子节点，求覆盖整棵二叉树的最少摄像头数。树没有环，孩子的子树可以先处理。最下层叶子不宜优先装设备，因为把设备放到叶子的父节点通常还能覆盖兄弟与祖父，因此需要自底向上的状态判断。"
+        ]
+      },
+      {
+        "heading": "局部选择与不变量",
+        "paragraphs": [
+          "后序函数返回三种状态：0 表示当前节点未覆盖，1 表示当前节点有摄像头，2 表示当前节点已被子节点摄像头覆盖但自身没有摄像头。空节点返回 2，表示它不需要设备，也不会迫使叶子装摄像头。摄像头数在状态 1 产生时增加。"
+        ]
+      },
+      {
+        "heading": "为什么选择安全",
+        "paragraphs": [
+          "若任一孩子返回 0，当前节点必须放摄像头来覆盖它；放在当前节点不比放在该孩子差，还能覆盖另一个孩子和父节点。否则若任一孩子有摄像头，当前节点已覆盖，返回 2；两个孩子都只是已覆盖，则当前节点还没人覆盖，返回 0 等待父节点处理。",
+          "一条三节点链只需在中间节点装一个设备，而单独根节点必须装一个。前者检验父节点覆盖孩子与祖父的收益，后者检验根节点补装。若让空节点返回未覆盖，每个叶子都会被错误迫使装设备，数量明显偏大。"
+        ]
+      },
+      {
+        "heading": "Python 实现说明",
+        "paragraphs": [
+          "根没有父节点，若最终返回 0，必须额外装一个摄像头。代码包含独立 TreeNode 定义和层序建树助手，空树返回零。后序递归深度是树高 h，退化链为 O(n)，不能只写 O(log n)。这些状态描述的是覆盖关系，不是最少数量数组，所以返回值和计数要区分。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val, self.left, self.right = val, left, right\n\ndef build_tree(values):\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        if values[i] is not None:\n            node.left = TreeNode(values[i])\n            queue.append(node.left)\n        i += 1\n        if i < len(values):\n            if values[i] is not None:\n                node.right = TreeNode(values[i])\n                queue.append(node.right)\n            i += 1\n    return root\n\ndef solve(root):\n    cameras = 0\n    def dfs(node):\n        nonlocal cameras\n        if node is None:\n            return 2\n        left, right = dfs(node.left), dfs(node.right)\n        if left == 0 or right == 0:\n            cameras += 1\n            return 1\n        if left == 1 or right == 1:\n            return 2\n        return 0\n    if dfs(root) == 0:\n        cameras += 1\n    return cameras\n",
+    "time": "O(n)，建树助手另需 O(n)",
+    "space": "求解递归 O(h)，h 为树高；建树助手 O(n)",
+    "example": {
+      "input": "层序树 [0,0,None,0,0]",
+      "output": "1",
+      "walkthrough": [
+        "两个叶子均未覆盖，迫使它们的父节点装设备。",
+        "根被孩子上的摄像头覆盖，因此不需额外设备。"
+      ]
+    },
+    "pitfalls": [
+      "空节点必须视作无需覆盖，而非未覆盖。",
+      "根返回未覆盖时需要最后补一个摄像头。",
+      "三个状态必须按孩子是否未覆盖优先判断。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(build_tree([0,0,None,0,0]))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(build_tree([0]))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-local-profit",
+    "chapter": "贪心算法",
+    "title": "阶段复盘：匹配、峰谷与正收益",
+    "problem": "",
+    "kind": "总结",
+    "summary": "局部收益可分解时，先找会拖累未来的选择，再证明删除它不损失最优性。",
+    "sections": [
+      {
+        "heading": "识别问题结构",
+        "paragraphs": [
+          "455 在资源匹配中保留大饼干，376 在同向变化中保留更极端端点，53 丢掉负的累积前缀，122 丢掉持有期间的负差。它们都在减少不利选择，但比较对象不同：需求大小、未来反转空间、连续段和、相邻交易收益。策略必须从各自目标推导，不能只记一句删除坏元素。"
+        ]
+      },
+      {
+        "heading": "比较局部选择",
+        "paragraphs": [
+          "最大子数组必须连续，负数不一定应被删除；只要前缀总和仍为正，负数可能是通往后面大正数的必要桥梁。股票无限交易允许在下跌前卖出，所以每个负差都可避开。拿同一个数值数组分别做两题，会看到约束改变了局部可删除的单位，两种答案并不应相等。"
+        ]
+      },
+      {
+        "heading": "证明与边界检查",
+        "paragraphs": [
+          "摆动序列的同向段可以合并，但零差值不能新增摆动；饼干匹配中的过小资源可以跳过，但大资源不是越早给出去越好。验证策略时应构造全负数组、全相等数组、下降价格、资源全部不足等边界，检查状态是否仍保留原题的非空或合法性要求，以及最优目标是否被悄悄改变。"
+        ]
+      },
+      {
+        "heading": "实现与练习",
+        "paragraphs": [
+          "下面最大子数组实现用下标循环避免切片，让求解辅助空间真正为常数。current 是以当前位置结尾的最优值，best 是所有已处理结尾的最优值。尝试在样例中逐项写出两者，尤其在 -3 与 4 处观察为什么可以丢弃前缀，并检查全负输入仍选择一个元素。若要恢复实际子数组，还需记录重新开始的下标。"
+        ]
+      }
+    ],
+    "code": "def max_subarray(nums):\n    if not nums:\n        raise ValueError(\"nonempty array required\")\n    current = best = nums[0]\n    for i in range(1, len(nums)):\n        current = max(nums[i], current + nums[i])\n        best = max(best, current)\n    return best\n",
+    "time": "示例 O(n)；匹配题另含排序成本",
+    "space": "示例 O(1)",
+    "example": {
+      "input": "nums=[-2,1,-3,4,-1,2]",
+      "output": "5",
+      "walkthrough": [
+        "前三项后最佳仍为 1，当前结尾为 -2。",
+        "在 4 处重新开始，接 -1 与 2 得到 5。"
+      ]
+    },
+    "pitfalls": [
+      "必须根据当前题目的目标和限制证明选择安全。",
+      "样例能发现错误，但不能代替对任意输入的正确性证明。"
+    ],
+    "tests": [
+      {
+        "expression": "max_subarray([-2,1,-3,4,-1,2])",
+        "expected": 5
+      },
+      {
+        "expression": "max_subarray([-3,-1])",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-coverage",
+    "chapter": "贪心算法",
+    "title": "阶段复盘：可达边界、层边界与失败区间",
+    "problem": "",
+    "kind": "总结",
+    "summary": "用区间代表大量候选时，先分清边界保存的是能力还是代价。",
+    "sections": [
+      {
+        "heading": "识别问题结构",
+        "paragraphs": [
+          "55 的 far 是所有已处理可达位置的最远覆盖，不表示一定跳到那里。45 还需要 end 表示固定跳数这一层的边界，far 表示下一层可扩展的边界。二者都压缩连续可达集合，但只有后者在跨层时增加代价；把所有边界写成一个变量容易混乱，应先在纸上画出每层覆盖的下标区间。"
+        ]
+      },
+      {
+        "heading": "比较局部选择",
+        "paragraphs": [
+          "134 的失败区间也能批量淘汰起点，但依据是累计净收益，不是几何距离。首次失败以前的累计和非负，去掉其中一段非负储备不会让中间起点成功。这类算法的高效来自一个局部结论覆盖一整批候选，而不是随意跳过循环。解释这一批候选为何等价或都失败，是复杂度降低的核心。"
+        ]
+      },
+      {
+        "heading": "证明与边界检查",
+        "paragraphs": [
+          "1005 用奇偶性压缩多余操作：两次相同取反相互抵消，剩余只需关注奇数次损失。边界压缩与操作压缩都有共同要求，被丢弃的信息必须对未来决策无用。若股票加入交易费、跳跃允许负向移动或油箱容量有限，原状态未必足够，应重新证明。看似很小的约束变化也可能使压缩不成立。"
+        ]
+      },
+      {
+        "heading": "实现与练习",
+        "paragraphs": [
+          "下面可达性扫描只维护 far，适合用来检查边界更新前的可达性。把 [0,100] 放入测试，第二项很强也不能利用，因为下标 1 不可达。再对照最少跳数题，画出跳数 0、1、2 对应的区间，会更容易理解什么时候增加计数。数组末尾已经覆盖时即可停止，不必把所有位置都访问一遍。"
+        ]
+      }
+    ],
+    "code": "def can_reach(nums):\n    if not nums:\n        return False\n    far = 0\n    for i, step in enumerate(nums):\n        if i > far:\n            return False\n        far = max(far, i + step)\n        if far >= len(nums) - 1:\n            return True\n    return False\n",
+    "time": "示例 O(n)",
+    "space": "示例 O(1)",
+    "example": {
+      "input": "nums=[0,100]",
+      "output": "False",
+      "walkthrough": [
+        "初始只有下标 0 可达，步长 0 不扩展边界。",
+        "下标 1 超界，不能利用它的巨大步长。"
+      ]
+    },
+    "pitfalls": [
+      "必须根据当前题目的目标和限制证明选择安全。",
+      "样例能发现错误，但不能代替对任意输入的正确性证明。"
+    ],
+    "tests": [
+      {
+        "expression": "can_reach([0,100])",
+        "expected": false
+      },
+      {
+        "expression": "can_reach([2,0,0])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-two-constraints",
+    "chapter": "贪心算法",
+    "title": "阶段复盘：双向约束与资源面额",
+    "problem": "",
+    "kind": "总结",
+    "summary": "当局部选择同时影响两个方向或两类资源，要先拆清必要约束。",
+    "sections": [
+      {
+        "heading": "识别问题结构",
+        "paragraphs": [
+          "135 的评分关系来自左右邻居，单趟只能满足其中一侧。左右各自给出糖数的必要下界，取最大值才同时满足且不超出最小需要。406 的身高和前方人数相互影响，用身高降序先固定谁会被计数，再按 k 插入，避免同时在两个维度盲目调整。两个问题都先处理一个方向或维度，再保留其成果。"
+        ]
+      },
+      {
+        "heading": "比较局部选择",
+        "paragraphs": [
+          "860 的零钱是不同面额组成的资源，5 元能服务两类找零需求，10 元主要服务 20 元付款。优先花较不灵活资源，保留灵活资源，才是 10+5 优于三张 5 的原因。只记总额会丢失可行性信息，即使钱够也可能不能准确找零。由此可见，常数个状态也必须覆盖关键资源类型。"
+        ]
+      },
+      {
+        "heading": "证明与边界检查",
+        "paragraphs": [
+          "比较这些策略时，问当前动作是否会破坏已经完成的条件。糖果右扫描用 max 保留左下界；队列中新矮人不影响旧高人的计数；找零优先方案保留更多 5 元。证明关注的是未来选择空间或已经满足的关系，而不是一种统一的数值大小。发现两个动作都可行时，应进一步比较它们对后续的影响。"
+        ]
+      },
+      {
+        "heading": "实现与练习",
+        "paragraphs": [
+          "下面用独立验证器检查队列计数，它不依赖构造使用的排序规则，适合验证多个手工重建方案。两个等高人的相对位置会影响各自 k，而矮人插到高人前面不会计入高人的 k。先手算每项计数再运行验证，可以发现把 k 当数组下标的误解。验证器需要二次时间，适合教学与小输入调试。"
+        ]
+      }
+    ],
+    "code": "def valid_queue(queue):\n    for i, (height, count) in enumerate(queue):\n        actual = sum(queue[j][0] >= height for j in range(i))\n        if actual != count:\n            return False\n    return True\n",
+    "time": "示例 O(n²)；糖果与找零 O(n)，队列构造 O(n²)",
+    "space": "示例 O(1) 辅助空间",
+    "example": {
+      "input": "queue=[[5,0],[7,0],[5,2]]",
+      "output": "True",
+      "walkthrough": [
+        "第一个 5 前方没有人。",
+        "第三个 5 前方有 5 和 7，两人都不矮于它。"
+      ]
+    },
+    "pitfalls": [
+      "必须根据当前题目的目标和限制证明选择安全。",
+      "样例能发现错误，但不能代替对任意输入的正确性证明。"
+    ],
+    "tests": [
+      {
+        "expression": "valid_queue([[5,0],[7,0],[5,2]])",
+        "expected": true
+      },
+      {
+        "expression": "valid_queue([[7,1],[7,0]])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-intervals",
+    "chapter": "贪心算法",
+    "title": "阶段复盘：区间问题先辨目标与端点",
+    "problem": "",
+    "kind": "总结",
+    "summary": "射箭、选择与合并共享排序工具，但维护的边界含义与端点条件不同。",
+    "sections": [
+      {
+        "heading": "识别问题结构",
+        "paragraphs": [
+          "452 要用点覆盖所有闭区间，按结束点安排箭，start 等于箭位置仍能覆盖。435 要保留尽量多互不冲突的区间，结束最早者给未来留空间，端点相接允许同时保留。56 要保留全部覆盖范围，按起点排序并扩展当前右端点，端点相接应合并。目标的区别直接决定排序和状态。"
+        ]
+      },
+      {
+        "heading": "比较局部选择",
+        "paragraphs": [
+          "同样是比较 start 与 end，452 在 start>end 时新增箭，435 在 start>=end 时保留区间，56 在 start>end 时新建合并段。条件差一个等号并非代码习惯，而是不同问题定义。写代码前应先手算 [1,2] 与 [2,3] 的结果，再把结论转成比较符号，减少记忆公式造成的边界错误。"
+        ]
+      },
+      {
+        "heading": "证明与边界检查",
+        "paragraphs": [
+          "763 可以看作字符首末位置形成的隐含区间合并：扫描期间出现的字符将片段末尾不断推远，所有依赖都闭合才能切开。它无需显式生成全部字符区间排序，因为字符串扫描天然按首次涉及位置推进。这个联系能帮助理解边界，也不能取代具体字符不跨段的证明，尤其要关注片段中后来出现的新字符。"
+        ]
+      },
+      {
+        "heading": "实现与练习",
+        "paragraphs": [
+          "下面合并模板便于观察右端点保留最大值。输入 [1,10]、[2,3]、[4,5] 时，后两个短区间都被第一段包住，不能因为第二段结束于 3 就与第三段分开。比较对象始终是已经合并的当前段，而不是上一条原始记录。再用共享端点的两段测试等号语义，确认输出保留完整覆盖。"
+        ]
+      }
+    ],
+    "code": "def merge(intervals):\n    result = []\n    for left, right in sorted(intervals):\n        if not result or left > result[-1][1]:\n            result.append([left, right])\n        else:\n            result[-1][1] = max(result[-1][1], right)\n    return result\n",
+    "time": "示例 O(n log n)",
+    "space": "示例 O(n) 排序副本，不含输出",
+    "example": {
+      "input": "intervals=[[1,10],[2,3],[4,5]]",
+      "output": "[[1,10]]",
+      "walkthrough": [
+        "第一段覆盖到 10。",
+        "后两段均在当前段内，右端点仍为 10。"
+      ]
+    },
+    "pitfalls": [
+      "必须根据当前题目的目标和限制证明选择安全。",
+      "样例能发现错误，但不能代替对任意输入的正确性证明。"
+    ],
+    "tests": [
+      {
+        "expression": "merge([[1,10],[2,3],[4,5]])",
+        "expected": [
+          [
+            1,
+            10
+          ]
+        ]
+      },
+      {
+        "expression": "merge([[1,2],[2,3]])",
+        "expected": [
+          [
+            1,
+            3
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "greedy-summary",
+    "chapter": "贪心算法",
+    "title": "贪心算法总结：策略、证明与反例",
+    "problem": "",
+    "kind": "总结",
+    "summary": "每个贪心方案都应说明选择依据、足够状态和为何不会损失最优答案。",
+    "sections": [
+      {
+        "heading": "识别问题结构",
+        "paragraphs": [
+          "首先明确最优化的对象和限制：最大满足人数、最大收益、最少跳数、最少删除区间、最少设备等。相似输入不代表相同策略；区间射箭与区间调度虽都按结束排序，却分别维护覆盖点和上次结束时刻。把目标写成一句话，有助于识别该保留哪些信息，也能防止只算出一个可行解却误称最优。"
+        ]
+      },
+      {
+        "heading": "比较局部选择",
+        "paragraphs": [
+          "随后提出局部选择并寻找证明。饼干、结束最早区间和找零适合交换论证；跳跃适合可达前缀与层边界不变量；加油站用失败区间淘汰；糖果用必要下界；监控树用覆盖状态与父子关系。若只能描述直觉而无法解释替换或边界，策略仍应当作猜想，优先找小反例而不是立即写复杂代码。"
+        ]
+      },
+      {
+        "heading": "证明与边界检查",
+        "paragraphs": [
+          "738 从低位发现逆序，再向高位传播降低，体现数字大小由高位优先决定。968 从子树往上处理未覆盖节点，体现设备覆盖的局部结构。贪心并不总是从左向右扫描，也不总是排序；处理顺序必须让当前状态拥有作决定所需的完整信息。方向的选择与状态的定义应一起推导。"
+        ]
+      },
+      {
+        "heading": "实现与练习",
+        "paragraphs": [
+          "最后用小规模穷举或独立约束检查器验证猜想，重点寻找相等值、全负数、边界相接、无法到达和根节点特殊情况。下面区间选择返回具体集合，便于手工检查每次交换为何保留最优数目。测试能发现错误，但一般正确性仍需要覆盖任意输入的推理；时间分析还应计入排序、列表移动与输出复制。"
+        ]
+      }
+    ],
+    "code": "def earliest_finish(intervals):\n    chosen = []\n    end = None\n    for left, right in sorted(intervals, key=lambda p: p[1]):\n        if end is None or left >= end:\n            chosen.append([left, right])\n            end = right\n    return chosen\n",
+    "time": "示例 O(n log n)；不同贪心问题依状态与排序分别分析",
+    "space": "示例 O(n) 排序副本，不含输出",
+    "example": {
+      "input": "intervals=[[1,4],[2,3],[3,5],[5,6]]",
+      "output": "[[2,3],[3,5],[5,6]]",
+      "walkthrough": [
+        "选最早结束的 [2,3]，不会减少后续兼容区间。",
+        "接上 [3,5] 与 [5,6]，保留三个区间。"
+      ]
+    },
+    "pitfalls": [
+      "必须根据当前题目的目标和限制证明选择安全。",
+      "样例能发现错误，但不能代替对任意输入的正确性证明。"
+    ],
+    "tests": [
+      {
+        "expression": "earliest_finish([[1,4],[2,3],[3,5],[5,6]])",
+        "expected": [
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ]
+      }
+    ]
+  }
+]

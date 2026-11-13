@@ -1,0 +1,1964 @@
+[
+  {
+    "id": "array-theory",
+    "chapter": "数组",
+    "title": "Arrays: Indices, Contiguous Ranges, and In-Place Changes",
+    "problem": "",
+    "kind": "理论",
+    "summary": "Locate elements by index and explain traversal and in-place writes with range invariants.",
+    "sections": [
+      {
+        "heading": "What an array means",
+        "paragraphs": [
+          "Python's list is a mutable sequence of references. a[i] accesses an element by index, but deleting a[i] shifts all later elements one position to the left. Reading by position and deleting from the middle therefore have different costs. In algorithm problems, an 'array' usually asks us to reason about indices, without requiring a study of the underlying memory."
+        ]
+      },
+      {
+        "heading": "Representing ranges",
+        "paragraphs": [
+          "This chapter consistently distinguishes the closed interval [left,right] from the half-open interval [left,right). The latter has length right-left and represents an empty interval with equal endpoints, making it convenient for slices and prefix sums. Once you choose a representation, the loop condition, boundary updates, and summation formula must all agree with it."
+        ]
+      },
+      {
+        "heading": "Read and write pointers",
+        "paragraphs": [
+          "Avoid deleting elements as you traverse them. Let read inspect the original elements and let write mark the next result position. After each iteration, a[:write] is exactly the valid result for the portion already read. This invariant proves that filtering is correct and explains why write never moves ahead of read."
+        ]
+      },
+      {
+        "heading": "Implementation costs in Python",
+        "paragraphs": [
+          "Slicing creates a new list, so both a[:] and a[l:r] count toward extra space. The compression template below only overwrites existing positions and returns the valid length. Old values may remain at the end of the list; callers should read only the valid prefix. If the list must actually become shorter, delete the trailing portion separately."
+        ]
+      }
+    ],
+    "code": "def compact_even(a):\n    write = 0\n    for read in range(len(a)):\n        if a[read] % 2 == 0:\n            a[write] = a[read]\n            write += 1\n    return write\n",
+    "time": "Traversing n elements takes O(n).",
+    "space": "O(1) for the in-place changes; slicing to display the result takes another O(k).",
+    "example": {
+      "input": "[3,2,4,5]",
+      "output": "Valid length 2; valid prefix [2,4]",
+      "walkthrough": [
+        "3 is skipped, leaving write at 0.",
+        "2 and 4 are written to positions 0 and 1 in turn.",
+        "The trailing portion is not part of the result."
+      ]
+    },
+    "pitfalls": [
+      "Do not use the remaining list length as the valid result length.",
+      "Repeated remove calls in a for loop can skip elements and degrade to quadratic time."
+    ],
+    "tests": [
+      {
+        "expression": "compact_even([3,2,4,5])",
+        "expected": 2
+      },
+      {
+        "expression": "compact_even([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "array-binary-search",
+    "chapter": "数组",
+    "title": "704. Binary Search",
+    "problem": "704",
+    "kind": "题解",
+    "summary": "Keep the portion of a sorted array that may contain the target within a half-open interval.",
+    "sections": [
+      {
+        "heading": "The task and its prerequisites",
+        "paragraphs": [
+          "Given an integer array sorted in ascending order and target, return the index of the target if found, or -1 otherwise. The classic problem uses distinct elements. If duplicates are allowed, the program below returns some matching position, with no promise that it is the first. Binary search depends on sorted order: it cannot be applied directly to an arbitrary array, and an index after sorting is not the original index."
+        ]
+      },
+      {
+        "heading": "The candidate interval invariant",
+        "paragraphs": [
+          "Maintain the half-open candidate interval [left,right). At the start of each iteration, if the target exists and has not yet been returned, its position must lie in this interval. If the middle value is smaller than the target, neither mid nor anything to its left can be the answer, so set left=mid+1. If the middle value is larger, keep the portion to the left of mid and set right=mid."
+        ]
+      },
+      {
+        "heading": "Why no answer is lost",
+        "paragraphs": [
+          "The initial interval covers every index. Each comparison uses sorted order to exclude a region proven not to contain the target, retaining the rest in full. A match is returned immediately. The interval length strictly decreases each time, and left==right eventually means there are no candidates, so returning -1 is valid. No extra endpoint check is needed, and this also handles an empty array."
+        ]
+      },
+      {
+        "heading": "Python implementation details",
+        "paragraphs": [
+          "Use (left+right)//2 for the midpoint; Python integers do not have fixed-width overflow. right starts at len(nums), but it is never used as a read index. Do not replace right=mid with mid-1: that belongs to a different, closed-interval formulation, and mixing the rules can skip elements. Binary search gains its efficiency by roughly halving the candidates each time, not merely by using two variables."
+        ]
+      }
+    ],
+    "code": "def binary_search(nums, target):\n    left, right = 0, len(nums)\n    while left < right:\n        mid = (left + right) // 2\n        if nums[mid] == target:\n            return mid\n        if nums[mid] < target:\n            left = mid + 1\n        else:\n            right = mid\n    return -1\n",
+    "time": "O(log(n+1)), where n is the array length.",
+    "space": "O(1).",
+    "example": {
+      "input": "nums=[-1,0,3,5,9,12], target=9",
+      "output": "4",
+      "walkthrough": [
+        "In [0,6), mid=3 and 5<9, so keep [4,6).",
+        "mid=5 and 12>9, so keep [4,5).",
+        "mid=4 matches 9."
+      ]
+    },
+    "pitfalls": [
+      "The array must satisfy the ascending-order prerequisite.",
+      "Do not mix closed-interval and half-open-interval update rules.",
+      "Finding the leftmost occurrence among duplicates requires a boundary-search variant."
+    ],
+    "tests": [
+      {
+        "expression": "binary_search([-1,0,3,5,9,12],9)",
+        "expected": 4
+      },
+      {
+        "expression": "binary_search([],4)",
+        "expected": -1
+      },
+      {
+        "expression": "binary_search([1],0)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "array-remove-element",
+    "chapter": "数组",
+    "title": "27. Remove Element",
+    "problem": "27",
+    "kind": "题解",
+    "summary": "Stably write the retained elements into a prefix and return its length.",
+    "sections": [
+      {
+        "heading": "The result is a length and a prefix",
+        "paragraphs": [
+          "The task is to remove every element equal to val in place and return the valid length k. After the call, nums[:k] contains the retained result; values after k are unrestricted. This does not require the Python list to actually become shorter, and it does not ask for a new array. The implementation below additionally preserves the relative order of retained elements."
+        ]
+      },
+      {
+        "heading": "Two pointers with different responsibilities",
+        "paragraphs": [
+          "read points to the element being examined, while write points to the next retained position. When the value is val, advance only read. Otherwise overwrite nums[write] with that value and increment write. At most one element is written per iteration, so write never exceeds read and overwriting cannot destroy unprocessed content."
+        ]
+      },
+      {
+        "heading": "Correctness follows from the prefix",
+        "paragraphs": [
+          "After processing the first r original elements, nums[:write] contains exactly those elements among them that differ from val, in the same order. The empty initial prefix clearly satisfies this property. A value to remove leaves the result unchanged; a value to keep is appended to the prefix, maintaining the invariant. At the end, it covers the entire input and write is exactly the required length."
+        ]
+      },
+      {
+        "heading": "In-place operations in Python",
+        "paragraphs": [
+          "Index assignment performs the overwrite without copying a slice. Do not call remove inside a for traversal: changing the list length and indices together can skip adjacent values that should be removed, and each deletion may shift many elements. The wrapper in the example exists only to display the valid prefix conveniently; the slice it creates is not part of the core algorithm's space cost.",
+          "If reordering is allowed, a value to remove can instead be overwritten with the final element, but the incoming value must be checked again. This lesson uses stable compression to make correctness and output order easier to verify."
+        ]
+      }
+    ],
+    "code": "def remove_element(nums, val):\n    write = 0\n    for read in range(len(nums)):\n        if nums[read] != val:\n            nums[write] = nums[read]\n            write += 1\n    return write\n\ndef retained(nums, val):\n    k = remove_element(nums, val)\n    return nums[:k]\n",
+    "time": "O(n).",
+    "space": "O(1) for the core algorithm; O(k) for the retained display function.",
+    "example": {
+      "input": "nums=[3,2,2,3], val=3",
+      "output": "k=2; prefix [2,2]",
+      "walkthrough": [
+        "The first 3 is skipped.",
+        "The two 2 values overwrite positions 0 and 1.",
+        "The final 3 is skipped, leaving write=2."
+      ]
+    },
+    "pitfalls": [
+      "The valid result ends at k; the trailing portion does not have to be cleared.",
+      "Building a list comprehension directly is not an in-place algorithm."
+    ],
+    "tests": [
+      {
+        "expression": "retained([3,2,2,3],3)",
+        "expected": [
+          2,
+          2
+        ]
+      },
+      {
+        "expression": "remove_element([1,1],1)",
+        "expected": 0
+      },
+      {
+        "expression": "retained([],2)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "array-sorted-squares",
+    "chapter": "数组",
+    "title": "977. Squares of a Sorted Array",
+    "problem": "977",
+    "kind": "题解",
+    "summary": "The largest square lies at an endpoint of the current interval; fill the result backward.",
+    "sections": [
+      {
+        "heading": "Squaring changes the order",
+        "paragraphs": [
+          "The input nums is sorted in nondecreasing order. Return the square of every element, also in nondecreasing order. A negative number may have a larger square than a positive number, so squaring each element does not by itself produce a sorted result. For example, [-4,-1,0,3] becomes [16,1,0,9]. Sorting afterward works, but does not exploit the existing input order."
+        ]
+      },
+      {
+        "heading": "Why the two endpoints suffice",
+        "paragraphs": [
+          "In a sorted interval, an element with the largest absolute value must be at the left or right endpoint: negative numbers become farther from zero toward the left, and positive numbers become farther from zero toward the right. Compare the endpoint squares; the larger is the greatest square among all remaining elements. Put it in the last unused result position and shrink the corresponding side."
+        ]
+      },
+      {
+        "heading": "Building a sorted result backward",
+        "paragraphs": [
+          "During the loop, out[pos+1:] already contains all the largest squares processed so far, in the correct order. The newly chosen value is the largest in the unprocessed portion and is no greater than the first element of the completed suffix, so writing it at pos preserves nondecreasing order overall. Each iteration consumes exactly one input element. After n iterations every output position is filled, with no additional merging phase."
+        ]
+      },
+      {
+        "heading": "Implementation and boundaries",
+        "paragraphs": [
+          "Allocate an output list of length n, set left=0 and right=n-1, and let pos decrease from n-1 to 0. If the endpoint squares are equal, choosing either endpoint is correct. For an empty array the loop simply does not run. The input is unchanged. The required output uses O(n) space; when output space is excluded, only a constant number of auxiliary variables remain.",
+          "For an all-negative input such as [-5,-3,-1], the greatest square always comes from the left endpoint. For an all-nonnegative input, it always comes from the right. The same loop handles both extremes."
+        ]
+      }
+    ],
+    "code": "def sorted_squares(nums):\n    out = [0] * len(nums)\n    left, right = 0, len(nums) - 1\n    for pos in range(len(nums) - 1, -1, -1):\n        a, b = nums[left] ** 2, nums[right] ** 2\n        if a > b:\n            out[pos] = a\n            left += 1\n        else:\n            out[pos] = b\n            right -= 1\n    return out\n",
+    "time": "O(n); each input element is consumed once.",
+    "space": "O(n) for the result and O(1) auxiliary space excluding it.",
+    "example": {
+      "input": "[-4,-1,0,3,10]",
+      "output": "[0,1,9,16,100]",
+      "walkthrough": [
+        "Put 100 at the end and remove the right endpoint 10.",
+        "Compare 16 with 9 and put 16 in the second-to-last position.",
+        "Continue choosing 9, 1, and 0 to finish filling backward."
+      ]
+    },
+    "pitfalls": [
+      "Fill the greatest values starting at the end of the result.",
+      "Handle an all-negative input correctly too.",
+      "State whether space analysis includes the output or only additional auxiliary space."
+    ],
+    "tests": [
+      {
+        "expression": "sorted_squares([-4,-1,0,3,10])",
+        "expected": [
+          0,
+          1,
+          9,
+          16,
+          100
+        ]
+      },
+      {
+        "expression": "sorted_squares([])",
+        "expected": []
+      },
+      {
+        "expression": "sorted_squares([-3,-2])",
+        "expected": [
+          4,
+          9
+        ]
+      }
+    ]
+  },
+  {
+    "id": "array-min-subarray",
+    "chapter": "数组",
+    "title": "209. Minimum Size Subarray Sum",
+    "problem": "209",
+    "kind": "题解",
+    "summary": "Positive values make the window sum change monotonically; shrink as far as possible whenever the condition holds.",
+    "sections": [
+      {
+        "heading": "The task requires contiguity and positive values",
+        "paragraphs": [
+          "Given an array nums of positive integers and a positive integer target, find the shortest contiguous subarray with sum at least target; return 0 if none exists. Contiguous means elements cannot be skipped. Positivity makes the sliding window possible: adding an element on the right increases the sum, and removing one on the left decreases it. These properties disappear when negatives are allowed, requiring another method."
+        ]
+      },
+      {
+        "heading": "Expand to find a feasible window",
+        "paragraphs": [
+          "Maintain the closed interval [left,right] and its sum total. Add a new element at the right each time. While total is less than target, the current window is infeasible, and moving the right endpoint forward is the only way to reach the target. Once it does, record the length and repeatedly remove the leftmost element until the window is infeasible again. This must use while: a single shrink may still leave a valid window."
+        ]
+      },
+      {
+        "heading": "Why these windows are enough",
+        "paragraphs": [
+          "For a fixed right endpoint, the shrinking phase visits every candidate that still meets the threshold and records the shortest. A discarded starting position already has a feasible answer ending at the current right endpoint. Future right endpoints would only produce longer windows from that same start, so it never needs reconsideration. Both boundaries only move forward; despite the nested loops, the total number of moves is linear."
+        ]
+      },
+      {
+        "heading": "Python and the no-solution case",
+        "paragraphs": [
+          "Initialize best to n+1 to indicate that no answer has been found, and return 0 if it remains unchanged. Maintain the window sum incrementally with one integer instead of repeatedly computing sum(nums[left:right+1]), which would rescan and copy slices. State the input prerequisite explicitly; this code is not a general template for arbitrary integers."
+        ]
+      }
+    ],
+    "code": "def min_subarray_len(target, nums):\n    left = total = 0\n    best = len(nums) + 1\n    for right, value in enumerate(nums):\n        total += value\n        while total >= target:\n            best = min(best, right - left + 1)\n            total -= nums[left]\n            left += 1\n    return 0 if best == len(nums) + 1 else best\n",
+    "time": "O(n); each pointer moves at most n times.",
+    "space": "O(1).",
+    "example": {
+      "input": "target=7, nums=[2,3,1,2,4,3]",
+      "output": "2",
+      "walkthrough": [
+        "When the right endpoint reaches the value 2, the window [2,3,1,2] sums to 8; record length 4 and shrink.",
+        "When the right endpoint reaches 4, a feasible window of length 3 appears.",
+        "The final window [4,3] has sum 7, giving length 2."
+      ]
+    },
+    "pitfalls": [
+      "This algorithm does not hold when negative values are present.",
+      "Use while, not if, for shrinking.",
+      "The requested subarray is contiguous, so sorting is not allowed."
+    ],
+    "tests": [
+      {
+        "expression": "min_subarray_len(7,[2,3,1,2,4,3])",
+        "expected": 2
+      },
+      {
+        "expression": "min_subarray_len(10,[1,2])",
+        "expected": 0
+      },
+      {
+        "expression": "min_subarray_len(1,[1])",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": "array-prefix-sum",
+    "chapter": "数组",
+    "title": "Prefix Sums: Repeated Range-Sum Queries",
+    "problem": "",
+    "kind": "题解",
+    "summary": "Precompute cumulative sums from the left so each range query needs only two reads.",
+    "sections": [
+      {
+        "heading": "The problem and conventions",
+        "paragraphs": [
+          "Given a static integer array, repeatedly query the sum from index left through right, including both endpoints. Negative values are allowed: prefix sums depend on cancellation under addition, not monotonicity. For a single query, direct summation is reasonable. When there are many queries and the array stays unchanged, preprocessing substantially reduces repeated work."
+        ]
+      },
+      {
+        "heading": "Add one extra zero",
+        "paragraphs": [
+          "Define prefix[i] as the sum of the first i elements of the original array, so prefix[0]=0 and prefix[i+1]=prefix[i]+nums[i]. The sum over the closed interval [left,right] is prefix[right+1]-prefix[left]: the first term includes everything through right, and the second removes everything before left. The extra zero eliminates a special case for left=0."
+        ]
+      },
+      {
+        "heading": "Proving the query formula from the definition",
+        "paragraphs": [
+          "Split the cumulative sum into two adjacent parts: prefix[right+1] equals prefix[left] plus nums[left] through nums[right]. Rearranging yields the formula, which works for negatives too. During construction, each iteration adds nums[i] to the correct sum of the first i terms, so the entire prefix list satisfies the definition. A query reads only two precomputed values."
+        ]
+      },
+      {
+        "heading": "The interface and mutability",
+        "paragraphs": [
+          "The function below returns the prefix list. The query function validates 0<=left<=right<n and explicitly raises an error for invalid bounds rather than silently producing a wrong result with Python negative indices. Updating the original array does not automatically update an old prefix list. For frequent updates and queries, consider a Fenwick tree or a similar structure. Rebuilding prefix for every query would defeat the purpose of preprocessing."
+        ]
+      }
+    ],
+    "code": "def build_prefix(nums):\n    prefix = [0]\n    for value in nums:\n        prefix.append(prefix[-1] + value)\n    return prefix\n\ndef interval_sum(prefix, left, right):\n    if not (0 <= left <= right < len(prefix) - 1):\n        raise ValueError(\"invalid interval\")\n    return prefix[right + 1] - prefix[left]\n",
+    "time": "O(n) to build and O(1) per query; O(n+q) total for q queries.",
+    "space": "O(n) for the prefix array.",
+    "example": {
+      "input": "nums=[2,-1,3,5], query [1,3]",
+      "output": "7",
+      "walkthrough": [
+        "Build [0,2,1,4,9].",
+        "prefix[4] is the sum of the first four terms, 9.",
+        "Subtract prefix[1]=2 to get 7."
+      ]
+    },
+    "pitfalls": [
+      "Use right+1 for the right endpoint of a closed interval.",
+      "Array changes require updating the corresponding data structure.",
+      "Python negative indices do not automatically expose a logical error."
+    ],
+    "tests": [
+      {
+        "expression": "interval_sum(build_prefix([2,-1,3,5]),1,3)",
+        "expected": 7
+      },
+      {
+        "expression": "interval_sum(build_prefix([4]),0,0)",
+        "expected": 4
+      }
+    ]
+  },
+  {
+    "id": "array-land-partition",
+    "chapter": "数组",
+    "title": "Buying Land: The Minimum Difference from One Cut",
+    "problem": "",
+    "kind": "题解",
+    "summary": "Reduce horizontal or vertical cuts in a grid to prefix scans of row sums and column sums.",
+    "sections": [
+      {
+        "heading": "The cutting rules determine the model",
+        "paragraphs": [
+          "Let a grid of nonnegative integers represent the value of each plot of land. Make exactly one cut along a full boundary between rows or columns, splitting the grid into two nonempty rectangles, and minimize the difference between their total values. The choices are the m-1 horizontal boundaries or n-1 vertical boundaries; plots cannot be grouped arbitrarily, and horizontal and vertical cuts cannot both be made. A single cell has no legal split, for which the code returns None."
+        ]
+      },
+      {
+        "heading": "Compress two-dimensional information in two directions",
+        "paragraphs": [
+          "First compute every row total in row_sums and every column total in col_sums, along with the overall value total. For a horizontal cut after the first k rows, the upper value is their cumulative sum part and the lower value is total-part, giving a difference of abs(total-2*part). Use column sums in the same way for vertical cuts. This avoids rescanning the whole grid for each boundary."
+        ]
+      },
+      {
+        "heading": "Complete enumeration without duplication",
+        "paragraphs": [
+          "A horizontal split is uniquely determined by the number of rows above it. Accumulating the first m-1 row sums covers every legal horizontal cut exactly once; the same reasoning applies to columns. Do not add the final row or column to the first side, because that would leave the other side empty. Taking the smallest difference over all candidates gives the global optimum, without guessing a cut from local plot values."
+        ]
+      },
+      {
+        "heading": "Input checks in the implementation",
+        "paragraphs": [
+          "The example treats an empty grid or ragged rows as invalid and raises an exception. A single row with multiple columns permits only vertical cuts, while a single column with multiple rows permits only horizontal cuts. Use integer accumulators to avoid unnecessary floating-point averages and precision issues. Nonnegative values fit the land-value setting, but the difference formula and exhaustive enumeration also work for arbitrary integer weights.",
+          "For small cases, validate by directly summing the cells on both sides of each cut and comparing with the compressed result. In particular, test an all-zero grid: every legal cut has difference zero, but a single cell still has no legal boundary."
+        ]
+      }
+    ],
+    "code": "def min_land_difference(grid):\n    if not grid or not grid[0]:\n        raise ValueError(\"grid must be nonempty\")\n    rows, cols = len(grid), len(grid[0])\n    if any(len(row) != cols for row in grid):\n        raise ValueError(\"ragged grid\")\n    row_sums = [sum(row) for row in grid]\n    col_sums = [sum(grid[r][c] for r in range(rows)) for c in range(cols)]\n    total = sum(row_sums)\n    best = None\n    for sums in (row_sums, col_sums):\n        part = 0\n        for i in range(len(sums) - 1):\n            part += sums[i]\n            diff = abs(total - 2 * part)\n            best = diff if best is None else min(best, diff)\n    return best\n",
+    "time": "O(mn+m+n) for m rows and n columns, or simply O(mn) for a nonempty grid.",
+    "space": "O(m+n) for row and column sums.",
+    "example": {
+      "input": "[[1,2,3],[4,5,6]]",
+      "output": "3",
+      "walkthrough": [
+        "The total is 21. A horizontal cut gives 6 and 15, a difference of 9.",
+        "A vertical cut after the first column gives 5 and 16, a difference of 11.",
+        "A vertical cut after the second column gives 12 and 9, a difference of 3."
+      ]
+    },
+    "pitfalls": [
+      "Do not cut after the final row or column.",
+      "The task permits one complete straight cut, not arbitrary groups of individual cells.",
+      "Specify the no-legal-cut convention for a 1×1 grid."
+    ],
+    "tests": [
+      {
+        "expression": "min_land_difference([[1,2,3],[4,5,6]])",
+        "expected": 3
+      },
+      {
+        "expression": "min_land_difference([[2,5]])",
+        "expected": 3
+      },
+      {
+        "expression": "min_land_difference([[7]])",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "array-spiral-matrix",
+    "chapter": "数组",
+    "title": "59. Spiral Matrix II",
+    "problem": "59",
+    "kind": "题解",
+    "summary": "Use four boundaries for the unfilled rectangle and fill clockwise, layer by layer.",
+    "sections": [
+      {
+        "heading": "The goal and traversal order",
+        "paragraphs": [
+          "Given a positive integer n, generate an n×n matrix containing 1 through n² in clockwise order, starting at the upper-left and moving right, down, left, and up. To make the template reusable, the code also returns an empty matrix for n=0 and raises an error for negative n. The main issue is not arithmetic but avoiding duplicate writes and out-of-bounds access as boundaries change."
+        ]
+      },
+      {
+        "heading": "The remaining region is a rectangle",
+        "paragraphs": [
+          "Maintain four inclusive boundaries, top, bottom, left, and right, enclosing every unfilled cell. Fill the top edge and increment top, then fill the right edge and decrement right. Next, fill the bottom edge only if top<=bottom, and finally fill the left edge only if left<=right. Remove each edge from the candidate rectangle immediately after filling it; later directions use the updated boundaries."
+        ]
+      },
+      {
+        "heading": "Avoid rewriting the center row or column",
+        "paragraphs": [
+          "If the remaining region is a single row, filling the top edge already completes it and moves top past bottom, so the bottom edge must be skipped. The single-column case is analogous. Every written cell lies on the current edge, which is removed from the remaining region afterward, preventing revisits. The outer condition permits a new iteration only for a nonempty rectangle, covering exactly n² positions once each."
+        ]
+      },
+      {
+        "heading": "Independent matrix rows in Python",
+        "paragraphs": [
+          "Create the matrix with [[0]*n for _ in range(n)], not [[0]*n]*n. The latter makes multiple rows share one list, so writing a cell changes other rows too. range excludes its stop value, so backward edges need left-1 or top-1 as the stopping value. Small cases n=1 and n=2 are especially useful for checking the center and directional boundaries."
+        ]
+      }
+    ],
+    "code": "def generate_matrix(n):\n    if n < 0:\n        raise ValueError(\"n must be nonnegative\")\n    out = [[0] * n for _ in range(n)]\n    top, bottom, left, right = 0, n - 1, 0, n - 1\n    value = 1\n    while top <= bottom and left <= right:\n        for c in range(left, right + 1):\n            out[top][c] = value\n            value += 1\n        top += 1\n        for r in range(top, bottom + 1):\n            out[r][right] = value\n            value += 1\n        right -= 1\n        if top <= bottom:\n            for c in range(right, left - 1, -1):\n                out[bottom][c] = value\n                value += 1\n            bottom -= 1\n        if left <= right:\n            for r in range(bottom, top - 1, -1):\n                out[r][left] = value\n                value += 1\n            left += 1\n    return out\n",
+    "time": "O(n²) to write n² cells.",
+    "space": "O(n²) for the output and O(1) excluding it.",
+    "example": {
+      "input": "n=3",
+      "output": "[[1,2,3],[8,9,4],[7,6,5]]",
+      "walkthrough": [
+        "Fill the top edge with 1, 2, 3 and the right edge with 4, 5.",
+        "Fill the bottom edge with 6, 7 and the left edge with 8.",
+        "Fill the remaining center with 9."
+      ]
+    },
+    "pitfalls": [
+      "A two-dimensional list built from repeated references makes rows affect one another.",
+      "Keep the conditional checks when the region shrinks to one row or column.",
+      "The stop value of a backward range is excluded."
+    ],
+    "tests": [
+      {
+        "expression": "generate_matrix(3)",
+        "expected": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            8,
+            9,
+            4
+          ],
+          [
+            7,
+            6,
+            5
+          ]
+        ]
+      },
+      {
+        "expression": "generate_matrix(1)",
+        "expected": [
+          [
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "generate_matrix(0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "array-recap",
+    "chapter": "数组",
+    "title": "Array Recap: Let the Preconditions Choose the Tool",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Identify ordering, positive values, query volume, and in-place constraints before choosing an invariant.",
+    "sections": [
+      {
+        "heading": "What sorted order tells you",
+        "paragraphs": [
+          "Binary search uses ascending order to exclude half the candidates; sorted squares compares absolute values at the endpoints to find the maximum. Both read sorted input, but maintain different invariants. For an array problem, first ask which elements the order proves cannot be answers, instead of applying binary search whenever you see sorted data."
+        ]
+      },
+      {
+        "heading": "Two approaches to contiguous ranges",
+        "paragraphs": [
+          "The shortest positive-sum window relies on the monotonic behavior of expansion increasing the sum and contraction decreasing it. Prefix sums rely on additive cancellation and can handle negatives. A sliding window suits a candidate interval that changes incrementally; prefix sums suit many queries over specified intervals in a static array. The prerequisites of these tools are not interchangeable."
+        ]
+      },
+      {
+        "heading": "In-place changes and new output",
+        "paragraphs": [
+          "Removing elements compresses a prefix with read and write pointers, leaving the old tail outside the answer. Squaring into sorted order and generating a matrix naturally require new output. Distinguish the result container from additional auxiliary structures in space analysis, and state the convention used. Python slices, copies made by sorting, and list comprehensions can all increase memory use."
+        ]
+      },
+      {
+        "heading": "An order for checking boundaries",
+        "paragraphs": [
+          "Start with empty and single-element inputs, then test removing all elements, squaring all-negative values, an impossible window, and the matrix center. The half-open interval template below sums a fixed range to emphasize that boundary representation must match the operations. Writing the bounds clearly in words gives a reason for each plus or minus one in the code."
+        ]
+      }
+    ],
+    "code": "def half_open_sum(nums, left, right):\n    if not 0 <= left <= right <= len(nums):\n        raise ValueError(\"invalid interval\")\n    total = 0\n    for i in range(left, right):\n        total += nums[i]\n    return total\n",
+    "time": "O(k) for a queried interval of length k.",
+    "space": "O(1).",
+    "example": {
+      "input": "nums=[1,2,3], interval [1,3)",
+      "output": "5",
+      "walkthrough": [
+        "The left endpoint 1 is included.",
+        "The right endpoint 3 is not read.",
+        "Add the elements at positions 1 and 2."
+      ]
+    },
+    "pitfalls": [
+      "Use the same interval convention in the loop, formulas, and updates.",
+      "Do not copy a template when its problem prerequisites do not hold."
+    ],
+    "tests": [
+      {
+        "expression": "half_open_sum([1,2,3],1,3)",
+        "expected": 5
+      }
+    ]
+  },
+  {
+    "id": "linked-theory",
+    "chapter": "链表",
+    "title": "Linked Lists: Node Identity and Connections",
+    "problem": "",
+    "kind": "理论",
+    "summary": "Linked-list operations change next relationships; equal values do not imply identical nodes.",
+    "sections": [
+      {
+        "heading": "Structure and access costs",
+        "paragraphs": [
+          "A singly linked node stores a value and a next reference to the following node. The head reference points to the first node, and None represents an empty list. Unlike an array, a linked list cannot be accessed directly by index: reaching the node at position k takes k steps from the head. If the predecessor is already known, inserting or removing a node requires changing only a constant number of connections."
+        ]
+      },
+      {
+        "heading": "Values, references, and identity",
+        "paragraphs": [
+          "Two ListNode(3) objects can store the same value while remaining separate objects. Intersection and cycle detection concern node identity, so compare with is rather than val. Assigning a variable simply gives another name a reference to the same node; it does not copy the whole list. Any change to next is visible through all references to that node."
+        ]
+      },
+      {
+        "heading": "The dummy head node",
+        "paragraphs": [
+          "dummy.next points to the real head, making both head removal and middle removal a matter of changing the predecessor's next. The dummy is not part of the answer, so return dummy.next. It reduces boundary-specific branches but does not eliminate null checks: before accessing node.next, still ensure that node exists."
+        ]
+      },
+      {
+        "heading": "Save before disconnecting",
+        "paragraphs": [
+          "Before changing cur.next, save nxt=cur.next, or you may lose the entry point to the unprocessed portion. Drawing the arrows before and after each change and distinguishing the current node, predecessor, and successor helps avoid cycles or broken links. The example below inserts a node before the head of a nonempty list, keeps the original head connected, and returns the new entry point."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef prepend(head, value):\n    return ListNode(value, head)\n",
+    "time": "O(n) to build a linked list or convert it to a list; O(1) for prepend.",
+    "space": "O(n) to build the linked list; prepend adds one node in O(1) space, and conversion to a list uses O(n).",
+    "example": {
+      "input": "head=[2,3], insert 1",
+      "output": "[1,2,3]",
+      "walkthrough": [
+        "The new node has value 1.",
+        "Its next points to the original head.",
+        "Return the new node as the head."
+      ]
+    },
+    "pitfalls": [
+      "Nodes with equal values do not necessarily have the same identity.",
+      "Looking up a linked-list node by index is not constant time."
+    ],
+    "tests": [
+      {
+        "expression": "list_values(prepend(build_list([2,3]),1))",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "id": "linked-remove-elements",
+    "chapter": "链表",
+    "title": "203. Remove Linked List Elements",
+    "problem": "203",
+    "kind": "题解",
+    "summary": "Keep the predecessor at the end of the retained prefix so consecutive removals are not skipped.",
+    "sections": [
+      {
+        "heading": "What to remove and which entry point to return",
+        "paragraphs": [
+          "Given a singly linked list head and an integer val, remove every node whose value equals val and return the new head. Such nodes may be at the head, tail, or in consecutive runs, and the entire list may be removed. The algorithm reconnects retained nodes without changing their values or allocating a separate result list."
+        ]
+      },
+      {
+        "heading": "Treat the head and middle uniformly",
+        "paragraphs": [
+          "Create dummy with dummy.next=head and initialize prev to dummy. As long as prev.next exists, inspect that successor. If it should be removed, make prev.next point to the successor's successor; otherwise advance prev to the retained node. Do not advance prev after removal, so the next adjacent node that may also need removal is checked."
+        ]
+      },
+      {
+        "heading": "The predecessor invariant",
+        "paragraphs": [
+          "At the start of every iteration, the path from dummy through prev contains only nodes already confirmed for retention, and prev.next is the first unprocessed position. Removing a node bypasses an invalid node without changing the end of the prefix; retaining a node adds it to the prefix. Each iteration reduces the number of unprocessed nodes by one, so on termination all retained nodes remain linked in their original order."
+        ]
+      },
+      {
+        "heading": "References in Python",
+        "paragraphs": [
+          "A bypassed node loses its reference from the result list, but whether it is freed immediately depends on other references and memory management; explicit del is unnecessary. The code changes only next and returns dummy.next rather than dummy. An empty input needs no special branch because the loop does not run. Tests convert the result to a list for convenient assertions, but that conversion space is not part of removal."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef remove_nodes(head, val):\n    dummy = ListNode(next=head)\n    prev = dummy\n    while prev.next is not None:\n        if prev.next.val == val:\n            prev.next = prev.next.next\n        else:\n            prev = prev.next\n    return dummy.next\n",
+    "time": "O(n).",
+    "space": "O(1) for the core algorithm, with just one dummy node; O(n) for test conversion.",
+    "example": {
+      "input": "[1,2,6,3,6], val=6",
+      "output": "[1,2,3]",
+      "walkthrough": [
+        "Retain 1 and 2, moving prev to 2.",
+        "Bypass the first 6 while prev stays at 2.",
+        "Retain 3, then bypass the final 6."
+      ]
+    },
+    "pitfalls": [
+      "Do not immediately advance prev after removing a node.",
+      "Return dummy.next so the dummy node is not included in the answer."
+    ],
+    "tests": [
+      {
+        "expression": "list_values(remove_nodes(build_list([1,2,6,3,6]),6))",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "list_values(remove_nodes(build_list([7,7]),7))",
+        "expected": []
+      },
+      {
+        "expression": "remove_nodes(None,1) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-design",
+    "chapter": "链表",
+    "title": "707. Design Linked List",
+    "problem": "707",
+    "kind": "题解",
+    "summary": "Use a dummy head and a size field to unify the boundaries for indexed queries, insertion, and deletion.",
+    "sections": [
+      {
+        "heading": "The required interface",
+        "paragraphs": [
+          "Implement get, addAtHead, addAtTail, addAtIndex, and deleteAtIndex. An out-of-range get returns -1, and an out-of-range deletion does nothing. Insertion at an index equal to the length appends; an index greater than the length is ignored, and a negative index is treated as insertion at the head. Establish these interface semantics first, without relying on Python's negative-index behavior."
+        ]
+      },
+      {
+        "heading": "Find the predecessor before making changes",
+        "paragraphs": [
+          "Use a dummy head dummy and size. For insertion or deletion at index, advance index times from dummy to reach the predecessor of that position. To insert, point the new node to the old successor, then connect the predecessor to the new node. To delete, have the predecessor bypass its successor. A query instead advances index times from dummy.next to reach a real node."
+        ]
+      },
+      {
+        "heading": "Maintain both length and connections",
+        "paragraphs": [
+          "size is the number of real nodes. Increment it after each successful insertion, decrement it after each successful deletion, and leave it unchanged for rejected operations. Connect a new node to the old successor before attaching it to the main list, or the remaining nodes may be lost. For every valid position, including index=0, dummy provides access to its predecessor, so changing the head requires no separate pointer logic."
+        ]
+      },
+      {
+        "heading": "Complexity and tradeoffs",
+        "paragraphs": [
+          "This is a simple linked-list implementation with no cached tail node; appending traverses to the predecessor. The interface is clear, but appending is not constant time. Adding a tail pointer could optimize appending, at the cost of more maintenance when deleting the tail. The task requires correct functionality rather than O(1) for every operation. Mix insertions and deletions in tests to verify that size and the links stay consistent."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\nclass MyLinkedList:\n    def __init__(self):\n        self.dummy = ListNode()\n        self.size = 0\n\n    def get(self, index):\n        if not 0 <= index < self.size:\n            return -1\n        cur = self.dummy.next\n        for _ in range(index):\n            cur = cur.next\n        return cur.val\n\n    def addAtHead(self, val):\n        self.addAtIndex(0, val)\n\n    def addAtTail(self, val):\n        self.addAtIndex(self.size, val)\n\n    def addAtIndex(self, index, val):\n        if index > self.size:\n            return\n        index = max(0, index)\n        prev = self.dummy\n        for _ in range(index):\n            prev = prev.next\n        prev.next = ListNode(val, prev.next)\n        self.size += 1\n\n    def deleteAtIndex(self, index):\n        if not 0 <= index < self.size:\n            return\n        prev = self.dummy\n        for _ in range(index):\n            prev = prev.next\n        prev.next = prev.next.next\n        self.size -= 1\n\ndef design_demo():\n    linked = MyLinkedList()\n    linked.addAtHead(1)\n    linked.addAtTail(3)\n    linked.addAtIndex(1, 2)\n    first = linked.get(1)\n    linked.deleteAtIndex(1)\n    return [first, linked.get(1), linked.size]\n",
+    "time": "get, indexed insertion, and deletion take O(n) in the worst case; head insertion is O(1), and appending is O(n) in this implementation.",
+    "space": "O(n) to store n nodes and O(1) extra space per operation.",
+    "example": {
+      "input": "Insert 1 at the head, append 3, insert 2 at position 1, then delete position 1",
+      "output": "Queries return 2 and then 3; length 2",
+      "walkthrough": [
+        "After insertion the list is [1,2,3].",
+        "get(1) returns 2.",
+        "After deletion it is [1,3], with size=2."
+      ]
+    },
+    "pitfalls": [
+      "Insertion permits index==size; deletion does not.",
+      "Do not update size when ignoring an invalid operation.",
+      "This implementation has no tail pointer, so appending requires traversal."
+    ],
+    "tests": [
+      {
+        "expression": "design_demo()",
+        "expected": [
+          2,
+          3,
+          2
+        ]
+      },
+      {
+        "expression": "MyLinkedList().get(0)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "linked-reverse",
+    "chapter": "链表",
+    "title": "206. Reverse Linked List",
+    "problem": "206",
+    "kind": "题解",
+    "summary": "Reverse the processed prefix, saving the successor before redirecting the current link.",
+    "sections": [
+      {
+        "heading": "Reverse the links",
+        "paragraphs": [
+          "Given a singly linked list, reverse the order of its nodes and return the new head. Do not swap values or rebuild nodes: reconnect the original nodes in reverse order. An empty list returns None, and a one-node list remains itself. The iterative algorithm changes each next reference once, works well for long lists, and avoids Python's recursion-depth limit."
+        ]
+      },
+      {
+        "heading": "Entry points to two regions",
+        "paragraphs": [
+          "prev points to the reversed portion, and cur points to the unprocessed portion. Initially prev=None and cur=head. In each iteration, first save nxt=cur.next, then set cur.next=prev, followed by prev=cur and cur=nxt. Saving nxt is essential: after redirecting the link, cur.next no longer leads to the original remaining list."
+        ]
+      },
+      {
+        "heading": "The reversal invariant and termination",
+        "paragraphs": [
+          "After k nodes have been processed, the prev chain is exactly the first k original nodes in reverse order, and cur is still the original next node, at position k+1. Placing cur before prev creates a longer reversed prefix, while nxt preserves access to the remaining nodes. Each iteration consumes one node. When cur becomes None, all nodes have joined the prev chain, and prev is the final head."
+        ]
+      },
+      {
+        "heading": "The return value and aliases",
+        "paragraphs": [
+          "The function modifies the input nodes. After the call, the original head is the tail of the new list and its next is None. The caller must keep the returned value: continuing to use the old head cannot traverse the entire result. External references to intermediate nodes will also observe their changed successors. Converting to a list is only for display, not an auxiliary structure required for reversal."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef reverse_list(head):\n    prev, cur = None, head\n    while cur is not None:\n        nxt = cur.next\n        cur.next = prev\n        prev, cur = cur, nxt\n    return prev\n",
+    "time": "O(n).",
+    "space": "O(1); a recursive version would use an O(n) call stack.",
+    "example": {
+      "input": "[1,2,3]",
+      "output": "[3,2,1]",
+      "walkthrough": [
+        "1 points to None, and its saved successor is 2.",
+        "2 points to 1, while 3 is preserved as the successor.",
+        "3 points to 2; return 3."
+      ]
+    },
+    "pitfalls": [
+      "Save the old next before overwriting next.",
+      "Keep the new head returned by the function.",
+      "This template assumes an acyclic input."
+    ],
+    "tests": [
+      {
+        "expression": "list_values(reverse_list(build_list([1,2,3])))",
+        "expected": [
+          3,
+          2,
+          1
+        ]
+      },
+      {
+        "expression": "reverse_list(None) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-swap-pairs",
+    "chapter": "链表",
+    "title": "24. Swap Nodes in Pairs",
+    "problem": "24",
+    "kind": "题解",
+    "summary": "Reconnect three links from the predecessor of each pair while preserving the unprocessed suffix.",
+    "sections": [
+      {
+        "heading": "Which nodes are swapped",
+        "paragraphs": [
+          "Swap the first and second nodes, the third and fourth, and so on. For an odd-length list, leave the final node in place. The task requires swapping nodes rather than merely their val fields, so node identities must move with them. A dummy head provides a uniform predecessor for the first pair, avoiding separate head-reference handling."
+        ]
+      },
+      {
+        "heading": "Identify the four positions around a pair",
+        "paragraphs": [
+          "Let prev be the predecessor of the current pair, first=prev.next, second=first.next, and after=second.next. The desired connections are prev→second→first→after. Save first and second, then set first.next=second.next to preserve the remaining entry point, second.next=first to reverse the pair, and prev.next=second to reconnect it to the prefix."
+        ]
+      },
+      {
+        "heading": "Advance to the new predecessor",
+        "paragraphs": [
+          "After the swap, first is the final node of the pair, making it the predecessor for the next pair, so set prev=first. The loop requires both prev.next and prev.next.next to exist, ensuring a complete pair; it stops automatically if one node remains. Every pair in the processed prefix has been swapped correctly, the unprocessed suffix remains in its original order, and the connection between them stays intact."
+        ]
+      },
+      {
+        "heading": "Update order in Python",
+        "paragraphs": [
+          "After assigning prev.next, do not keep using it to mean the original first: that reference now points to second. Explicit local variables make the reconnection order easier to review. The algorithm allocates only one dummy and reuses every original node. When debugging, give equal-valued nodes external identity labels to distinguish actual node swaps from an incorrect value-only swap."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef swap_pairs(head):\n    dummy = ListNode(next=head)\n    prev = dummy\n    while prev.next is not None and prev.next.next is not None:\n        first = prev.next\n        second = first.next\n        first.next = second.next\n        second.next = first\n        prev.next = second\n        prev = first\n    return dummy.next\n",
+    "time": "O(n).",
+    "space": "O(1).",
+    "example": {
+      "input": "[1,2,3,4,5]",
+      "output": "[2,1,4,3,5]",
+      "walkthrough": [
+        "First change 1 and 2 into 2→1.",
+        "Move the predecessor to 1, then swap 3 and 4.",
+        "The final 5 has no partner and stays in place."
+      ]
+    },
+    "pitfalls": [
+      "Swap nodes rather than values.",
+      "The next iteration's predecessor is the original first.",
+      "Stop immediately when fewer than two nodes remain."
+    ],
+    "tests": [
+      {
+        "expression": "list_values(swap_pairs(build_list([1,2,3,4,5])))",
+        "expected": [
+          2,
+          1,
+          4,
+          3,
+          5
+        ]
+      },
+      {
+        "expression": "list_values(swap_pairs(build_list([1])))",
+        "expected": [
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "linked-remove-nth",
+    "chapter": "链表",
+    "title": "19. Remove Nth Node From End of List",
+    "problem": "19",
+    "kind": "题解",
+    "summary": "Advance the fast pointer n steps so the slow pointer eventually stops at the predecessor of the node to remove.",
+    "sections": [
+      {
+        "heading": "What an index from the end means",
+        "paragraphs": [
+          "Given an acyclic singly linked list and n, remove the nth node from the end. The classic problem guarantees 1<=n<=length; the code below also validates n and raises an error for invalid values to prevent deleting the wrong node. The first node from the end is the tail, and n equal to the length removes the head. The goal is to locate it with one forward traversal without first storing nodes in an array."
+        ]
+      },
+      {
+        "heading": "Create a gap from the dummy head",
+        "paragraphs": [
+          "Start both fast and slow at dummy. Advance fast by n steps, leaving a gap of n links between them. Then move both together while fast.next exists. When fast stops at the final real node, slow stops immediately before the node to delete, allowing the uniform update slow.next=slow.next.next."
+        ]
+      },
+      {
+        "heading": "Prove the position using the gap",
+        "paragraphs": [
+          "For a list of length L, after the initial advance fast is at position n counting from dummy, while slow is at position 0. The synchronized phase makes L-n moves, leaving slow at L-n and the node to remove at L-n+1, exactly the nth from the end. Giving dummy position 0 provides a valid predecessor even when removing the head."
+        ]
+      },
+      {
+        "heading": "Keep checks consistent with the variant",
+        "paragraphs": [
+          "This version checks fast.next rather than fast because it initially advances n steps. A version that initially advances n+1 steps needs a different stopping condition. Mixing the rules deletes an adjacent, incorrect node. Check for None as fast advances to detect n larger than the list length. Although validation and synchronized movement are written as separate phases, total movement remains linear."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef remove_nth_from_end(head, n):\n    if n < 1:\n        raise ValueError(\"n must be positive\")\n    dummy = ListNode(next=head)\n    fast = slow = dummy\n    for _ in range(n):\n        fast = fast.next\n        if fast is None:\n            raise ValueError(\"n exceeds length\")\n    while fast.next is not None:\n        fast = fast.next\n        slow = slow.next\n    slow.next = slow.next.next\n    return dummy.next\n",
+    "time": "O(L), where L is the list length.",
+    "space": "O(1).",
+    "example": {
+      "input": "[1,2,3,4,5], n=2",
+      "output": "[1,2,3,5]",
+      "walkthrough": [
+        "Advance fast from dummy to 2.",
+        "Move together until fast=5 and slow=3.",
+        "Have slow bypass node 4."
+      ]
+    },
+    "pitfalls": [
+      "An initial n-step advance goes with checking fast.next.",
+      "Removing the head must work when n equals the length.",
+      "Handle invalid n explicitly to avoid null-reference access."
+    ],
+    "tests": [
+      {
+        "expression": "list_values(remove_nth_from_end(build_list([1,2,3,4,5]),2))",
+        "expected": [
+          1,
+          2,
+          3,
+          5
+        ]
+      },
+      {
+        "expression": "list_values(remove_nth_from_end(build_list([1]),1))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "linked-intersection",
+    "chapter": "链表",
+    "title": "160. Intersection of Two Linked Lists",
+    "problem": "160",
+    "kind": "题解",
+    "summary": "After traversing unequal prefixes, switch the pointers' starting lists to align their total path lengths.",
+    "sections": [
+      {
+        "heading": "Intersection means sharing nodes",
+        "paragraphs": [
+          "Two acyclic singly linked lists may share the same suffix starting at some node. Return their first shared node, or None if none exists. Equal values do not count as an intersection. For example, two separately constructed [1,2] lists do not intersect even though all their values match. A genuine intersection test must attach the same node object after two different prefixes."
+        ]
+      },
+      {
+        "heading": "The routes after switching starts",
+        "paragraphs": [
+          "Pointer a starts at head_a and b at head_b, each moving one step per iteration. If a pointer is None, place it at the other list's head on the next iteration. a follows A then B, while b follows B then A, giving equal total travel. Switching starts cancels the length difference between their separate prefixes."
+        ]
+      },
+      {
+        "heading": "Why the first meeting is the intersection",
+        "paragraphs": [
+          "Let the independent prefix lengths be x and y, and the shared suffix length be z. After switching, the pointers reach the start of the common suffix after equal path lengths x+z+y and y+z+x and meet there. If the original prefixes have equal lengths, they may meet on the first traversal. With no shared suffix, both eventually reach None together, so the loop still terminates."
+        ]
+      },
+      {
+        "heading": "Identity comparisons and prerequisites",
+        "paragraphs": [
+          "Compare object identity with while a is not b, never node values. Do not reverse or break the lists to simplify the logic. The algorithm depends on acyclic structure; with cycles, switching starts does not guarantee termination and the cycle cases must be analyzed first. None is also one object in Python, so empty lists and disjoint lists are handled naturally.",
+          "Once two lists intersect, they cannot separate again, because a singly linked node has only one next reference. This structural fact ensures that the common portion is an entire suffix and underlies the path-alignment argument."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef intersection_node(head_a, head_b):\n    a, b = head_a, head_b\n    while a is not b:\n        a = head_b if a is None else a.next\n        b = head_a if b is None else b.next\n    return a\n\ndef intersection_demo():\n    shared = build_list([8, 9])\n    a = ListNode(1, shared)\n    b = ListNode(2, ListNode(3, shared))\n    return intersection_node(a, b) is shared\n",
+    "time": "O(m+n), where m and n are the two list lengths.",
+    "space": "O(1).",
+    "example": {
+      "input": "A=1→shared 8→9, B=2→3→shared 8→9",
+      "output": "Return the shared node 8",
+      "walkthrough": [
+        "The unequal prefixes reach the shared entry at different times on the first traversal.",
+        "After reaching an end, switch to the other starting point.",
+        "With total travel aligned, both arrive at the shared 8 together."
+      ]
+    },
+    "pitfalls": [
+      "Compare identity, not val.",
+      "Two acyclic lists share their entire suffix after an intersection.",
+      "Two separate equal-valued nodes do not make a valid intersection test."
+    ],
+    "tests": [
+      {
+        "expression": "intersection_demo()",
+        "expected": true
+      },
+      {
+        "expression": "intersection_node(build_list([1]),build_list([1])) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-cycle-entry",
+    "chapter": "链表",
+    "title": "142. Linked List Cycle II",
+    "problem": "142",
+    "kind": "题解",
+    "summary": "First meet inside the cycle with fast and slow pointers, then use equal-speed pointers to find its entry.",
+    "sections": [
+      {
+        "heading": "Return the entry, not the meeting point",
+        "paragraphs": [
+          "The last part of a linked list may point back to an earlier node through next, forming a cycle. Return the first node reached when entering the cycle from the head, or None if no cycle exists, without modifying the list. The first fast/slow meeting point is usually not the entry, so detecting a meeting is only the first phase. A normal linked-list-to-list utility loops forever on cyclic input."
+        ]
+      },
+      {
+        "heading": "The chase in the first phase",
+        "paragraphs": [
+          "slow moves one step and fast moves two. Check fast and fast.next before the loop body to avoid null access in an acyclic list. Inside the cycle, the relative distance closes by one position each iteration, ensuring a meeting within at most one cycle length. If fast reaches None, there is no cycle and None can be returned. Compare after moving so their initial shared head is not mistaken for a cycle."
+        ]
+      },
+      {
+        "heading": "The distance relation in the second phase",
+        "paragraphs": [
+          "Let a be the distance from the head to the entry, b the distance slow travels from the entry to the meeting point, and c the cycle length. At a meeting, the fast and slow path lengths differ by a whole number of cycles, so a+b is a multiple of c. Thus a and -b are congruent modulo c. Starting at the head, a steps reach the entry; starting at the meeting point, a steps around the cycle also reach the entry. Reset one pointer to the head, leave the other at the meeting point, and move them at equal speed until they coincide."
+        ]
+      },
+      {
+        "heading": "Implementation and small cycles",
+        "paragraphs": [
+          "Use is for node identity comparisons in both phases. With a one-node self-loop, the pointers meet in the first iteration and resetting immediately identifies the head. An empty list or ordinary one-node list exits with None. Do not mark visits through node values: values may repeat and the input must stay unchanged. A hash set also works but adds O(n) space; this approach stores only a constant number of pointers."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef cycle_entry(head):\n    slow = fast = head\n    while fast is not None and fast.next is not None:\n        slow = slow.next\n        fast = fast.next.next\n        if slow is fast:\n            finder = head\n            while finder is not slow:\n                finder = finder.next\n                slow = slow.next\n            return finder\n    return None\n\ndef cycle_demo(values, pos):\n    nodes = [ListNode(v) for v in values]\n    for i in range(len(nodes) - 1):\n        nodes[i].next = nodes[i + 1]\n    if nodes and pos >= 0:\n        nodes[-1].next = nodes[pos]\n    entry = cycle_entry(nodes[0] if nodes else None)\n    return next((i for i, n in enumerate(nodes) if n is entry), -1)\n",
+    "time": "O(n), where n is the number of distinct nodes reachable from the head.",
+    "space": "O(1) for the core algorithm; O(n) for the node array used to construct tests.",
+    "example": {
+      "input": "values=[3,2,0,-4], tail connected to position 1",
+      "output": "Entry index 1",
+      "walkthrough": [
+        "The fast and slow pointers chase inside the cycle until they meet.",
+        "Reset one pointer to the head.",
+        "Move both at equal speed; they meet at the same node with value 2."
+      ]
+    },
+    "pitfalls": [
+      "The meeting point is usually not the entry.",
+      "Move before comparing to avoid mistaking the initial shared head for a cycle.",
+      "Do not call the ordinary list_values directly on a cyclic list."
+    ],
+    "tests": [
+      {
+        "expression": "cycle_demo([3,2,0,-4],1)",
+        "expected": 1
+      },
+      {
+        "expression": "cycle_demo([1],0)",
+        "expected": 0
+      },
+      {
+        "expression": "cycle_demo([1,2],-1)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "linked-recap",
+    "chapter": "链表",
+    "title": "Linked List Recap: Entry Points, Predecessors, and Identity",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Express node operations as connection changes, then validate them with predecessor invariants and distance relationships.",
+    "sections": [
+      {
+        "heading": "For modifications, find the predecessor first",
+        "paragraphs": [
+          "Deletion and pair swapping must reconnect the result to the processed prefix. dummy provides a stable entry point and unifies head-specific cases; prev identifies exactly where a connection must change. Reversal instead places the current node before a reversed prefix, so it does not need the original predecessor, but it must preserve the successor."
+        ]
+      },
+      {
+        "heading": "For locating nodes, reason about distances",
+        "paragraphs": [
+          "The nth node from the end is located by a fixed gap. Intersections use switched starting points to cancel prefix-length differences, and cycle entries use distances modulo the cycle length. All three use two pointers, but their invariants differ. Memorizing the name fast and slow pointers is insufficient without the movement and stopping conditions."
+        ]
+      },
+      {
+        "heading": "Node identity cannot be replaced",
+        "paragraphs": [
+          "Intersection and cycle problems concern the same object; repeated values are not evidence. Tests must share the same node instance or explicitly connect next back to an existing node. In tests of list modifications, check node reuse as well as the value sequence to avoid mistaking a rebuilt list for an in-place operation."
+        ]
+      },
+      {
+        "heading": "Inspect the links as well as the output",
+        "paragraphs": [
+          "For each reconnection, identify the old successor, the new arrow, and the entry point for the next iteration. Empty lists, single nodes, consecutive removals, odd-length pairing, head and tail deletion, disjoint lists, and self-loops form a valuable set of edge cases. The length function below applies only to acyclic lists; the input contract determines whether it terminates."
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef list_length(head):\n    length = 0\n    while head is not None:\n        length += 1\n        head = head.next\n    return length\n",
+    "time": "O(n) for an acyclic linked list.",
+    "space": "O(1).",
+    "example": {
+      "input": "[5,5,8]",
+      "output": "Length 3",
+      "walkthrough": [
+        "Count each node once.",
+        "Equal values still belong to distinct nodes.",
+        "Stop at None."
+      ]
+    },
+    "pitfalls": [
+      "Do not apply an acyclic-list template directly to a cycle.",
+      "When external references exist, account for the effects of in-place changes."
+    ],
+    "tests": [
+      {
+        "expression": "list_length(build_list([5,5,8]))",
+        "expected": 3
+      },
+      {
+        "expression": "list_length(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "hash-theory",
+    "chapter": "哈希表",
+    "title": "Hash Tables: Presence, Positions, and Counts",
+    "problem": "",
+    "kind": "理论",
+    "summary": "Choose a set, a key-value mapping, or a frequency table according to the historical information the problem needs.",
+    "sections": [
+      {
+        "heading": "Replace scanning with indexed lookup",
+        "paragraphs": [
+          "A hash table maps keys to storage locations and uses equality comparisons to resolve possible hash collisions. Python's set checks whether an element is present, while dict stores additional information associated with a key. Common operations are usually analyzed as O(1) on average, not strictly O(1) in every situation; extreme collisions can slow them down."
+        ]
+      },
+      {
+        "heading": "What information should a key retain?",
+        "paragraphs": [
+          "Use a set if you only need to know whether a value has appeared, a dictionary if you need its most recent position, and a frequency dictionary if you need repetition counts. A set loses multiplicity in a multiset problem, and mapping a value to one position can overwrite an earlier position. Choose the structure according to the information future queries require."
+        ]
+      },
+      {
+        "heading": "Restrictions on hash keys",
+        "paragraphs": [
+          "Dictionary and set keys must be hashable; lists and ordinary dictionaries cannot be used directly. Represent multidimensional states with tuples such as (row,col), but all objects inside the tuple must also be hashable. Do not treat a Python hash value as a unique identity, since different objects can collide. Containers combine hashing with equality comparisons to preserve correct lookup semantics."
+        ]
+      },
+      {
+        "heading": "What the counting template does",
+        "paragraphs": [
+          "The program below counts arbitrary hashable elements. On reading an element, it increments the previous count without modifying the input. When the key domain is fixed and small, such as 26 lowercase letters, a fixed-length array can replace the dictionary. For sparse domains or large value ranges, a dictionary is more natural. If sorted output is required, count that cost separately."
+        ]
+      }
+    ],
+    "code": "def frequencies(values):\n    counts = {}\n    for value in values:\n        counts[value] = counts.get(value, 0) + 1\n    return counts\n",
+    "time": "O(n) on average for n elements; collision-related degradation can make it slower.",
+    "space": "O(u), where u is the number of distinct elements.",
+    "example": {
+      "input": "['a','b','a']",
+      "output": "{'a':2,'b':1}",
+      "walkthrough": [
+        "The first a establishes a count of 1.",
+        "b establishes a count of 1.",
+        "The second a updates its count to 2."
+      ]
+    },
+    "pitfalls": [
+      "A set loses repetition counts.",
+      "Keys must be hashable; a list cannot be used directly."
+    ],
+    "tests": [
+      {
+        "expression": "frequencies(['a','b','a'])",
+        "expected": {
+          "a": 2,
+          "b": 1
+        }
+      },
+      {
+        "expression": "frequencies([])",
+        "expected": {}
+      }
+    ]
+  },
+  {
+    "id": "hash-anagram",
+    "chapter": "哈希表",
+    "title": "242. Valid Anagram",
+    "problem": "242",
+    "kind": "题解",
+    "summary": "Anagrams require exactly the same occurrence count for every character.",
+    "sections": [
+      {
+        "heading": "Character order does not determine the answer",
+        "paragraphs": [
+          "Two strings are anagrams if and only if they contain the same characters with the same counts, so one can be rearranged into the other. Comparing character sets is insufficient: aab and abb have identical sets but are not anagrams. The classic problem limits input to lowercase English letters. The dictionary-based code below also handles general Unicode characters, without case normalization or normalization of combining characters."
+        ]
+      },
+      {
+        "heading": "Think of matching as consuming inventory",
+        "paragraphs": [
+          "First build an inventory of each character in s. As you traverse t, consume one unit for each character. If it is absent or exhausted, immediately return False. Reject unequal lengths before starting. With equal lengths, successful consumption of every character means t has used exactly all the characters in s."
+        ]
+      },
+      {
+        "heading": "Why no final scan of the counts is needed",
+        "paragraphs": [
+          "The initial inventory totals len(s). Each character of t consumes one unit, and no count becomes negative. If len(t)==len(s) and every subtraction is valid, the final total is zero. All nonnegative counts must therefore be zero, so return True directly. Empty strings have empty inventory, but the same proof holds for zero consumption steps."
+        ]
+      },
+      {
+        "heading": "Python and character semantics",
+        "paragraphs": [
+          "dict.get(ch,0) handles both missing and exhausted keys. A key is a single Python character: é and visually equivalent text formed from a letter plus a combining mark may not compare as the same. That is a matter of input semantics rather than an algorithmic error. If only a through z are allowed, use a 26-slot array and ord to compute the index.",
+          "Comparing sorted character lists is another approach, but sorting generally takes O(n log n) time and also creates lists. Counting checks the definition directly and is particularly suitable when emphasizing frequencies."
+        ]
+      }
+    ],
+    "code": "def is_anagram(s, t):\n    if len(s) != len(t):\n        return False\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    for ch in t:\n        if counts.get(ch, 0) == 0:\n            return False\n        counts[ch] -= 1\n    return True\n",
+    "time": "O(n) on average, where n is the combined string length.",
+    "space": "O(u), where u is the number of distinct characters in s; O(1) for a fixed lowercase-letter domain.",
+    "example": {
+      "input": "s='anagram', t='nagaram'",
+      "output": "True",
+      "walkthrough": [
+        "Build a:3, n:1, g:1, r:1, m:1.",
+        "Consume characters one at a time in the order of t.",
+        "All inventory is consumed exactly."
+      ]
+    },
+    "pitfalls": [
+      "Equal character sets do not imply equal counts.",
+      "Handle case and Unicode normalization according to the problem statement."
+    ],
+    "tests": [
+      {
+        "expression": "is_anagram('anagram','nagaram')",
+        "expected": true
+      },
+      {
+        "expression": "is_anagram('aab','abb')",
+        "expected": false
+      },
+      {
+        "expression": "is_anagram('','')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "hash-common-chars",
+    "chapter": "哈希表",
+    "title": "1002. Find Common Characters",
+    "problem": "1002",
+    "kind": "题解",
+    "summary": "Take the minimum occurrence count of each character across all words to preserve the multiset intersection.",
+    "sections": [
+      {
+        "heading": "Common characters include repetitions",
+        "paragraphs": [
+          "Given a nonempty list of words, return the characters present in every word, including their shared multiplicities. For example, bella, label, and roller each contain at least one e and two l characters, so the result includes e, l, l. A set intersection would lose the second l. Any output order is valid; this implementation sorts for easier study and testing."
+        ]
+      },
+      {
+        "heading": "The intersection uses the minimum of each count",
+        "paragraphs": [
+          "Initialize common to the Counter of the first word. For each subsequent word, build current and set common[ch]=min(common[ch],current[ch]). If any word lacks a character, its common count immediately becomes zero. Reading a missing Counter key returns zero, which matches this definition. No new keys are needed for characters absent from the first word."
+        ]
+      },
+      {
+        "heading": "Why incremental intersection is correct",
+        "paragraphs": [
+          "After processing the first k words, common[ch] equals the minimum count of that character in those k words. A single initial word satisfies the definition. Taking min again when adding the next word yields the minimum across the larger collection. At the end, the number of copies each character can contribute is fixed, and expanding those counts gives the complete multiset intersection."
+        ]
+      },
+      {
+        "heading": "Python containers and the output",
+        "paragraphs": [
+          "Changing dictionary values without adding or deleting keys is safe during for ch in common. For a stable output convention, sort the keys and append each character the required number of times. An empty word list lies outside the standard problem; this implementation returns []. Individual words may be empty, which also makes the common result empty. For arbitrary characters, the sorting cost depends on the number of distinct characters; a lowercase-only domain has at most 26 keys to sort."
+        ]
+      }
+    ],
+    "code": "from collections import Counter\n\ndef common_chars(words):\n    if not words:\n        return []\n    common = Counter(words[0])\n    for word in words[1:]:\n        current = Counter(word)\n        for ch in common:\n            common[ch] = min(common[ch], current[ch])\n    return [ch for ch in sorted(common) for _ in range(common[ch])]\n",
+    "time": "With S total characters, k words, u distinct characters in the first word, and output length R: O(S+ku+u log u+R) on average. For a fixed lowercase-letter domain, this is usually written O(S+k).",
+    "space": "O(u+v) for the frequency tables, where v is the number of distinct characters in the current word; O(R) for the result.",
+    "example": {
+      "input": "['bella','label','roller']",
+      "output": "['e','l','l']",
+      "walkthrough": [
+        "The first word contains l twice.",
+        "The second word can still provide two copies of l.",
+        "The third also provides two copies of l; the only other common character is one e."
+      ]
+    },
+    "pitfalls": [
+      "A set can represent only one copy of a character.",
+      "Take the minimum count rather than adding counts.",
+      "Skip sorting if no output order is required."
+    ],
+    "tests": [
+      {
+        "expression": "common_chars(['bella','label','roller'])",
+        "expected": [
+          "e",
+          "l",
+          "l"
+        ]
+      },
+      {
+        "expression": "common_chars(['cool','lock','cook'])",
+        "expected": [
+          "c",
+          "o"
+        ]
+      },
+      {
+        "expression": "common_chars(['','abc'])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-intersection",
+    "chapter": "哈希表",
+    "title": "349. Intersection of Two Arrays",
+    "problem": "349",
+    "kind": "题解",
+    "summary": "Sets provide both deduplication and membership checks, leaving only shared values in the output.",
+    "sections": [
+      {
+        "heading": "The result is not a multiset intersection",
+        "paragraphs": [
+          "Given two integer arrays, return their distinct shared elements, each value at most once. Inputs may contain duplicates or be empty, and output order is unrestricted. For example, [1,2,2,1] and [2,2] have intersection [2]. Preserving occurrence counts would be a different problem requiring counting or sorted two-pointer traversal."
+        ]
+      },
+      {
+        "heading": "Membership and deduplication",
+        "paragraphs": [
+          "Convert nums1 to the set available, then traverse nums2. If value is in available, add it to the result set. available offers average constant-time membership checks, while result prevents the same value from being returned repeatedly. A direct set intersection also works, but an explicit loop makes these two responsibilities easier to see."
+        ]
+      },
+      {
+        "heading": "Both directions of the correctness argument",
+        "paragraphs": [
+          "Any value added to the result must belong to both nums1 and nums2, so no extra values are introduced. Conversely, every shared value is visited at least once in nums2, and its lookup in available succeeds, so it is eventually added to result. Set deduplication ensures exactly one copy of each shared value. An empty array naturally gives an empty result."
+        ]
+      },
+      {
+        "heading": "Stable output and complexity",
+        "paragraphs": [
+          "The code below sorts the result before returning a list to make test output predictable. This is not required by the problem, so its complexity cannot simply be stated as O(m+n): sorting the r intersection elements adds O(r log r). If only the set of results matters, return list(result) to skip sorting. If memory is tight, build the set from the shorter array."
+        ]
+      }
+    ],
+    "code": "def intersection_values(nums1, nums2):\n    available = set(nums1)\n    result = set()\n    for value in nums2:\n        if value in available:\n            result.add(value)\n    return sorted(result)\n",
+    "time": "O(m+n+r log r) on average, where m and n are input lengths and r is the number of distinct shared elements.",
+    "space": "O(u+r), including the returned list, where u is the number of distinct elements in nums1.",
+    "example": {
+      "input": "[4,9,5] and [9,4,9,8,4]",
+      "output": "[4,9]",
+      "walkthrough": [
+        "available={4,9,5}.",
+        "9 and 4 enter the result; repeated matches add no extra copies.",
+        "8 is not in available and is skipped."
+      ]
+    },
+    "pitfalls": [
+      "Problem 349 removes duplicates; it is not an intersection that preserves counts.",
+      "Sorting is an additional step and must be included in the complexity."
+    ],
+    "tests": [
+      {
+        "expression": "intersection_values([4,9,5],[9,4,9,8,4])",
+        "expected": [
+          4,
+          9
+        ]
+      },
+      {
+        "expression": "intersection_values([], [1])",
+        "expected": []
+      },
+      {
+        "expression": "intersection_values([2,2],[2,2])",
+        "expected": [
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hash-happy-number",
+    "chapter": "哈希表",
+    "title": "202. Happy Number",
+    "problem": "202",
+    "kind": "题解",
+    "summary": "The sum of squared digits defines a deterministic state transition; a repeated state means 1 can never be reached for the first time.",
+    "sections": [
+      {
+        "heading": "The happy-number transformation",
+        "paragraphs": [
+          "Start with a positive integer and repeatedly replace it with the sum of the squares of its decimal digits. It is happy if it eventually reaches 1; otherwise, it cycles forever without reaching 1. For example, 19 passes through 82, 68, 100, and 1. The classic problem requires a positive integer. The code below returns False for zero and negative integers to avoid mixing in states outside that definition."
+        ]
+      },
+      {
+        "heading": "Record visited states in a set",
+        "paragraphs": [
+          "Maintain seen. At the start of each iteration, check whether n is 1 and then whether it has appeared before. For a new state, add it to the set and compute the next state. The current n uniquely determines the next value, so once a state repeats, the future path exactly repeats the earlier path. If that path did not reach 1 before, it cannot produce a new endpoint now."
+        ]
+      },
+      {
+        "heading": "Why termination is guaranteed",
+        "paragraphs": [
+          "For a positive integer with d digits, the next state is at most 81d. Since d grows only logarithmically with n, large values quickly drop into a finite range. A deterministic transition among finitely many states must either reach 1 or repeat, so the visited set cannot grow forever. Combining this argument with stopping at a repeat explains both correctness and termination."
+        ]
+      },
+      {
+        "heading": "Extracting digits in Python",
+        "paragraphs": [
+          "Use divmod(n,10) to obtain the integer with the last digit removed and the last digit itself. Sum their squares digit by digit without creating a string. Keeping next_value separate makes it easy to test. Complexity is more accurately described by the number of states actually visited and the digit count of each. Common fixed-range integer problems involve a small finite state space, but that does not justify an unconditional O(1) claim for arbitrarily large integers.",
+          "For example, 2 enters the sequence 4, 16, 37, 58, 89, 145, 42, 20, 4. The second encounter with 4 is enough to return failure, without completing another circuit."
+        ]
+      }
+    ],
+    "code": "def digit_square_sum(n):\n    total = 0\n    while n:\n        n, digit = divmod(n, 10)\n        total += digit * digit\n    return total\n\ndef is_happy(n):\n    if n <= 0:\n        return False\n    seen = set()\n    while n != 1 and n not in seen:\n        seen.add(n)\n        n = digit_square_sum(n)\n    return n == 1\n",
+    "time": "O(td) when t distinct states are visited, d is their maximum decimal digit count, and basic integer operations are treated as unit cost.",
+    "space": "O(t) states; for arbitrary-size integers, account separately for the storage of their bits.",
+    "example": {
+      "input": "n=19",
+      "output": "True",
+      "walkthrough": [
+        "1²+9²=82.",
+        "8²+2²=68, followed by 100.",
+        "1²+0²+0²=1, so the process succeeds."
+      ]
+    },
+    "pitfalls": [
+      "Detect complete numeric states, not individual digits that have appeared.",
+      "A repeated state proves a cycle; an arbitrary iteration limit does not.",
+      "The input must follow the positive-integer definition."
+    ],
+    "tests": [
+      {
+        "expression": "is_happy(19)",
+        "expected": true
+      },
+      {
+        "expression": "is_happy(2)",
+        "expected": false
+      },
+      {
+        "expression": "is_happy(1)",
+        "expected": true
+      },
+      {
+        "expression": "is_happy(0)",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "hash-two-sum",
+    "chapter": "哈希表",
+    "title": "1. Two Sum",
+    "problem": "1",
+    "kind": "题解",
+    "summary": "Look up the complement before recording the current index to ensure the two positions differ.",
+    "sections": [
+      {
+        "heading": "The answer consists of indices, not values",
+        "paragraphs": [
+          "Find two distinct indices i and j in an integer array such that nums[i]+nums[j]==target, and return those indices. The same position cannot be used twice, but equal values at different positions are valid, as in [3,3] with target 6. The standard problem guarantees exactly one solution. The code below returns [] if none exists and returns the first pair discovered during traversal if several exist."
+        ]
+      },
+      {
+        "heading": "Replace a double enumeration with complement lookup",
+        "paragraphs": [
+          "At value, the needed partner is target-value. seen records previously encountered values and their indices. If the complement is already in the dictionary, immediately return its previous index and the current index. Rather than scanning the suffix for a partner, each current element performs a single complement lookup."
+        ]
+      },
+      {
+        "heading": "Lookup must precede registration",
+        "paragraphs": [
+          "While processing index j, seen contains only elements at indices less than j, so a complement match always uses a different position and never pairs an element with itself. If a valid solution lies at i<j, the value at i has already been recorded when j is reached, ensuring discovery. Without a solution, traversal finishes and returns an empty list. Overwriting an old index for a duplicate value does not destroy the existence of a solution."
+        ]
+      },
+      {
+        "heading": "Implementation and complexity conventions",
+        "paragraphs": [
+          "seen[value]=index only needs to retain any previously encountered index. Negative numbers, zero, and duplicates need no special handling. With average constant-time Python dictionary lookups, the complete algorithm is linear on average. Compared with sorting and two pointers, it directly preserves original indices without changing the input. Sorting first would require recording each number's original position; sorted positions cannot be returned as the answer.",
+          "One 3 gives no solution for target 6; two 3 values cause the second lookup to find the first. These two tests check whether the lookup-registration order really satisfies the distinct-index requirement."
+        ]
+      }
+    ],
+    "code": "def two_sum(nums, target):\n    seen = {}\n    for index, value in enumerate(nums):\n        need = target - value\n        if need in seen:\n            return [seen[need], index]\n        seen[value] = index\n    return []\n",
+    "time": "O(n) on average.",
+    "space": "O(n).",
+    "example": {
+      "input": "nums=[2,7,11,15], target=9",
+      "output": "[0,1]",
+      "walkthrough": [
+        "The complement of 2 is 7, which has not appeared; record 2→0.",
+        "The complement of 7 is 2, which is already present.",
+        "Return the previous index 0 and current index 1."
+      ]
+    },
+    "pitfalls": [
+      "Recording before lookup can incorrectly reuse the current element.",
+      "Return indices rather than the two values.",
+      "Different indices may contain the same value."
+    ],
+    "tests": [
+      {
+        "expression": "two_sum([2,7,11,15],9)",
+        "expected": [
+          0,
+          1
+        ]
+      },
+      {
+        "expression": "two_sum([3,3],6)",
+        "expected": [
+          0,
+          1
+        ]
+      },
+      {
+        "expression": "two_sum([3],6)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-four-sum-count",
+    "chapter": "哈希表",
+    "title": "454. 4Sum II",
+    "problem": "454",
+    "kind": "题解",
+    "summary": "Split combinations from four arrays into two pair sums, retaining the frequency of each sum.",
+    "sections": [
+      {
+        "heading": "Count combinations of four positions",
+        "paragraphs": [
+          "Given four arrays a, b, c, and d, count the index combinations obtained by choosing one element from each array whose four values sum to zero. Repeated values at different indices count separately. This differs from problem 18, which returns distinct value quadruplets: here no lists of values are returned, and a set cannot be used to remove equal pair sums."
+        ]
+      },
+      {
+        "heading": "Split the combination in half",
+        "paragraphs": [
+          "Enumerate every pair of positions from a and b, storing the frequency of x+y in counts. Then enumerate all combinations from c and d, look up how often -(z+w) occurs in counts, and add that count. Each second-half pair forms a distinct answer with every first-half pair having the complementary sum."
+        ]
+      },
+      {
+        "heading": "Why frequencies multiply",
+        "paragraphs": [
+          "If sum s comes from p first-half index pairs and -s comes from q second-half pairs, the choices are independent and contribute p*q quadruplets. The code scans the second-half pairs individually, adding p a total of q times, which equals p*q. Every valid quadruplet corresponds uniquely to its first and second pairs, so none is missed or counted twice."
+        ]
+      },
+      {
+        "heading": "Space and array sizes",
+        "paragraphs": [
+          "The four arrays need not have equal lengths. Building the table costs len(a)*len(b), and querying costs len(c)*len(d). The number of keys in counts is at most the number of first-half combinations, and can be smaller when many sums repeat. For unequal array sizes, choose two arrays with fewer pair combinations to build the table and reduce space, preserving the complementary pairing with the other two. An empty array naturally makes the answer zero.",
+          "For example, if two first-half pairs produce zero and three second-half pairs produce zero, their contribution is six. This small case directly exposes the mistake of storing only one index or using only a set."
+        ]
+      }
+    ],
+    "code": "def four_sum_count(a, b, c, d):\n    counts = {}\n    for x in a:\n        for y in b:\n            s = x + y\n            counts[s] = counts.get(s, 0) + 1\n    answer = 0\n    for z in c:\n        for w in d:\n            answer += counts.get(-z - w, 0)\n    return answer\n",
+    "time": "O(ab+cd) on average, with letters denoting the corresponding array lengths; O(n²) when all lengths are n.",
+    "space": "O(u), where u is the number of distinct first-half pair sums, at most ab.",
+    "example": {
+      "input": "a=[1,2], b=[-2,-1], c=[-1,2], d=[0,2]",
+      "output": "2",
+      "walkthrough": [
+        "The first-half sums are -1, 0, 0, 1, so zero has frequency 2.",
+        "The second-half sums are -1, 1, 2, 4.",
+        "Complements 1 and -1 each match once, for a total of 2."
+      ]
+    },
+    "pitfalls": [
+      "A set cannot replace the frequency table.",
+      "Count index combinations here; do not deduplicate value quadruplets.",
+      "Four nested loops are straightforward but require O(n⁴)."
+    ],
+    "tests": [
+      {
+        "expression": "four_sum_count([1,2],[-2,-1],[-1,2],[0,2])",
+        "expected": 2
+      },
+      {
+        "expression": "four_sum_count([0,0],[0],[0],[0])",
+        "expected": 2
+      },
+      {
+        "expression": "four_sum_count([], [1], [2], [-3])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "hash-ransom",
+    "chapter": "哈希表",
+    "title": "383. Ransom Note",
+    "problem": "383",
+    "kind": "题解",
+    "summary": "Each magazine character can be consumed once; decrement inventory for each request to decide whether construction is possible.",
+    "sections": [
+      {
+        "heading": "Are enough copies of every character available?",
+        "paragraphs": [
+          "Determine whether magazine can supply all characters in ransom, using each magazine character at most once. Characters need not be extracted contiguously or in their original order. An empty ransom can always be built, and surplus magazine characters may remain unused. Unlike anagrams, the requirement is that each demand count does not exceed inventory, not that all counts match exactly."
+        ]
+      },
+      {
+        "heading": "Build and consume inventory",
+        "paragraphs": [
+          "First traverse magazine to count every character. Then traverse ransom. For each ch, check that its inventory is positive; return False if not, otherwise subtract one. Repeated demand therefore consumes repeated units rather than treating one occurrence as an unlimited supply. A set checks only presence and is insufficient for this task."
+        ]
+      },
+      {
+        "heading": "The demand-prefix invariant",
+        "paragraphs": [
+          "After successfully processing the first k characters of ransom, inventory equals the original magazine counts minus the counts in that demand prefix, with no negative entries. If the next character is out of stock, the complete demand cannot be met. If every character is successfully consumed, the required supply has been identified for every character, proving construction possible. Leftover inventory does not affect the answer."
+        ]
+      },
+      {
+        "heading": "Implementation and optimization",
+        "paragraphs": [
+          "A length check can first reject demand larger than total inventory, but sufficient length does not guarantee sufficient copies of each character. dict.get(ch,0) handles missing and exhausted keys uniformly and avoids KeyError. If input is limited to lowercase English letters, a 26-slot array can reduce constant overhead; for general characters, a dictionary is clearer. The program does not modify either input string."
+        ]
+      }
+    ],
+    "code": "def can_construct(ransom, magazine):\n    if len(ransom) > len(magazine):\n        return False\n    counts = {}\n    for ch in magazine:\n        counts[ch] = counts.get(ch, 0) + 1\n    for ch in ransom:\n        if counts.get(ch, 0) == 0:\n            return False\n        counts[ch] -= 1\n    return True\n",
+    "time": "O(m+r) on average, where m and r are the two string lengths.",
+    "space": "O(u), where u is the number of distinct characters in magazine; O(1) for a fixed lowercase-letter domain.",
+    "example": {
+      "input": "ransom='aa', magazine='aab'",
+      "output": "True",
+      "walkthrough": [
+        "Inventory is a:2, b:1.",
+        "After consuming the first a, a:1 remains.",
+        "After the second, a:0 and all demand is satisfied."
+      ]
+    },
+    "pitfalls": [
+      "A single occurrence does not permit repeated use.",
+      "The length check is only a necessary condition.",
+      "Surplus inventory is allowed, unlike an anagram check."
+    ],
+    "tests": [
+      {
+        "expression": "can_construct('aa','aab')",
+        "expected": true
+      },
+      {
+        "expression": "can_construct('aa','ab')",
+        "expected": false
+      },
+      {
+        "expression": "can_construct('','')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "hash-three-sum",
+    "chapter": "哈希表",
+    "title": "15. 3Sum",
+    "problem": "15",
+    "kind": "题解",
+    "summary": "After sorting, fix the first element and use inward-moving pointers to find complementary pairs while skipping duplicate values.",
+    "sections": [
+      {
+        "heading": "Return distinct value combinations",
+        "paragraphs": [
+          "Given an integer array, find all triplets that sum to zero. The three elements must come from distinct indices, but results are deduplicated by their values. For example, repeated zeros contribute only one [0,0,0], provided at least three zeros exist. The answer contains values rather than indices, so sorting a copy preserves the output meaning; the code uses sorted to avoid modifying the input."
+        ]
+      },
+      {
+        "heading": "Fix one value, then use sorted order",
+        "paragraphs": [
+          "After sorting, enumerate the first index i and set left=i+1 and right=n-1. If the three-value sum is below zero, increase the smaller side with left+=1; if above zero, use right-=1. Because the array is sorted, when the sum is too small, keeping left and choosing any smaller right cannot work. Likewise, when the sum is too large, keeping right and choosing a larger left cannot work."
+        ]
+      },
+      {
+        "heading": "Deduplication has two levels",
+        "paragraphs": [
+          "Skip a first value equal to the previous first value to avoid finding the same starting combinations again. On a match, save the triplet, move both pointers once, and then skip equal values on each side to avoid duplicate pairs for the same first element. Do not unconditionally remove all duplicate elements before finding a match: [0,0,0] and [-2,1,1] require repeated values from different positions."
+        ]
+      },
+      {
+        "heading": "Correctness and Python space usage",
+        "paragraphs": [
+          "i<left<right guarantees distinct indices. Each pointer movement excludes an impossible range of pairs, while equal-value pairs after a match would only repeat the same value answer, so skipping them loses no new combinations. When nums[i]>0, every later value is nonnegative and the first value is positive, allowing early termination. The sorted copy and Python sorting workspace use O(n); total auxiliary space cannot be described as O(1)."
+        ]
+      }
+    ],
+    "code": "def three_sum(nums):\n    a = sorted(nums)\n    out = []\n    for i in range(len(a) - 2):\n        if i > 0 and a[i] == a[i - 1]:\n            continue\n        if a[i] > 0:\n            break\n        left, right = i + 1, len(a) - 1\n        while left < right:\n            total = a[i] + a[left] + a[right]\n            if total < 0:\n                left += 1\n            elif total > 0:\n                right -= 1\n            else:\n                out.append([a[i], a[left], a[right]])\n                left += 1\n                right -= 1\n                while left < right and a[left] == a[left - 1]:\n                    left += 1\n                while left < right and a[right] == a[right + 1]:\n                    right -= 1\n    return out\n",
+    "time": "O(n log n) for sorting and O(n²) for scanning, for O(n²) total.",
+    "space": "O(n) auxiliary space and O(R) for the result, where R is the number of returned triplets.",
+    "example": {
+      "input": "[-1,0,1,2,-1,-4]",
+      "output": "[[-1,-1,2],[-1,0,1]]",
+      "walkthrough": [
+        "Sorting gives [-4,-1,-1,0,1,2].",
+        "First value -4 has no solution; first value -1 finds pairs (-1,2) and (0,1).",
+        "The next first value is also -1, so it is skipped."
+      ]
+    },
+    "pitfalls": [
+      "Results are deduplicated by values, rather than counting index combinations.",
+      "Repeated values can form valid answers, so do not globally deduplicate the input.",
+      "After a match, skip equal values on both sides."
+    ],
+    "tests": [
+      {
+        "expression": "three_sum([-1,0,1,2,-1,-4])",
+        "expected": [
+          [
+            -1,
+            -1,
+            2
+          ],
+          [
+            -1,
+            0,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "three_sum([0,0,0,0])",
+        "expected": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "expression": "three_sum([-2,1,1])",
+        "expected": [
+          [
+            -2,
+            1,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hash-four-sum",
+    "chapter": "哈希表",
+    "title": "18. 4Sum",
+    "problem": "18",
+    "kind": "题解",
+    "summary": "Fix the first two positions and use two pointers for the rest, pruning with sorted bounds and deduplicating at each level.",
+    "sections": [
+      {
+        "heading": "How this differs from counting across four arrays",
+        "paragraphs": [
+          "Choose four distinct indices from a single array and return every distinct value quadruplet whose sum equals target. Repeated index combinations are not counted, so [2,2,2,2,2] with target=8 returns only one quadruplet. Do not turn the input into a set first, since four positions may contain the same value. Fewer than four input elements naturally produce no result."
+        ]
+      },
+      {
+        "heading": "Extend the 3Sum approach",
+        "paragraphs": [
+          "After sorting, enumerate i and then j>i. Search for the remaining two positions with left=j+1 and right=n-1. If the sum is below target, advance the left pointer; if above, retreat the right pointer. On a match, add the quadruplet and move both endpoints. Each level's position bounds ensure i<j<left<right, with no separate index-conflict checks needed."
+        ]
+      },
+      {
+        "heading": "Deduplication and bound-based pruning",
+        "paragraphs": [
+          "Skip i if its value equals the previous i value. Compare j only with the previous j after the current i, using j>i+1. If the fixed first value plus its three smallest successors already exceeds target, stop the outer loop. If that value plus the three largest values is still below target, skip it. At the second level, apply analogous minimum and maximum feasible-pair bounds. Every pruning rule follows from rigorous lower and upper bounds supplied by sorted order."
+        ]
+      },
+      {
+        "heading": "Implementation reliability",
+        "paragraphs": [
+          "Do not copy 3Sum's rule of stopping when the first value becomes positive: target need not be zero, and positive quadruplets can be valid. Python integers accommodate large sums; fixed-width integer languages must consider overflow. Pruning reduces actual comparisons but does not change the worst-case O(n³) complexity. The sorted copy and workspace use O(n), while output space depends on the actual number of quadruplets."
+        ]
+      }
+    ],
+    "code": "def four_sum(nums, target):\n    a = sorted(nums)\n    n = len(a)\n    out = []\n    for i in range(n - 3):\n        if i > 0 and a[i] == a[i - 1]:\n            continue\n        if a[i] + a[i+1] + a[i+2] + a[i+3] > target:\n            break\n        if a[i] + a[n-3] + a[n-2] + a[n-1] < target:\n            continue\n        for j in range(i + 1, n - 2):\n            if j > i + 1 and a[j] == a[j - 1]:\n                continue\n            if a[i] + a[j] + a[j+1] + a[j+2] > target:\n                break\n            if a[i] + a[j] + a[n-2] + a[n-1] < target:\n                continue\n            left, right = j + 1, n - 1\n            while left < right:\n                total = a[i] + a[j] + a[left] + a[right]\n                if total < target:\n                    left += 1\n                elif total > target:\n                    right -= 1\n                else:\n                    out.append([a[i], a[j], a[left], a[right]])\n                    left += 1\n                    right -= 1\n                    while left < right and a[left] == a[left - 1]:\n                        left += 1\n                    while left < right and a[right] == a[right + 1]:\n                        right -= 1\n    return out\n",
+    "time": "O(n³) in the worst case; the O(n log n) sorting cost is dominated by the main term.",
+    "space": "O(n) auxiliary space and O(R) output space, where R is the number of returned quadruplets.",
+    "example": {
+      "input": "nums=[1,0,-1,0,-2,2], target=0",
+      "output": "[[-2,-1,1,2],[-2,0,0,2],[-1,0,0,1]]",
+      "walkthrough": [
+        "Sorting gives [-2,-1,0,0,1,2].",
+        "Fixing -2 finds (-1,1,2) and (0,0,2).",
+        "Fixing -1 finds (0,0,1); duplicate first and second values are skipped."
+      ]
+    },
+    "pitfalls": [
+      "The second-level duplicate check is restricted to j>i+1.",
+      "The target need not be zero, so a positive first element alone is not a pruning condition.",
+      "Do not remove duplicate input values in advance with a set."
+    ],
+    "tests": [
+      {
+        "expression": "four_sum([1,0,-1,0,-2,2],0)",
+        "expected": [
+          [
+            -2,
+            -1,
+            1,
+            2
+          ],
+          [
+            -2,
+            0,
+            0,
+            2
+          ],
+          [
+            -1,
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "four_sum([2,2,2,2,2],8)",
+        "expected": [
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "expression": "four_sum([],0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-recap",
+    "chapter": "哈希表",
+    "title": "Hash Table Recap: Counts, Complements, and Deduplication",
+    "problem": "",
+    "kind": "总结",
+    "summary": "First distinguish whether the output asks about existence, positions, combination counts, or distinct value combinations.",
+    "sections": [
+      {
+        "heading": "Different problems need different amounts of information",
+        "paragraphs": [
+          "Intersection needs only a set; anagrams and ransom notes need counts; Two Sum also needs indices. Common characters use the minimum count across words, while a ransom note needs only inventory at least as large as demand. The fields stored in a structure determine what it can answer later. Once a set discards information, it cannot be recovered."
+        ]
+      },
+      {
+        "heading": "Two ways to use complements",
+        "paragraphs": [
+          "Two Sum looks up previously seen complements as it reads, ensuring distinct positions. Counting across four arrays first builds a complete pair-sum table, then matches combinations from the other side; positions from different arrays are independent by construction. The latter must retain sum frequencies because repeated sums represent additional valid index combinations."
+        ]
+      },
+      {
+        "heading": "Separate counting from enumeration",
+        "paragraphs": [
+          "Problem 454 counts index combinations, while problems 15 and 18 return distinct value combinations. The latter use sorted two-pointer traversal to make the levels explicit and skip duplicates locally. Removing duplicate input elements directly is not a valid substitute. Being organized under a hash-table chapter does not mean every problem must use a hash table."
+        ]
+      },
+      {
+        "heading": "State complexity accurately",
+        "paragraphs": [
+          "Hash operations are usually constant time on average. Sorting output, creating copies, the key domain of Counter, and the result itself all affect cost. Define n, u, and R before giving complexity. The code below finds the first element occurring once using a frequency table, illustrating how counting all occurrences and then querying in original order suits tasks that need global information while preserving order."
+        ]
+      }
+    ],
+    "code": "def first_unique(values):\n    counts = {}\n    for value in values:\n        counts[value] = counts.get(value, 0) + 1\n    for value in values:\n        if counts[value] == 1:\n            return value\n    return None\n",
+    "time": "O(n) on average.",
+    "space": "O(u), where u is the number of distinct values.",
+    "example": {
+      "input": "[4,2,4,3,2]",
+      "output": "3",
+      "walkthrough": [
+        "First count 4:2, 2:2, 3:1.",
+        "Check in input order: 4 and 2 are not unique.",
+        "The first value with frequency 1 is 3."
+      ]
+    },
+    "pitfalls": [
+      "Do not claim an element is unique before all global information is available.",
+      "Include copying, sorting, and output in the complexity."
+    ],
+    "tests": [
+      {
+        "expression": "first_unique([4,2,4,3,2])",
+        "expected": 3
+      },
+      {
+        "expression": "first_unique([1,1])",
+        "expected": null
+      }
+    ]
+  }
+]

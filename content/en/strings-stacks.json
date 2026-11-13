@@ -1,0 +1,1666 @@
+[
+  {
+    "id": "string-344",
+    "chapter": "字符串",
+    "title": "344. Reverse String",
+    "problem": "344",
+    "kind": "题解",
+    "summary": "Opposing pointers swap the two end characters each time, reversing the original array.",
+    "sections": [
+      {
+        "heading": "The task and the in-place requirement",
+        "paragraphs": [
+          "The input is a mutable list of characters, not a Python str. The task requires changing this very list, so the caller must see the reversed result through its reference to the original object. Returning a slice is easy, but creates a new list and does not demonstrate an in-place algorithm. Empty lists and lists containing just one character require no swaps."
+        ]
+      },
+      {
+        "heading": "The swap invariant",
+        "paragraphs": [
+          "Let left and right point to the two ends of the unprocessed interval. At the start of each iteration, everything to the left of left and to the right of right already matches the final answer. A character at the left end belongs in the symmetric position at the right end, and vice versa, so one swap fixes two positions at once."
+        ]
+      },
+      {
+        "heading": "Termination and correctness",
+        "paragraphs": [
+          "After a swap, increment left and decrement right, strictly shrinking the unprocessed interval. Continue while left is less than right. If they meet, the middle character stays in its original position after reversal; if they cross, all positions have been fixed. Each character participates in at most one swap, so neither an extra array nor recursion is necessary."
+        ]
+      },
+      {
+        "heading": "Python implementation details",
+        "paragraphs": [
+          "The simultaneous assignment s[left], s[right] = s[right], s[left] evaluates the right side first, so neither original character is lost. The function returns None to express its side effect clearly. The additional reversed_copy helper below copies the input before calling the in-place function for demonstration and verification; its copy is not part of the algorithm's space cost.",
+          "The reversal side effect also needs verification: save a reference to the list, call the function, and confirm that the contents of the same list object changed and the function returned None. Calling it twice should restore the original sequence, a useful property test for reversal. Checking only a newly returned list cannot detect an implementation that ignores the in-place requirement."
+        ]
+      }
+    ],
+    "code": "def reverse_string(s):\n    left, right = 0, len(s) - 1\n    while left < right:\n        s[left], s[right] = s[right], s[left]\n        left += 1\n        right -= 1\n\ndef reversed_copy(s):\n    result = list(s)\n    reverse_string(result)\n    return result",
+    "time": "O(n), where n is the number of characters.",
+    "space": "O(1) for the in-place function; O(n) for the test wrapper that copies the list.",
+    "example": {
+      "input": "[\"h\",\"e\",\"l\",\"l\",\"o\"]",
+      "output": "[\"o\",\"l\",\"l\",\"e\",\"h\"]",
+      "walkthrough": [
+        "Swap h and o to get o e l l h.",
+        "Swap e and l to get o l l e h.",
+        "The pointers meet at the middle l, and the process ends."
+      ]
+    },
+    "pitfalls": [
+      "str is immutable; first establish the input type.",
+      "Use left < right as the loop condition; the middle character needs no processing."
+    ],
+    "tests": [
+      {
+        "expression": "reversed_copy(\"hello\")",
+        "expected": [
+          "o",
+          "l",
+          "l",
+          "e",
+          "h"
+        ]
+      },
+      {
+        "expression": "reversed_copy(\"\")",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "string-541",
+    "chapter": "字符串",
+    "title": "541. Reverse String II",
+    "problem": "541",
+    "kind": "题解",
+    "summary": "Treat each block of 2k characters as a group and reverse only its first k characters.",
+    "sections": [
+      {
+        "heading": "Block rules",
+        "paragraphs": [
+          "Starting from the beginning of the string, divide characters into groups of 2k. Reverse the first k characters in each group and leave the next k in order. If fewer than k characters remain, reverse them all; if between k and 2k remain, reverse only the first k. Assume k is a positive integer, since grouping otherwise has no meaningful definition."
+        ]
+      },
+      {
+        "heading": "One boundary rule",
+        "paragraphs": [
+          "There is no need for separate branches for the three possible final-block cases. For a group beginning at start, always set the right endpoint of the reversal to min(start + k, n) - 1. A final group shorter than k is clipped by the boundary, while a group with at least k characters naturally reverses only its first k. Advancing group starts in steps of 2k ensures that each second half remains untouched."
+        ]
+      },
+      {
+        "heading": "Correctness and the process",
+        "paragraphs": [
+          "The groups do not overlap. Swapping inward within a group's first half reverses precisely that segment and leaves all other characters untouched. Visiting every group therefore satisfies the requirement segment by segment. For abcdefg with k=2, reverse ab in the first group, then reverse ef in the second group starting at e. The final g stays in place, giving bacdfeg."
+        ]
+      },
+      {
+        "heading": "Handling Python strings",
+        "paragraphs": [
+          "Since str is immutable, first create a character list with list(s), perform swaps on that list, and finally join it into a new string. Only the swapping process is in place; the complete function still needs O(n) space to return a string. Explicitly reject k <= 0 with an exception to avoid a zero range step or meaningless grouping.",
+          "Tests should cover n<k, k<=n<2k, and n>2k to verify all three final-block ranges. When k=1, each reversal handles just one character, so the result equals the input; this checks whether the implementation incorrectly reverses the second half of a group. A length of exactly 2k should also reverse only the first k characters."
+        ]
+      }
+    ],
+    "code": "def reverse_blocks(s, k):\n    if k <= 0:\n        raise ValueError(\"k must be positive\")\n    chars = list(s)\n    for start in range(0, len(chars), 2 * k):\n        left, right = start, min(start + k, len(chars)) - 1\n        while left < right:\n            chars[left], chars[right] = chars[right], chars[left]\n            left += 1\n            right -= 1\n    return \"\".join(chars)",
+    "time": "O(n); each character is swapped at most once.",
+    "space": "O(n) for the character list and returned string.",
+    "example": {
+      "input": "s=\"abcdefg\", k=2",
+      "output": "\"bacdfeg\"",
+      "walkthrough": [
+        "First group abcd: ab becomes ba.",
+        "Second group efg: ef becomes fe, while g stays unchanged."
+      ]
+    },
+    "pitfalls": [
+      "The step is 2k; do not reverse every block of k characters.",
+      "Clip the final right endpoint to the end of the string."
+    ],
+    "tests": [
+      {
+        "expression": "reverse_blocks(\"abcdefg\", 2)",
+        "expected": "bacdfeg"
+      },
+      {
+        "expression": "reverse_blocks(\"abc\", 5)",
+        "expected": "cba"
+      }
+    ]
+  },
+  {
+    "id": "string-replace-digits",
+    "chapter": "字符串",
+    "title": "Replace Digits: Expand Each Digit Character to number",
+    "problem": "",
+    "kind": "题解",
+    "summary": "Compute the final length first, then fill backward so expanded content cannot overwrite unread characters.",
+    "sections": [
+      {
+        "heading": "Input and output contract",
+        "paragraphs": [
+          "Given a string containing English letters and ASCII digits, replace each digit character with the word number while preserving the order of the letters. Each digit expands from one character to six, so the final length is the original length plus five times the digit count. The check deliberately recognizes only 0 through 9, avoiding isdigit, which also recognizes other Unicode digits."
+        ]
+      },
+      {
+        "heading": "Why fill backward",
+        "paragraphs": [
+          "Writing forward within an already expanded array can let the six characters replacing the first digit overwrite later letters that have not yet been read. Starting at the end keeps the write pointer at or to the right of the read pointer; the extra space needed for expansion lies beyond the original data. An ordinary character occupies one output position, while a digit occupies six."
+        ]
+      },
+      {
+        "heading": "Loop invariant",
+        "paragraphs": [
+          "At the beginning of each iteration, the portion to the right of write is already the correct final suffix, while read and the positions to its left still contain the original characters awaiting processing. Copy a letter to write. For a digit, write number backward, then move read one position left. Writing the replacement word backward ensures that its final forward order remains n, u, m, b, e, r."
+        ]
+      },
+      {
+        "heading": "Python and space usage",
+        "paragraphs": [
+          "A Python str cannot be expanded and modified, so create a character list and append enough empty slots first. The code demonstrates backward filling and does not claim that the whole function uses constant space. Count digits with a generator, then join the output. Collecting fragments character by character would also solve this task, but backward writing better demonstrates safe array expansion.",
+          "Whether the original digit was 0 or 9 makes no difference: all digits have the same replacement. An all-digit input grows to six times its original length; an all-letter input keeps its length. These extremes check that the space calculation is sufficient and the read and write pointers stop at the right positions."
+        ]
+      }
+    ],
+    "code": "def replace_digits(s):\n    extra = 5 * sum(\"0\" <= c <= \"9\" for c in s)\n    chars = list(s) + [\"\"] * extra\n    read, write = len(s) - 1, len(chars) - 1\n    while read >= 0:\n        c = chars[read]\n        if \"0\" <= c <= \"9\":\n            for replacement in reversed(\"number\"):\n                chars[write] = replacement\n                write -= 1\n        else:\n            chars[write] = c\n            write -= 1\n        read -= 1\n    return \"\".join(chars)",
+    "time": "O(n), where n is the input length; each digit writes at most six characters.",
+    "space": "O(n) for the expanded list and output string.",
+    "example": {
+      "input": "\"a1b2\"",
+      "output": "\"anumberbnumber\"",
+      "walkthrough": [
+        "After expansion, the total length is 14.",
+        "Expand the final 2 first, move b, expand 1, and finally move a."
+      ]
+    },
+    "pitfalls": [
+      "Fill the replacement word from its end toward its beginning as well.",
+      "Do not treat the empty slots in the list as original characters awaiting processing."
+    ],
+    "tests": [
+      {
+        "expression": "replace_digits(\"a1b2\")",
+        "expected": "anumberbnumber"
+      },
+      {
+        "expression": "replace_digits(\"0\")",
+        "expected": "number"
+      },
+      {
+        "expression": "replace_digits(\"\")",
+        "expected": ""
+      }
+    ]
+  },
+  {
+    "id": "string-151",
+    "chapter": "字符串",
+    "title": "151. Reverse Words in a String",
+    "problem": "151",
+    "kind": "题解",
+    "summary": "Split into words and join them in reverse order, removing extra spaces at the same time.",
+    "sections": [
+      {
+        "heading": "The task and its separators",
+        "paragraphs": [
+          "Reverse the order of words, rather than the characters within each word. The result must have exactly one space between words and no leading or trailing spaces. The task uses ordinary spaces as separators. The implementation below uses Python split without an argument, which also treats tabs, newlines, and other whitespace as separators; this is an explicit extension of the behavior."
+        ]
+      },
+      {
+        "heading": "Choose the unit of processing first",
+        "paragraphs": [
+          "Reversing every character changes word order but also reverses the characters within each word, requiring another reversal of each word. A more direct Python expression is to extract the words first and then reverse the word list. Spaces define boundaries and do not need to survive as output elements, naturally avoiding leading, trailing, and repeated spaces."
+        ]
+      },
+      {
+        "heading": "Construction and correctness",
+        "paragraphs": [
+          "split produces nonempty words w0 through w(m-1) in their original order. After reversal, position i contains the original w(m-1-i), exactly reversing word order. Each word string remains unchanged, preserving letter order. join inserts one space between adjacent words and guarantees the output format without later cleanup."
+        ]
+      },
+      {
+        "heading": "Implementation and tradeoffs",
+        "paragraphs": [
+          "Using words.reverse() rearranges the list itself and avoids the additional list created by words[::-1], but word extraction and result construction still require O(n) space. If an interview requires in-place operations on a mutable character array, instead compress spaces, reverse the entire array, and reverse each word. For an immutable str, this implementation is clear and runs in linear time.",
+          "With a single-word input, the result only removes surrounding whitespace; the word's characters must stay unchanged. With whitespace-only input, split returns an empty list and join produces an empty string. There is no need to add a space after every word and then call strip: joining directly already expresses the required separator format."
+        ]
+      }
+    ],
+    "code": "def reverse_words(s):\n    words = s.split()\n    words.reverse()\n    return \" \".join(words)",
+    "time": "O(n), where n is the input character count.",
+    "space": "O(n) for the split words and output string.",
+    "example": {
+      "input": "\"  the sky  is blue  \"",
+      "output": " \"blue is sky the\" ",
+      "walkthrough": [
+        "Extract the four words the, sky, is, blue.",
+        "Reverse them to blue, is, sky, the, and join them with a single space."
+      ]
+    },
+    "pitfalls": [
+      "split(' ') preserves empty strings produced by consecutive spaces.",
+      "Reversing word order is different from reversing all string characters."
+    ],
+    "tests": [
+      {
+        "expression": "reverse_words(\"  the sky  is blue  \")",
+        "expected": "blue is sky the"
+      },
+      {
+        "expression": "reverse_words(\"   \")",
+        "expected": ""
+      }
+    ]
+  },
+  {
+    "id": "string-right-rotate",
+    "chapter": "字符串",
+    "title": "Rotate a String Right with Three Reversals",
+    "problem": "",
+    "kind": "题解",
+    "summary": "Move the last k characters to the front by reversing the whole string and then reversing its two segments.",
+    "sections": [
+      {
+        "heading": "Defining rotation",
+        "paragraphs": [
+          "A right rotation by k moves the last k characters to the front in their original order and preserves the order of the other characters. If k exceeds the length, reduce it modulo the length, since rotating right by n restores the original string. The contract below requires nonnegative k and returns immediately for an empty string to avoid modulo by zero. Rotation differs from reversal: it preserves the relative order inside each contiguous block."
+        ]
+      },
+      {
+        "heading": "Deriving the block transformation",
+        "paragraphs": [
+          "Write the original string as A+B, where B has length k. The goal is B+A. Reversing the whole string produces reverse(B)+reverse(A). Reversing the first k characters restores B, and reversing the rest restores A, giving B+A. This argument depends only on the two segment boundaries, not on the actual string contents."
+        ]
+      },
+      {
+        "heading": "The process and boundaries",
+        "paragraphs": [
+          "To rotate abcdefg right by two positions, first obtain gfedcba, reverse the first two characters to obtain fgedcba, and reverse the last five to obtain fgabcde. When k is zero, the first segment is empty, and reversing the whole string followed by reversing the entire remaining segment restores the input. All intervals use inclusive endpoint indices to avoid confusing lengths with right endpoints."
+        ]
+      },
+      {
+        "heading": "Implementing it in Python",
+        "paragraphs": [
+          "A local helper reverses a specified interval of the character list and leaves elements outside it unchanged. Although the swaps use constant auxiliary space, converting str to list and applying join still require linear space. If practicing three reversals is unnecessary, s[-k:]+s[:-k] can also express rotation, but the slicing behavior at k=0 must be understood separately.",
+          "If the input is already a mutable character array, the three reversals can operate directly on it, and auxiliary space really is O(1). The helper should allow left to exceed right, representing an empty interval. Consistent inclusive indices reduce off-by-one errors between a length and a right boundary."
+        ]
+      }
+    ],
+    "code": "def rotate_right(s, k):\n    if k < 0:\n        raise ValueError(\"k must be nonnegative\")\n    if not s:\n        return s\n    k %= len(s)\n    chars = list(s)\n    def reverse(left, right):\n        while left < right:\n            chars[left], chars[right] = chars[right], chars[left]\n            left += 1\n            right -= 1\n    reverse(0, len(chars) - 1)\n    reverse(0, k - 1)\n    reverse(k, len(chars) - 1)\n    return \"\".join(chars)",
+    "time": "O(n); the three reversals process O(n) positions in total.",
+    "space": "O(n) for the character list and output; O(1) for the reversal helper.",
+    "example": {
+      "input": "\"abcdefg\", k=2",
+      "output": "\"fgabcde\"",
+      "walkthrough": [
+        "Reverse the whole string: gfedcba.",
+        "Restore the first two characters: fgedcba.",
+        "Restore the last five characters: fgabcde."
+      ]
+    },
+    "pitfalls": [
+      "Handle the empty string before performing k %= n.",
+      "The split point for right rotation is k; do not reuse the split point for left rotation."
+    ],
+    "tests": [
+      {
+        "expression": "rotate_right(\"abcdefg\", 2)",
+        "expected": "fgabcde"
+      },
+      {
+        "expression": "rotate_right(\"abc\", 6)",
+        "expected": "abc"
+      },
+      {
+        "expression": "rotate_right(\"\", 4)",
+        "expected": ""
+      }
+    ]
+  },
+  {
+    "id": "string-kmp-28",
+    "chapter": "字符串",
+    "title": "The KMP Prefix Table and 28. Find the Index of the First Occurrence in a String",
+    "problem": "28",
+    "kind": "题解",
+    "summary": "A prefix table remembers how much of a matched prefix can survive a mismatch, keeping the text pointer moving forward.",
+    "sections": [
+      {
+        "heading": "The search problem and prefix table",
+        "paragraphs": [
+          "Given text and pattern, return the starting index of the first occurrence of pattern; return -1 if none exists, and 0 for an empty pattern as required. Define pi[i] as the length of the longest equal proper prefix and suffix of pattern[:i+1]. A proper prefix cannot be the entire substring itself, and length zero means there is no reusable part."
+        ]
+      },
+      {
+        "heading": "Why fallback after a mismatch works",
+        "paragraphs": [
+          "Suppose the first j pattern characters have matched, but the current characters differ. If a suffix of the already matched text is also a pattern prefix, it may continue into a match. The longest such length is pi[j-1]. Fall j back to that length without rereading the text. If another mismatch occurs, keep following shorter borders until the characters match or j becomes zero."
+        ]
+      },
+      {
+        "heading": "The prefix-table recurrence",
+        "paragraphs": [
+          "When building pi, j is the longest border length at the preceding position. If the new character can extend that border, increment j. Otherwise the longest border of the border itself becomes the next candidate. The table for ababaca is 0, 0, 1, 2, 3, 0, 1. At c, candidates of lengths 3 and 1 both fail, so the state finally falls to zero."
+        ]
+      },
+      {
+        "heading": "Searching and linear complexity",
+        "paragraphs": [
+          "The search loop scans the text, with j recording the matched pattern-prefix length. Increment it on a match. Once it reaches the pattern length, the starting index is the current index minus the length plus one. Although a while loop performs fallbacks, each fallback decreases j, and j increases at most as many times as there are text characters, so the total work is linear. This implementation consistently uses prefix lengths and does not mix them with an index-based next table.",
+          "Building the prefix table can itself be understood as matching within the pattern. After a mismatch, j must strictly decrease, which requires pi[j-1], not pi[j]; the latter may fail to reduce the state and cause an infinite loop. During searching, only the pattern state falls back; the text index always moves forward."
+        ]
+      }
+    ],
+    "code": "def prefix_table(pattern):\n    pi = [0] * len(pattern)\n    j = 0\n    for i in range(1, len(pattern)):\n        while j and pattern[i] != pattern[j]:\n            j = pi[j - 1]\n        if pattern[i] == pattern[j]:\n            j += 1\n        pi[i] = j\n    return pi\n\ndef find_substring(text, pattern):\n    if not pattern:\n        return 0\n    pi = prefix_table(pattern)\n    j = 0\n    for i, c in enumerate(text):\n        while j and c != pattern[j]:\n            j = pi[j - 1]\n        if c == pattern[j]:\n            j += 1\n        if j == len(pattern):\n            return i - len(pattern) + 1\n    return -1",
+    "time": "O(n+m), where n is the text length and m is the pattern length.",
+    "space": "O(m) for the pattern prefix table.",
+    "example": {
+      "input": "text=\"ababcababa\", pattern=\"ababa\"",
+      "output": "5",
+      "walkthrough": [
+        "The first four characters match abab. At c, a mismatch causes fallbacks to lengths 2 and then 0.",
+        "ababa matches starting at index 5. Its ending index is 9, giving starting index 5."
+      ]
+    },
+    "pitfalls": [
+      "pi stores lengths, so fallback uses pi[j-1].",
+      "Return immediately on a full match to avoid accessing pattern[m] in the next iteration.",
+      "Handle an empty pattern before indexing pattern[0]."
+    ],
+    "tests": [
+      {
+        "expression": "prefix_table(\"ababaca\")",
+        "expected": [
+          0,
+          0,
+          1,
+          2,
+          3,
+          0,
+          1
+        ]
+      },
+      {
+        "expression": "find_substring(\"ababcababa\", \"ababa\")",
+        "expected": 5
+      },
+      {
+        "expression": "find_substring(\"abc\", \"\")",
+        "expected": 0
+      },
+      {
+        "expression": "find_substring(\"aaaa\", \"b\")",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "string-459",
+    "chapter": "字符串",
+    "title": "459. Repeated Substring Pattern",
+    "problem": "459",
+    "kind": "题解",
+    "summary": "The longest equal prefix and suffix gives a candidate period; divisibility is required to establish complete repetition.",
+    "sections": [
+      {
+        "heading": "Complete repetition is required",
+        "paragraphs": [
+          "Determine whether a nonempty string consists of at least two repetitions of a shorter nonempty string. A periodic resemblance is insufficient: the string must end exactly at a block boundary. The implementation also accepts an empty string but returns False because it cannot be formed by repeating a nonempty block. A single-character string likewise returns False."
+        ]
+      },
+      {
+        "heading": "Deriving a period from a border",
+        "paragraphs": [
+          "For a string of length n whose longest equal proper prefix and suffix has length L, the candidate shortest period is p=n-L. The equal border means that s[i]=s[i-p] for every i>=p, so characters repeat at intervals of p. The longest border corresponds to the shortest candidate period; the final prefix-table entry is L."
+        ]
+      },
+      {
+        "heading": "Why divisibility still matters",
+        "paragraphs": [
+          "Only when L>0 and n is divisible by p can the whole string be partitioned into at least two identical complete blocks of length p. For ababa, L=3 and p=2. Although its character period is ab, length 5 is not divisible by 2, leaving a partial final block, so the answer is False. In contrast, ababab splits exactly into three copies of ab."
+        ]
+      },
+      {
+        "heading": "Implementation and verification",
+        "paragraphs": [
+          "Build a length-based prefix table using the same border-fallback rules as KMP. Check for an empty string before reading pi[-1] to avoid an out-of-range access. Another common test searches for s inside s+s after removing its first and last characters. The prefix table is chosen here to explain where the period comes from and why divisibility is needed, while giving an explicit linear-time guarantee.",
+          "When all characters are identical, L=n-1 and the minimum period is 1, so strings of length at least two qualify. Without any border, p=n, corresponding only to one copy of the entire string, which must be rejected. The border reveals a local character period; divisibility confirms that the period covers the complete input."
+        ]
+      }
+    ],
+    "code": "def repeated_substring(s):\n    if not s:\n        return False\n    pi = [0] * len(s)\n    j = 0\n    for i in range(1, len(s)):\n        while j and s[i] != s[j]:\n            j = pi[j - 1]\n        if s[i] == s[j]:\n            j += 1\n        pi[i] = j\n    border = pi[-1]\n    period = len(s) - border\n    return border > 0 and len(s) % period == 0",
+    "time": "O(n), where n is the string length.",
+    "space": "O(n) for the prefix table.",
+    "example": {
+      "input": "\"ababab\"",
+      "output": "True",
+      "walkthrough": [
+        "The longest equal prefix and suffix is abab, of length 4.",
+        "The candidate period is 6-4=2. Since 6 is divisible by 2, the repeated block is ab."
+      ]
+    },
+    "pitfalls": [
+      "An equal prefix and suffix alone does not establish complete repetition.",
+      "At least two repetitions are required, which means border > 0."
+    ],
+    "tests": [
+      {
+        "expression": "repeated_substring(\"ababab\")",
+        "expected": true
+      },
+      {
+        "expression": "repeated_substring(\"ababa\")",
+        "expected": false
+      },
+      {
+        "expression": "repeated_substring(\"a\")",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "string-summary",
+    "chapter": "字符串",
+    "title": "String Summary: Transformations, Boundaries, and Matching",
+    "problem": "",
+    "kind": "总结",
+    "summary": "First decide whether to process characters, words, or pattern blocks, then choose two pointers, segment reversals, or a prefix table.",
+    "sections": [
+      {
+        "heading": "The input type determines the implementation",
+        "paragraphs": [
+          "A character list permits direct swaps, while str requires a new result. The constant-space claim for 344 concerns the list itself. For 541, rotation, and digit expansion, converting to a list takes linear space even if swaps inside the algorithm are in place. Complexity analysis should account for the actual language containers, not just the core loop."
+        ]
+      },
+      {
+        "heading": "Common clues in transformation problems",
+        "paragraphs": [
+          "Reversal pairs symmetric positions. Rotation first divides the string into two blocks. Word reversal first determines which boundaries should remain. Digit expansion increases the written length, so write backward to avoid overwriting input. Filtering characters decreases the length and typically compresses forward. Read/write dependencies determine the direction of the write pointer."
+        ]
+      },
+      {
+        "heading": "Common clues in matching problems",
+        "paragraphs": [
+          "In KMP, j is the length already matched and pi records reusable border lengths. Substring search uses borders to avoid rereading text. Repeated-substring detection uses a border to derive a period and then checks divisibility. Understanding the meaning of a border matters more than memorizing a particular indexing convention for next."
+        ]
+      },
+      {
+        "heading": "Choosing and checking an approach",
+        "paragraphs": [
+          "First check boundaries with an empty string, a single character, all identical characters, and an incomplete final block. KMP's mismatch reuse becomes valuable when naive matching would repeatedly retry substantial portions. Built-in split and join express practical results clearly; handwritten two pointers help analyze invariants and space constraints. The two approaches can cross-check each other."
+        ]
+      }
+    ],
+    "code": "def reverse_words_reference(s):\n    return \" \".join(reversed(s.split()))",
+    "time": "O(n); the example template processes n characters.",
+    "space": "O(n) for tokenized words and output.",
+    "example": {
+      "input": "\"one  two three\"",
+      "output": "\"three two one\"",
+      "walkthrough": [
+        "Extract words as the processing units, then join them in reverse order."
+      ]
+    },
+    "pitfalls": [
+      "Do not treat a Python str as a mutable array.",
+      "Do not confuse a prefix length with the index of its last character."
+    ],
+    "tests": [
+      {
+        "expression": "reverse_words_reference(\"one  two three\")",
+        "expected": "three two one"
+      }
+    ]
+  },
+  {
+    "id": "two-pointers-theory",
+    "chapter": "双指针法",
+    "title": "Two-Pointer Basics: Read/Write, Opposing, and Fast/Slow Pointers",
+    "problem": "",
+    "kind": "理论",
+    "summary": "The movement rules for two positions must follow from an invariant, rather than merely using two indices at once.",
+    "sections": [
+      {
+        "heading": "Read/write pointers: compression and partitioning",
+        "paragraphs": [
+          "read scans every original element, while write marks the next position to keep. At the start of each iteration, [0,write) is the confirmed result, and the unscanned input begins at read. When only deleting elements, write never exceeds read, so writes cannot damage future input. After returning the valid length, the array's remaining tail is not part of the answer."
+        ]
+      },
+      {
+        "heading": "Opposing pointers: shrinking the interval",
+        "paragraphs": [
+          "left and right surround an unresolved interval. In reversal, both move inward together. In sorted two sum, move only left when the sum is too small and only right when it is too large. These eliminations depend on monotonicity; movement rules for a sorted array cannot be directly applied to an unsorted array."
+        ]
+      },
+      {
+        "heading": "Fast/slow pointers: different speeds",
+        "paragraphs": [
+          "In a linked list, slow advances one step and fast advances two, commonly to locate a midpoint or detect a cycle. In arrays, fast and slow may instead represent scanning and advancing the result, but the speed difference is not the central issue. Explain what position each pointer represents, why a particular movement cannot miss an answer, and when the process stops."
+        ]
+      },
+      {
+        "heading": "Language and interface considerations",
+        "paragraphs": [
+          "A list-compaction function can modify its input and return the valid length. String compaction needs conversion to a list; movement in a linked list changes node references. The following template demonstrates stable compaction after removing a specified value, preserving the relative order of retained elements. Later array, string, and linked-list solutions discuss opposing-pointer decisions, interval boundaries, and node connections respectively."
+        ]
+      }
+    ],
+    "code": "def compact_values(nums, removed):\n    write = 0\n    for read in range(len(nums)):\n        if nums[read] != removed:\n            nums[write] = nums[read]\n            write += 1\n    return write\n\ndef compact_result(nums, removed):\n    data = list(nums)\n    length = compact_values(data, removed)\n    return data[:length]",
+    "time": "O(n); each original element is read once.",
+    "space": "O(1) for the compaction function; O(n) for the result wrapper.",
+    "example": {
+      "input": "nums=[3,1,3,2], removed=3",
+      "output": "[1,2]",
+      "walkthrough": [
+        "Skip the 3 at read=0.",
+        "Write the 1 at read=1 to position 0, and the 2 at read=3 to position 1."
+      ]
+    },
+    "pitfalls": [
+      "After compaction, read only the valid prefix; the old tail is not the result.",
+      "Movement rules need support from monotonicity or an invariant."
+    ],
+    "tests": [
+      {
+        "expression": "compact_result([3,1,3,2],3)",
+        "expected": [
+          1,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "two-pointers-summary",
+    "chapter": "双指针法",
+    "title": "Two-Pointer Summary: Arrays, Strings, and Linked Lists",
+    "problem": "",
+    "kind": "总结",
+    "summary": "The same two-pointer idea has different boundary, writing, and space costs in different containers.",
+    "sections": [
+      {
+        "heading": "Arrays",
+        "paragraphs": [
+          "Arrays provide constant-time indexed access. Read/write pointers suit stable deletion and deduplication; opposing pointers suit reversal and eliminating candidates using sorted order. The two boundaries of a sliding window are also a form of two pointers, but require additional window state. Using two indices does not by itself imply linear complexity: also prove that each pointer moves in only one direction."
+        ]
+      },
+      {
+        "heading": "Strings",
+        "paragraphs": [
+          "String problems are often the same as array problems, but Python str is immutable. Reversing a character list can be done in place, while returning a new string requires at least output space. Write backward for expansion and replacement, and forward for character deletion. Choose the direction according to whether writes could overwrite unread data. Splitting into words also changes the processing unit."
+        ]
+      },
+      {
+        "heading": "Linked lists",
+        "paragraphs": [
+          "Linked lists have no random indexing; their pointers are node references. Fast/slow pointers locate midpoints and cycles, while pointers a fixed number of nodes apart locate positions counted from the end. Save the successor before changing a connection. A dummy head unifies deletion of the first node and an interior node. Check the existence of both fast and fast.next."
+        ]
+      },
+      {
+        "heading": "Choosing a solution",
+        "paragraphs": [
+          "Write down the meaning of each pointer before the loop condition and movement conditions. If opposing movement requires sorting, include sorting in the time cost. If a string requires list conversion, include that in the space cost. If linked-list output only changes connections, there is no need to copy nodes. Repeated problems across chapters can be connected through these invariants."
+        ]
+      }
+    ],
+    "code": "def sorted_pair_sum(nums, target):\n    left, right = 0, len(nums) - 1\n    while left < right:\n        total = nums[left] + nums[right]\n        if total == target:\n            return [left, right]\n        if total < target:\n            left += 1\n        else:\n            right -= 1\n    return []",
+    "time": "O(n); the template assumes the input is already sorted and excludes sorting costs.",
+    "space": "O(1); only pointers are stored besides the two returned indices.",
+    "example": {
+      "input": "nums=[1,2,4,7], target=6",
+      "output": "[1,2]",
+      "walkthrough": [
+        "1+7 is greater than 6, so move the right pointer left.",
+        "1+4 is less than 6, so move the left pointer right; 2+4 is a match."
+      ]
+    },
+    "pitfalls": [
+      "Do not apply sorted-sum movement rules to an unsorted array.",
+      "Check for null nodes before advancing a linked-list fast pointer by two steps."
+    ],
+    "tests": [
+      {
+        "expression": "sorted_pair_sum([1,2,4,7],6)",
+        "expected": [
+          1,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "stack-queue-theory",
+    "chapter": "栈与队列",
+    "title": "Stack and Queue Basics: Order Is the Constraint",
+    "problem": "",
+    "kind": "理论",
+    "summary": "A stack handles the most recently unfinished task; a queue handles the earliest task to arrive.",
+    "sections": [
+      {
+        "heading": "Stacks: last in, first out",
+        "paragraphs": [
+          "A stack adds and removes at just one end, so the most recently added element is popped first. In bracket matching, the most recently encountered opening bracket must close first. In reverse Polish notation, the two most recently obtained values participate in the next operation. A stack often stores unfinished context, rather than simply a collection of data."
+        ]
+      },
+      {
+        "heading": "Queues: first in, first out",
+        "paragraphs": [
+          "A queue adds at the tail and removes from the head, making it suitable for scheduling by arrival order. In Python, use append and popleft on collections.deque for constant-time operations at either end. list.pop(0) shifts subsequent elements, and repeated removals can degrade to quadratic time."
+        ]
+      },
+      {
+        "heading": "Simulating one container with another",
+        "paragraphs": [
+          "A queue built from two stacks restores first-in, first-out order through two reversals. A stack built from one queue rotates the newest element to the front. In simulation problems, state which operation bears the cost, and distinguish the worst cost of a single operation from the amortized cost over a long sequence."
+        ]
+      },
+      {
+        "heading": "Container choice and state",
+        "paragraphs": [
+          "Python list append and pop suit stacks, while deque suits double-ended queues. A monotonic queue can additionally remove dominated elements from its tail and use indices to identify expired elements. A priority queue removes by priority, unlike an ordinary queue's arrival order. The following template demonstrates only ordinary first-in, first-out order."
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\ndef queue_order(values):\n    queue = deque(values)\n    output = []\n    while queue:\n        output.append(queue.popleft())\n    return output",
+    "time": "O(n); each of n elements is enqueued and dequeued once.",
+    "space": "O(n) for the queue and output.",
+    "example": {
+      "input": "[3,1,2]",
+      "output": "[3,1,2]",
+      "walkthrough": [
+        "Enqueue in the order 3, 1, 2, and dequeue in that same order."
+      ]
+    },
+    "pitfalls": [
+      "list.pop(0) is not a constant-time queue operation.",
+      "Decide the exception or return-value contract before reading an empty container."
+    ],
+    "tests": [
+      {
+        "expression": "queue_order([3,1,2])",
+        "expected": [
+          3,
+          1,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "stack-232",
+    "chapter": "栈与队列",
+    "title": "232. Implement Queue using Stacks",
+    "problem": "232",
+    "kind": "题解",
+    "summary": "An input stack receives new elements; an output stack reverses older elements on demand to produce first-in, first-out order.",
+    "sections": [
+      {
+        "heading": "Interface and state",
+        "paragraphs": [
+          "Implement push, pop, peek, and empty. Only addition, reading, and removal at a stack's top are allowed; the bottom of the input stack cannot be read directly. The contract below raises IndexError for pop or peek on an empty queue. input_stack stores new elements that have not been reversed, while the top of output_stack holds the oldest element in the queue."
+        ]
+      },
+      {
+        "heading": "Why reversing works",
+        "paragraphs": [
+          "Push a, b, c onto the input stack, leaving c on top. Popping each and pushing it onto the output stack produces c, b, a from bottom to top, putting a on top. The next removal returns b, still following queue order. A transfer must move all elements at once; a partial reversal cannot establish the complete order."
+        ]
+      },
+      {
+        "heading": "The deferred-transfer invariant",
+        "paragraphs": [
+          "Transfer from the input stack only when the output stack is empty. A nonempty output stack still contains earlier arrivals. Reversing new elements into it would allow later values to leave first. The logical queue order is the output stack from top to bottom followed by the input stack from bottom to top. push appends only to the latter part and does not disturb the former."
+        ]
+      },
+      {
+        "heading": "Amortization and implementation",
+        "paragraphs": [
+          "A single pop may transfer n elements and therefore take O(n) in the worst case. However, each element enters the input stack once, crosses between stacks once, and leaves the output stack once. The total cost of a sequence is linear, giving O(1) amortized cost per operation. peek may also trigger a transfer but does not remove the front element. empty must inspect both stacks.",
+          "Also test interleaved calls: dequeue an old value, enqueue a new value, then remove the remaining values in order. This reveals incorrect transfers made while the output stack is nonempty. Enqueuing all values and then draining the queue may not cover the important state in which both stacks are nonempty."
+        ]
+      }
+    ],
+    "code": "class MyQueue:\n    def __init__(self):\n        self.input_stack = []\n        self.output_stack = []\n\n    def push(self, x):\n        self.input_stack.append(x)\n\n    def _prepare(self):\n        if not self.output_stack:\n            while self.input_stack:\n                self.output_stack.append(self.input_stack.pop())\n\n    def peek(self):\n        self._prepare()\n        if not self.output_stack:\n            raise IndexError(\"empty queue\")\n        return self.output_stack[-1]\n\n    def pop(self):\n        self._prepare()\n        if not self.output_stack:\n            raise IndexError(\"empty queue\")\n        return self.output_stack.pop()\n\n    def empty(self):\n        return not self.input_stack and not self.output_stack\n\ndef queue_demo():\n    q = MyQueue()\n    q.push(1)\n    q.push(2)\n    first = q.pop()\n    q.push(3)\n    return [first, q.pop(), q.pop(), q.empty()]",
+    "time": "push and empty are O(1); pop and peek are amortized O(1), with O(n) worst-case time for a single call.",
+    "space": "O(n), where n is the number of elements in the queue.",
+    "example": {
+      "input": "push(1), push(2), pop(), push(3), pop(), pop()",
+      "output": "1, 2, 3",
+      "walkthrough": [
+        "The first dequeue transfers 2 and then 1 to the output stack.",
+        "The newly enqueued 3 waits for the 2 in the output stack to leave first."
+      ]
+    },
+    "pitfalls": [
+      "Do not transfer the input stack while the output stack is nonempty.",
+      "empty must check both stacks."
+    ],
+    "tests": [
+      {
+        "expression": "queue_demo()",
+        "expected": [
+          1,
+          2,
+          3,
+          true
+        ]
+      }
+    ]
+  },
+  {
+    "id": "stack-225",
+    "chapter": "栈与队列",
+    "title": "225. Implement Stack using Queues",
+    "problem": "225",
+    "kind": "题解",
+    "summary": "After each enqueue, rotate the older elements so that the newest stack value is at the front.",
+    "sections": [
+      {
+        "heading": "The simulated interface",
+        "paragraphs": [
+          "Implement push, pop, top, and empty with last-in, first-out logical order, while the underlying structure permits only enqueueing at the tail and dequeueing at the head. This approach uses one queue and places the rearrangement work in push. Reading an empty stack raises IndexError, consistent with Python container behavior."
+        ]
+      },
+      {
+        "heading": "The purpose of rotation",
+        "paragraphs": [
+          "Assume the queue already runs from stack top to stack bottom, front to back. Append the new element x at the tail, then remove the original n elements one by one from the head and append them at the tail. This moves x to the front without changing the relative order of the old elements. The front is therefore still the newest value after the push, maintaining the core invariant."
+        ]
+      },
+      {
+        "heading": "Example and proof",
+        "paragraphs": [
+          "The queue [2,1] represents a stack with 2 on top. push(3) first produces [2,1,3]. Rotating 2 gives [1,3,2], and rotating 1 gives [3,2,1]. pop directly removes the front value, 3. Inductively, an empty queue satisfies the invariant, and each push and pop preserves an arrangement equal to stack order."
+        ]
+      },
+      {
+        "heading": "Cost and implementation",
+        "paragraphs": [
+          "Record the number of rotations before appending the new element, or use the length minus one afterward. Do not repeatedly decide the rotation count while rotating. push takes O(n), while pop and top take O(1). Another valid design makes push fast and pop slow, but the interface bearing the cost must be stated.",
+          "Rotation does not reverse the queue: it moves the original prefix to the tail and therefore preserves the existing stack order. Repeated top calls should return the same value; only pop changes the state. Check for an empty stack before reading a value so that exception behavior does not depend on the underlying container."
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass MyStack:\n    def __init__(self):\n        self.queue = deque()\n\n    def push(self, x):\n        old_size = len(self.queue)\n        self.queue.append(x)\n        for _ in range(old_size):\n            self.queue.append(self.queue.popleft())\n\n    def pop(self):\n        if not self.queue:\n            raise IndexError(\"empty stack\")\n        return self.queue.popleft()\n\n    def top(self):\n        if not self.queue:\n            raise IndexError(\"empty stack\")\n        return self.queue[0]\n\n    def empty(self):\n        return not self.queue\n\ndef stack_demo():\n    s = MyStack()\n    for x in [1, 2, 3]:\n        s.push(x)\n    return [s.top(), s.pop(), s.pop(), s.pop(), s.empty()]",
+    "time": "push is O(n), where n is the existing element count; other operations are O(1).",
+    "space": "O(n) for the queue holding stack elements.",
+    "example": {
+      "input": "push 1,2,3, then pop repeatedly",
+      "output": "3,2,1",
+      "walkthrough": [
+        "After inserting 3, rotate the two existing elements to move 3 to the front."
+      ]
+    },
+    "pitfalls": [
+      "Rotate only the original number of elements, excluding the new one.",
+      "Do not bypass the queue constraint by directly popping from its tail."
+    ],
+    "tests": [
+      {
+        "expression": "stack_demo()",
+        "expected": [
+          3,
+          3,
+          2,
+          1,
+          true
+        ]
+      }
+    ]
+  },
+  {
+    "id": "stack-20",
+    "chapter": "栈与队列",
+    "title": "20. Valid Parentheses",
+    "problem": "20",
+    "kind": "题解",
+    "summary": "Store expected closing brackets on a stack; each actual closing bracket must match the most recent expectation.",
+    "sections": [
+      {
+        "heading": "What validity means",
+        "paragraphs": [
+          "Valid brackets require both matching types and correct nesting order. Merely counting opening and closing brackets cannot detect an interleaving such as ([)]. The implementation accepts strings containing only the three bracket types; any other character returns False. The empty string is treated as valid."
+        ]
+      },
+      {
+        "heading": "The expectation-stack invariant",
+        "paragraphs": [
+          "When an opening bracket appears, push its corresponding closing bracket. The stack top is the only symbol allowed to close the current innermost structure next. A closing bracket requires an existing expectation equal to the stack top. This places type mapping in the push stage and leaves only comparison in the pop stage."
+        ]
+      },
+      {
+        "heading": "Early failure and the final condition",
+        "paragraphs": [
+          "A closing bracket with an empty stack has no opening bracket to match. A closing bracket of a different type from the stack top violates type or nesting order. Either condition can return False immediately. Expectations left after the scan mean some opening brackets remain unclosed. Only a conflict-free scan ending with an empty stack establishes complete matching of all brackets."
+        ]
+      },
+      {
+        "heading": "Correctness and Python",
+        "paragraphs": [
+          "For each prefix, the stack records unclosed structures from outermost to innermost. A correct closing bracket removes the innermost expectation and preserves this interpretation; later characters cannot repair an incorrect closing bracket. The condition if not stack or stack.pop() != c uses short-circuit evaluation to avoid popping an empty stack. At maximum nesting depth, the stack can have length n.",
+          "An odd length permits early rejection, but this is not necessary for correctness. Tests )(, ((, and ([)] respectively check a missing opening bracket, unclosed openings at the end, and interleaved nesting despite matching types and counts. These failure modes verify the invariant more effectively than a single ordinary valid example."
+        ]
+      }
+    ],
+    "code": "def valid_parentheses(s):\n    closing = {\"(\": \")\", \"[\": \"]\", \"{\": \"}\"}\n    stack = []\n    for c in s:\n        if c in closing:\n            stack.append(closing[c])\n        elif c in \")]}\":\n            if not stack or stack.pop() != c:\n                return False\n        else:\n            return False\n    return not stack",
+    "time": "O(n); each character is processed once.",
+    "space": "O(n); in the worst case all characters are opening brackets.",
+    "example": {
+      "input": "\"([{}])\"",
+      "output": "True",
+      "walkthrough": [
+        "The expected closings are pushed in order: ), ], }.",
+        "Read }, ], ) in order; each matches the stack top."
+      ]
+    },
+    "pitfalls": [
+      "Equal counts do not guarantee valid nesting.",
+      "Always check for unclosed opening brackets at the end."
+    ],
+    "tests": [
+      {
+        "expression": "valid_parentheses(\"([{}])\")",
+        "expected": true
+      },
+      {
+        "expression": "valid_parentheses(\"([)]\")",
+        "expected": false
+      },
+      {
+        "expression": "valid_parentheses(\"\")",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "stack-1047",
+    "chapter": "栈与队列",
+    "title": "1047. Remove All Adjacent Duplicates In String",
+    "problem": "1047",
+    "kind": "题解",
+    "summary": "Store the fully reduced processed prefix on a stack; a new character can form a duplicate pair only with the top.",
+    "sections": [
+      {
+        "heading": "Repeated deletion rules",
+        "paragraphs": [
+          "Repeatedly delete a pair of adjacent equal characters, including any new adjacent pairs created by a deletion, until no more can be deleted. This does not mean removing every occurrence of some character or scanning only the original adjacent pairs once. Since the input string is immutable, the reduced result must be constructed."
+        ]
+      },
+      {
+        "heading": "Why only the top needs comparison",
+        "paragraphs": [
+          "Before processing a new character c, the stack is already the fully reduced prefix and contains no equal adjacent characters internally. Appending c can create a duplicate pair only at the end. If the top equals c, cancel both; otherwise append c. The processed region continues to satisfy the invariant of having no adjacent duplicates."
+        ]
+      },
+      {
+        "heading": "Cascading elimination",
+        "paragraphs": [
+          "For abbaca, reading a and b leaves ab on the stack. The next b cancels the top b, restoring a. The following a also cancels the top, emptying the stack. Reading c and a then leaves ca. There is no need to rescan the original string, since the exposed left neighbor automatically becomes the new stack top."
+        ]
+      },
+      {
+        "heading": "Implementation and complexity",
+        "paragraphs": [
+          "List append and tail pop suit this process; join produces the final output. Each character is pushed at most once and popped at most once, so total time is linear. A write pointer on a mutable character array can also simulate the stack, but a Python string cannot itself be shortened in place. This task deletes only duplicate pairs of length two and does not directly generalize to arbitrary duplicate-group lengths.",
+          "aaaa should produce an empty string, while aaa should leave one a. These cases distinguish pair cancellation from mistakenly deleting an entire consecutive duplicate group. When characters differ, simply push the new one; do not delete it merely because the same character appeared earlier, since that would violate the essential adjacency condition."
+        ]
+      }
+    ],
+    "code": "def remove_adjacent_duplicates(s):\n    stack = []\n    for c in s:\n        if stack and stack[-1] == c:\n            stack.pop()\n        else:\n            stack.append(c)\n    return \"\".join(stack)",
+    "time": "O(n); each character is pushed and popped at most once.",
+    "space": "O(n); when no characters cancel, the entire input is stored.",
+    "example": {
+      "input": "\"abbaca\"",
+      "output": "\"ca\"",
+      "walkthrough": [
+        "The second b cancels bb, leaving a.",
+        "The following a cancels the existing a; the final c and a remain."
+      ]
+    },
+    "pitfalls": [
+      "Scanning only the original adjacent pairs misses cascading cancellations.",
+      "Three consecutive equal characters leave one after a pair is deleted."
+    ],
+    "tests": [
+      {
+        "expression": "remove_adjacent_duplicates(\"abbaca\")",
+        "expected": "ca"
+      },
+      {
+        "expression": "remove_adjacent_duplicates(\"aaa\")",
+        "expected": "a"
+      },
+      {
+        "expression": "remove_adjacent_duplicates(\"abba\")",
+        "expected": ""
+      }
+    ]
+  },
+  {
+    "id": "stack-150",
+    "chapter": "栈与队列",
+    "title": "150. Evaluate Reverse Polish Notation",
+    "problem": "150",
+    "kind": "题解",
+    "summary": "At an operator, the first popped value is the right operand and the next is the left operand.",
+    "sections": [
+      {
+        "heading": "What postfix notation means",
+        "paragraphs": [
+          "Each operator follows its two operands, so no parentheses or operator precedence are needed. Input tokens are integers or +, -, *, /. The task guarantees a valid expression and nonzero divisors. This implementation additionally checks operand counts and the final stack length, raising ValueError for invalid input. Division must truncate toward zero."
+        ]
+      },
+      {
+        "heading": "The stack represents subexpressions",
+        "paragraphs": [
+          "Push numbers. At an operator, combine the two most recent completed subexpression results into one new result. Pop right first and left second, then calculate left op right. Subtraction and division cannot swap their operands: 5 2 - must give 3. The stack holds evaluated values, so no complete expression tree is needed."
+        ]
+      },
+      {
+        "heading": "Integer division pitfalls",
+        "paragraphs": [
+          "Python // rounds toward negative infinity: -7//3 gives -3, but the task requires -2. Although int(left/right) truncates toward zero, it first converts through floating point and may lose precision for large integers. A reliable approach computes abs(left)//abs(right) and then restores the sign according to whether the operand signs differ, keeping all operations integral."
+        ]
+      },
+      {
+        "heading": "The process and correctness",
+        "paragraphs": [
+          "For 2 1 + 3 *, push 2 and 1, then let + combine them into 3. Push the next 3, and * produces 9. Each operator combines the nearest two preceding complete subexpressions, exactly following postfix grammar. Every token is processed once, and stack size equals the number of values not yet combined.",
+          "A negative token such as -11 is an integer rather than the subtraction operator, so test whether the whole token belongs to the four-symbol set. A valid single-number expression returns that number directly. Invalid input that fails to combine all numbers is rejected by the final stack-length check."
+        ]
+      }
+    ],
+    "code": "def evaluate_rpn(tokens):\n    stack = []\n    for token in tokens:\n        if token not in {\"+\", \"-\", \"*\", \"/\"}:\n            stack.append(int(token))\n            continue\n        if len(stack) < 2:\n            raise ValueError(\"missing operands\")\n        right, left = stack.pop(), stack.pop()\n        if token == \"+\":\n            value = left + right\n        elif token == \"-\":\n            value = left - right\n        elif token == \"*\":\n            value = left * right\n        else:\n            value = abs(left) // abs(right)\n            if (left < 0) != (right < 0):\n                value = -value\n        stack.append(value)\n    if len(stack) != 1:\n        raise ValueError(\"invalid expression\")\n    return stack[0]",
+    "time": "O(n) under a fixed-width integer model; big-integer multiplication and division also depend on operand bit lengths.",
+    "space": "O(n); the stack holds at most O(n) values, while big-integer storage depends on bit lengths.",
+    "example": {
+      "input": "[\"2\",\"1\",\"+\",\"3\",\"*\"]",
+      "output": "9",
+      "walkthrough": [
+        "Combine 2+1 into 3.",
+        "Multiply that 3 by the next number, 3, to obtain 9."
+      ]
+    },
+    "pitfalls": [
+      "Pop the right operand before the left operand.",
+      "Do not use // directly for negative division.",
+      "Do not rely on floating-point division for arbitrarily large integers."
+    ],
+    "tests": [
+      {
+        "expression": "evaluate_rpn([\"2\",\"1\",\"+\",\"3\",\"*\"])",
+        "expected": 9
+      },
+      {
+        "expression": "evaluate_rpn([\"-7\",\"3\",\"/\"])",
+        "expected": -2
+      },
+      {
+        "expression": "evaluate_rpn([\"5\",\"2\",\"-\"])",
+        "expected": 3
+      }
+    ]
+  },
+  {
+    "id": "stack-239",
+    "chapter": "栈与队列",
+    "title": "239. Sliding Window Maximum",
+    "problem": "239",
+    "kind": "题解",
+    "summary": "A monotonic deque retains indices that could still become the window maximum; its front always provides the answer.",
+    "sections": [
+      {
+        "heading": "Windows and candidates",
+        "paragraphs": [
+          "Given an array and fixed window length k, return the maximum of every contiguous window of length k. Require 1<=k<=n and raise ValueError otherwise. Rescanning every window costs O(nk); the key opportunity is reusing most old elements. The deque stores indices, allowing both value lookup and detection of elements that have left the window."
+        ]
+      },
+      {
+        "heading": "Monotonicity and dominance",
+        "paragraphs": [
+          "Values corresponding to deque indices strictly decrease from front to back. When a new value is at least as large as the back value, delete the back: the new element is larger or equal and expires later, so the old element can never be preferable again. After repeatedly deleting such entries, append the new index. Using <= removes equal values and retains the newer equal candidate, shortening the deque."
+        ]
+      },
+      {
+        "heading": "Expiration and answers",
+        "paragraphs": [
+          "At index i, the current window starts at i-k+1, so indices below that boundary must be removed from the front. Indices enter in increasing order, so expired elements can only occur at the front. After removing expired entries and dominated tail entries, the front is the greatest candidate in the current window. Output only once i>=k-1, since earlier steps have no complete window."
+        ]
+      },
+      {
+        "heading": "Amortized proof and implementation",
+        "paragraphs": [
+          "A tail-cleanup loop may delete many candidates at once, but each index enters only once and is removed at most once, from either end. Total time is O(n). deque popleft and pop are constant-time operations; deleting from the front of an ordinary list would break this complexity. The auxiliary deque holds at most k indices, while the output has n-k+1 elements; state these space costs separately.",
+          "When the window length is 1, output should equal input. When it is n, output contains only one global maximum. A strictly decreasing input keeps the entire window in the deque, giving the worst-case O(k) auxiliary space. A strictly increasing input continually removes weaker candidates and generally retains just one index."
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\ndef sliding_max(nums, k):\n    if not 1 <= k <= len(nums):\n        raise ValueError(\"invalid window size\")\n    candidates = deque()\n    result = []\n    for i, value in enumerate(nums):\n        while candidates and candidates[0] <= i - k:\n            candidates.popleft()\n        while candidates and nums[candidates[-1]] <= value:\n            candidates.pop()\n        candidates.append(i)\n        if i >= k - 1:\n            result.append(nums[candidates[0]])\n    return result",
+    "time": "O(n); each index enters and leaves the deque at most once.",
+    "space": "O(k) for the auxiliary deque; O(n) including output.",
+    "example": {
+      "input": "nums=[1,3,-1,-3,5,3,6,7], k=3",
+      "output": "[3,3,5,5,6,7]",
+      "walkthrough": [
+        "For window [1,3,-1], the front corresponds to 3.",
+        "When 5 arrives, remove all smaller tail candidates, making 5 the new maximum."
+      ]
+    },
+    "pitfalls": [
+      "Store indices to identify expiration reliably.",
+      "The deque stores candidates and need not contain every window element.",
+      "When retaining newer equal values, consistently use <=."
+    ],
+    "tests": [
+      {
+        "expression": "sliding_max([1,3,-1,-3,5,3,6,7],3)",
+        "expected": [
+          3,
+          3,
+          5,
+          5,
+          6,
+          7
+        ]
+      },
+      {
+        "expression": "sliding_max([2,2,2],2)",
+        "expected": [
+          2,
+          2
+        ]
+      },
+      {
+        "expression": "sliding_max([4],1)",
+        "expected": [
+          4
+        ]
+      }
+    ]
+  },
+  {
+    "id": "stack-347",
+    "chapter": "栈与队列",
+    "title": "347. Top K Frequent Elements",
+    "problem": "347",
+    "kind": "题解",
+    "summary": "Count frequencies first, then keep the strongest current candidates in a min-heap of size k.",
+    "sections": [
+      {
+        "heading": "Frequencies and output contract",
+        "paragraphs": [
+          "Given an integer array, return the k distinct values with the highest frequencies. The original task typically permits any order and guarantees a unique answer. Here, define a more stable rule: smaller values win frequency ties, and output is sorted by decreasing frequency and then increasing value. k=0 returns an empty list. Negative k or k exceeding the number of distinct values raises an exception."
+        ]
+      },
+      {
+        "heading": "Why use a min-heap",
+        "paragraphs": [
+          "First obtain each value's frequency with Counter. Maintain a heap of capacity k whose root is the weakest selected element. Replace it if a new candidate is stronger; otherwise discard the candidate. The key (frequency,-value,value) ranks higher frequencies as stronger and, on equal frequencies, smaller values as stronger. It therefore places the weakest candidate under the chosen rule at the root."
+        ]
+      },
+      {
+        "heading": "The selection invariant",
+        "paragraphs": [
+          "After processing any subset of distinct values, the heap contains its k strongest candidates, or all of them if fewer than k exist. Add a new candidate if the heap is not full. Once full, only a candidate stronger than the weakest selected entry can change the top k. Removing that weakest entry cannot lose an element that truly belongs in the selection. Induction gives the correct set over all values."
+        ]
+      },
+      {
+        "heading": "Implementation and cost",
+        "paragraphs": [
+          "heapq provides a min-heap without a built-in capacity limit, so explicitly check length and update with heapreplace. Iteration order does not affect the result because the comparison key includes the tie rule. Finally sort the k retained elements for stable display order, adding O(k log k) time. That sort can be omitted if any order is acceptable.",
+          "For k=1, the heap retains only the strongest candidate; for k=m, it keeps every distinct value. The internal heap array is not fully sorted: it guarantees only that the root is the weakest. A stable display order requires a separate sort; do not return the internal layout as though it were frequency order."
+        ]
+      }
+    ],
+    "code": "from collections import Counter\nimport heapq\n\ndef top_k_frequent(nums, k):\n    counts = Counter(nums)\n    if not 0 <= k <= len(counts):\n        raise ValueError(\"invalid k\")\n    if k == 0:\n        return []\n    heap = []\n    for value, frequency in counts.items():\n        item = (frequency, -value, value)\n        if len(heap) < k:\n            heapq.heappush(heap, item)\n        elif item > heap[0]:\n            heapq.heapreplace(heap, item)\n    heap.sort(key=lambda item: (-item[0], item[2]))\n    return [item[2] for item in heap]",
+    "time": "O(n+m log(k+1)+k log k), where m is the number of distinct elements.",
+    "space": "O(m+k) for the frequency table and heap; output uses O(k).",
+    "example": {
+      "input": "nums=[1,1,1,2,2,3], k=2",
+      "output": "[1,2]",
+      "walkthrough": [
+        "The frequencies are 1:3, 2:2, 3:1.",
+        "The capacity-2 heap keeps 1 and 2; 3 cannot replace the weakest selected value, 2."
+      ]
+    },
+    "pitfalls": [
+      "Rank the heap by frequency, not by element value alone.",
+      "The min-heap root is the weakest selected candidate.",
+      "Include the cost of sorting for stable output."
+    ],
+    "tests": [
+      {
+        "expression": "top_k_frequent([1,1,1,2,2,3],2)",
+        "expected": [
+          1,
+          2
+        ]
+      },
+      {
+        "expression": "top_k_frequent([3,2,1],2)",
+        "expected": [
+          1,
+          2
+        ]
+      },
+      {
+        "expression": "top_k_frequent([],0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "stack-queue-summary",
+    "chapter": "栈与队列",
+    "title": "Stack and Queue Summary: Unfinished State, Arrival Order, and Candidates",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Before choosing a container, decide whether the next removal needs the most recent state, the earliest state, or the best candidate.",
+    "sections": [
+      {
+        "heading": "Signals for an ordinary stack",
+        "paragraphs": [
+          "Bracket matching, adjacent cancellation, and postfix evaluation depend only on the most recent unfinished state. Their stack elements are expected symbols, retained characters, and subexpression values respectively. These meanings differ, so memorizing one push/pop template is insufficient. Correctness comes from what the processed prefix means after each iteration."
+        ]
+      },
+      {
+        "heading": "Queues and simulation",
+        "paragraphs": [
+          "An ordinary queue preserves arrival order. A two-stack queue defers reversal until its output stack is empty, achieving amortized constant time. A one-queue stack rotates the newest element to the front, making pushes linear and pops constant. Explain costs in terms of call sequences rather than labeling all simulated operations constant-time."
+        ]
+      },
+      {
+        "heading": "Maximums and frequency selection",
+        "paragraphs": [
+          "Sliding-window maximum has ordered expiration and a dominance relation in which new elements can supersede old ones, making a monotonic deque appropriate. Frequent-element selection needs only static ranking, with no fixed-window expiration relationship, so a min-heap suits retaining the k strongest candidates. A heap does not guarantee FIFO order, and a monotonic queue does not perform arbitrary priority-based deletion."
+        ]
+      },
+      {
+        "heading": "Common checks",
+        "paragraphs": [
+          "Check empty stacks, operand order, expired indices, and equal-value rules. A monotonic structure containing while is not necessarily quadratic: count how many times each element enters and leaves over the whole run. In Python, list suits tail operations, deque suits operations at both ends, and heapq suits repeated removal of the minimum priority."
+        ]
+      }
+    ],
+    "code": "def stack_reduce_pairs(values):\n    stack = []\n    for value in values:\n        if stack and stack[-1] == value:\n            stack.pop()\n        else:\n            stack.append(value)\n    return stack",
+    "time": "O(n); in the template each element is pushed and popped at most once.",
+    "space": "O(n); the stack and return value share the same list.",
+    "example": {
+      "input": "[1,2,2,1,3]",
+      "output": "[3]",
+      "walkthrough": [
+        "After the two 2s cancel, the two 1s become adjacent and cancel too."
+      ]
+    },
+    "pitfalls": [
+      "Queues, priority queues, and monotonic queues follow different removal rules.",
+      "Analyze the total cost of repeated loops by counting element insertions and removals."
+    ],
+    "tests": [
+      {
+        "expression": "stack_reduce_pairs([1,2,2,1,3])",
+        "expected": [
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mono-theory",
+    "chapter": "单调栈",
+    "title": "Monotonic Stack Basics: Waiting for a Boundary",
+    "problem": "",
+    "kind": "理论",
+    "summary": "The stack stores unresolved indices, and each new element resolves older elements whose wait is over.",
+    "sections": [
+      {
+        "heading": "Why an ordinary stack becomes monotonic",
+        "paragraphs": [
+          "When a problem asks for the first greater or smaller element to the right, each old element needs only to wait for a suitable future value. Scan indices from left to right and maintain a stack whose corresponding values are monotonic. When a new value breaks that order, the stack top has just encountered the required boundary and can be popped to fill its answer."
+        ]
+      },
+      {
+        "heading": "Direction and comparison",
+        "paragraphs": [
+          "To find the first strictly greater value to the right, stack values are nonincreasing, and a new value pops the top when it is greater. Reverse the comparison to find a strictly smaller value. Whether to pop equal values depends on the task: equal values cannot resolve a strictly-greater query, while histogram boundaries may use another consistent ownership strategy for equal-height bars."
+        ]
+      },
+      {
+        "heading": "Why store indices",
+        "paragraphs": [
+          "Indices provide values, distances, and left/right boundaries together. Storing only values works when elements are unique and only values are returned. Daily temperatures needs day counts, and repeated values cannot collapse multiple positions into one dictionary key. Describe stack elements first as the indices of unresolved questions."
+        ]
+      },
+      {
+        "heading": "Amortized analysis",
+        "paragraphs": [
+          "Each index is pushed at most once and popped at most once, so the total number of nested while iterations is O(n). Monotonic order from bottom to top is only a tool. Correctness still requires proving that a popped element has encountered the first qualifying value, and that elements left in the stack can still find answers later."
+        ]
+      }
+    ],
+    "code": "def next_greater_indices(nums):\n    answer = [-1] * len(nums)\n    stack = []\n    for i, value in enumerate(nums):\n        while stack and nums[stack[-1]] < value:\n            answer[stack.pop()] = i\n        stack.append(i)\n    return answer",
+    "time": "O(n); each index is pushed and popped at most once.",
+    "space": "O(n) for the stack and answers.",
+    "example": {
+      "input": "[2,1,2,4]",
+      "output": "[3,2,3,-1]",
+      "walkthrough": [
+        "The second 2 resolves 1 but cannot resolve the equal first 2.",
+        "4 resolves both 2s."
+      ]
+    },
+    "pitfalls": [
+      "Strict and non-strict comparisons cannot be interchanged arbitrarily.",
+      "Store indices when distances or duplicate elements matter."
+    ],
+    "tests": [
+      {
+        "expression": "next_greater_indices([2,1,2,4])",
+        "expected": [
+          3,
+          2,
+          3,
+          -1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mono-739",
+    "chapter": "单调栈",
+    "title": "739. Daily Temperatures",
+    "problem": "739",
+    "kind": "题解",
+    "summary": "Keep indices of days still waiting for warmer weather; a new temperature may resolve several waiting days at once.",
+    "sections": [
+      {
+        "heading": "The answer is a distance",
+        "paragraphs": [
+          "For each day, find the distance to the first later day with a strictly higher temperature, or zero if none exists. An equal temperature does not count as warmer. Because the answer is a difference between dates, the stack must store indices rather than temperatures alone. Empty input returns an empty list with no special sentinel needed."
+        ]
+      },
+      {
+        "heading": "Days waiting on the stack",
+        "paragraphs": [
+          "Scan from left to right. The stack stores indices that have not yet found a warmer day, with corresponding temperatures nonincreasing from bottom to top. When the current temperature exceeds the top temperature, that waiting day can be resolved: pop old and set its answer to i-old. Continue comparing the next top because the current day may answer several earlier days at once."
+        ]
+      },
+      {
+        "heading": "Why this is the first warmer day",
+        "paragraphs": [
+          "If old is still on the stack, none of the already processed days after old caused it to be popped, so none was warmer. The current day is the first to qualify, fixing the distance; old never needs consideration again. If the current temperature does not exceed the top, it cannot resolve the top but may itself await a higher future temperature, so push its index."
+        ]
+      },
+      {
+        "heading": "Implementation and unresolved days",
+        "paragraphs": [
+          "Initialize answers to zero. Days left in the stack after the scan have no warmer future day, so the default is exactly correct. Use strict less-than in the comparison. Keep equal temperatures together, allowing a later higher temperature to assign a different waiting time to each. Every day is pushed once and popped once. Even if one hot day pops many elements, total complexity remains linear.",
+          "For strictly decreasing temperatures, all answers are zero and the final stack contains every day. For strictly increasing temperatures, every answer except the last is one. These opposite inputs check the comparison direction. Consecutive equal-temperature days must still wait for a later higher temperature, and each day has a different waiting distance."
+        ]
+      }
+    ],
+    "code": "def daily_temperatures(temperatures):\n    answer = [0] * len(temperatures)\n    stack = []\n    for i, temperature in enumerate(temperatures):\n        while stack and temperatures[stack[-1]] < temperature:\n            old = stack.pop()\n            answer[old] = i - old\n        stack.append(i)\n    return answer",
+    "time": "O(n), where n is the number of days.",
+    "space": "O(n) for the waiting stack and answer array.",
+    "example": {
+      "input": "[73,74,75,71,69,72,76,73]",
+      "output": "[1,1,4,2,1,1,0,0]",
+      "walkthrough": [
+        "72 resolves 69 and 71, at distances 1 and 2 respectively.",
+        "76 resolves 72 and 75; 75 has waited 4 days."
+      ]
+    },
+    "pitfalls": [
+      "Return an index difference, not a temperature difference.",
+      "Equal temperatures must not trigger a pop."
+    ],
+    "tests": [
+      {
+        "expression": "daily_temperatures([73,74,75,71,69,72,76,73])",
+        "expected": [
+          1,
+          1,
+          4,
+          2,
+          1,
+          1,
+          0,
+          0
+        ]
+      },
+      {
+        "expression": "daily_temperatures([70,70])",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mono-496",
+    "chapter": "单调栈",
+    "title": "496. Next Greater Element I",
+    "problem": "496",
+    "kind": "题解",
+    "summary": "Precompute a mapping from each value in the larger array to its next greater value, then answer subset queries.",
+    "sections": [
+      {
+        "heading": "The unique-value assumption",
+        "paragraphs": [
+          "Every value in nums1 appears in nums2, and all elements of nums2 are distinct. For each nums1 value, find the first strictly greater value to its right at the corresponding position in nums2, or -1 if none exists. Uniqueness allows values to serve directly as dictionary keys. With duplicate positions, an index-based mapping would be needed."
+        ]
+      },
+      {
+        "heading": "Preprocess all queries in one pass",
+        "paragraphs": [
+          "Rescanning nums2 for each nums1 element repeats unnecessary work. Instead, scan all of nums2 once, keeping elements that still lack a greater value to their right on the stack. Stack values decrease monotonically. When the current value exceeds old at the top, record greater[old]=value and pop old, potentially resolving several elements in succession."
+        ]
+      },
+      {
+        "heading": "Guaranteeing the first greater value",
+        "paragraphs": [
+          "An old element still in the stack has not been resolved by any previously visited value to its right. The current value is the first greater one, so it is exactly the nearest required answer. Elements never popped have no greater right-hand neighbor and use the dictionary get default of -1. Once preprocessing is complete, nums1 determines the query order; nums2 need not be traversed again."
+        ]
+      },
+      {
+        "heading": "Python implementation and constraints",
+        "paragraphs": [
+          "This stack stores only values because this task guarantees uniqueness and returns values alone. Do not copy this choice unchanged into daily temperatures. Dictionary lookups are O(1) on average. The code relies on the task's valid-input guarantees and does not separately check that nums1 is a subset. A general-purpose interface should add that validation or define the behavior for absent values.",
+          "For nums2=[2,1,3], the 3 first resolves 1 and then 2; both answers are 3. The current value may resolve multiple waiting elements. Popping only one before pushing the new value could give an already resolvable earlier element a more distant answer, or even incorrectly leave it at -1."
+        ]
+      }
+    ],
+    "code": "def next_greater_subset(nums1, nums2):\n    greater = {}\n    stack = []\n    for value in nums2:\n        while stack and stack[-1] < value:\n            greater[stack.pop()] = value\n        stack.append(value)\n    return [greater.get(value, -1) for value in nums1]",
+    "time": "O(n+m) on average, where n=len(nums2) and m=len(nums1).",
+    "space": "O(n+m) for the mapping, stack, and query output; O(n) auxiliary space excluding output.",
+    "example": {
+      "input": "nums1=[4,1,2], nums2=[1,3,4,2]",
+      "output": "[-1,3,-1]",
+      "walkthrough": [
+        "3 resolves 1, then 4 resolves 3.",
+        "4 and 2 have no greater value to their right."
+      ]
+    },
+    "pitfalls": [
+      "A dictionary keyed by value depends on distinct elements in nums2.",
+      "Find the first greater value to the right, not the largest value on the right."
+    ],
+    "tests": [
+      {
+        "expression": "next_greater_subset([4,1,2],[1,3,4,2])",
+        "expected": [
+          -1,
+          3,
+          -1
+        ]
+      },
+      {
+        "expression": "next_greater_subset([2,4],[1,2,3,4])",
+        "expected": [
+          3,
+          -1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mono-503",
+    "chapter": "单调栈",
+    "title": "503. Next Greater Element II",
+    "problem": "503",
+    "kind": "题解",
+    "summary": "Scan twice to simulate a circular array, but push each position only during the first pass.",
+    "sections": [
+      {
+        "heading": "Defining circular search",
+        "paragraphs": [
+          "After the last array position, continue at position zero. Each position may inspect at most the other n-1 positions to find the first strictly greater value, or -1 if none exists. Duplicate values are allowed, so maintain both answers and stack entries by index. An empty array has no query positions and directly returns an empty list."
+        ]
+      },
+      {
+        "heading": "Two passes are sufficient",
+        "paragraphs": [
+          "Unroll circular access into the original array followed by another copy. Every candidate reachable within one circuit to the right of a position appears in this expanded sequence, so scanning 2n access positions covers all legal candidates. Use step % n for the actual index without constructing a doubled array."
+        ]
+      },
+      {
+        "heading": "Push only once",
+        "paragraphs": [
+          "During the first pass, push positions that have not yet found a greater element. The second pass only resolves waiting entries. Pushing again in the second pass would store the same question repeatedly; additional handling rules are possible but increase space and reasoning costs. Resolve the top only when the current value is strictly greater. A position itself and its equal-valued copies can never supply a greater answer."
+        ]
+      },
+      {
+        "heading": "Correctness and boundaries",
+        "paragraphs": [
+          "The access sequence seen by each waiting index follows exactly the rightward circular order, so the value that first pops it is its nearest greater value. Global maxima remain on the stack and retain their default answer of -1. Strict comparison prevents a position from incorrectly resolving itself on the second pass. Two scans plus at most one push and one pop per position still take O(n) time.",
+          "In [3,1,2], the final position must wrap to the beginning to find 3, while the initial 3 has no greater value. The second pass supplies a complete set of circular candidates to waiting entries. Merely making indices wrap is not enough: the scan range must also cover the necessary circuit."
+        ]
+      }
+    ],
+    "code": "def next_greater_circular(nums):\n    n = len(nums)\n    if n == 0:\n        return []\n    answer = [-1] * n\n    stack = []\n    for step in range(2 * n):\n        i = step % n\n        while stack and nums[stack[-1]] < nums[i]:\n            answer[stack.pop()] = nums[i]\n        if step < n:\n            stack.append(i)\n    return answer",
+    "time": "O(n); two passes, with each index pushed and popped only once.",
+    "space": "O(n) for the stack and answers; no doubled array is created.",
+    "example": {
+      "input": "[1,2,1]",
+      "output": "[2,-1,2]",
+      "walkthrough": [
+        "The 2 in the first pass resolves the 1 at position 0.",
+        "Encountering 2 again in the second pass resolves the 1 at position 2."
+      ]
+    },
+    "pitfalls": [
+      "Avoid modulo by zero for an empty array.",
+      "Equal values cannot be strictly greater answers.",
+      "The second pass resolves entries without pushing them again."
+    ],
+    "tests": [
+      {
+        "expression": "next_greater_circular([1,2,1])",
+        "expected": [
+          2,
+          -1,
+          2
+        ]
+      },
+      {
+        "expression": "next_greater_circular([2,2])",
+        "expected": [
+          -1,
+          -1
+        ]
+      },
+      {
+        "expression": "next_greater_circular([])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "mono-42",
+    "chapter": "单调栈",
+    "title": "42. Trapping Rain Water",
+    "problem": "42",
+    "kind": "题解",
+    "summary": "A decreasing-height stack resolves horizontal water layers enclosed by two bars when a right boundary appears.",
+    "sections": [
+      {
+        "heading": "Water volume and geometric assumptions",
+        "paragraphs": [
+          "All bars have width one and nonnegative height. Water can remain only in depressions with both left and right boundaries; low bars exposed on an outer edge cannot retain water. Computing from the maximum heights to the left and right of each position is a vertical approach. Here, a monotonic stack works in horizontal layers, resolving one layer whenever a right boundary is found rather than immediately computing all water above an entire bar."
+        ]
+      },
+      {
+        "heading": "A popped bar represents the bottom",
+        "paragraphs": [
+          "Store indices whose heights are nonincreasing from bottom to top. If the current bar is higher than the top, the popped bottom is the bottom of a depression. If the stack becomes empty after the pop, no left boundary exists and no water can be resolved. Otherwise the new top left is the left boundary and the current position i is the right boundary, leaving width i-left-1 between them."
+        ]
+      },
+      {
+        "heading": "Layer height and avoiding double counting",
+        "paragraphs": [
+          "The newly resolved layer has height min(height[left],height[i])-height[bottom]. The lower boundary limits how high this layer can reach. Popping bottom means that the lower layer it represents has been processed. When a higher bottom is popped next, its contribution begins at that higher bottom's height, so the areas do not overlap. Keeping equal-height bars may produce a zero-height layer, but does not affect correctness."
+        ]
+      },
+      {
+        "heading": "The process and implementation",
+        "paragraphs": [
+          "For [3,0,1,3], encountering height 1 encloses bottom 0 between left height 3 and right height 1, first adding one unit of water. At the final 3, the bottom has height 1 and the left boundary height 3. Width 2 and layer height 2 add four units, giving five in total. Each index is pushed and popped at most once, making the whole process linear.",
+          "Strictly increasing, strictly decreasing, and all-equal heights form no effective depression, so their water volume should be zero. The result must also be nonnegative. Water between equal-height walls is still limited by the minimum of the two sides. For short arrays, compare against a reference algorithm that uses the highest wall on each side at every position to check that accumulation does not double count."
+        ]
+      }
+    ],
+    "code": "def trap_water(height):\n    stack = []\n    total = 0\n    for i, value in enumerate(height):\n        while stack and height[stack[-1]] < value:\n            bottom = stack.pop()\n            if not stack:\n                break\n            left = stack[-1]\n            width = i - left - 1\n            level = min(height[left], value) - height[bottom]\n            total += width * level\n        stack.append(i)\n    return total",
+    "time": "O(n); each bar index is pushed and popped at most once.",
+    "space": "O(n); decreasing input can keep all indices on the stack.",
+    "example": {
+      "input": "[3,0,1,3]",
+      "output": "5",
+      "walkthrough": [
+        "At 1, first fill one layer above bottom 0, with area 1.",
+        "At the rightmost 3, fill two more layers from height 1 to 3 across width 2, adding area 4."
+      ]
+    },
+    "pitfalls": [
+      "An empty stack after popping the bottom means the left boundary is missing.",
+      "Exclude both boundary bars from the width: i-left-1.",
+      "Subtract the bottom from the lower of the two sides; the current bar alone does not determine layer height."
+    ],
+    "tests": [
+      {
+        "expression": "trap_water([3,0,1,3])",
+        "expected": 5
+      },
+      {
+        "expression": "trap_water([0,1,0,2,1,0,1,3,2,1,2,1])",
+        "expected": 6
+      },
+      {
+        "expression": "trap_water([1,2,3])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "mono-84",
+    "chapter": "单调栈",
+    "title": "84. Largest Rectangle in Histogram",
+    "problem": "84",
+    "kind": "题解",
+    "summary": "When a lower bar arrives, an increasing-height stack determines the maximum span of each popped height.",
+    "sections": [
+      {
+        "heading": "The shortest bar limits a rectangle",
+        "paragraphs": [
+          "The height of a rectangle spanning consecutive bars cannot exceed the shortest included bar. Finding a lower boundary on each side of each bar lets us calculate the largest rectangle limited by its height, then take the maximum over all candidates. Bars have width one and nonnegative heights; empty input returns zero. In contrast to trapping rain water, lower bars trigger resolution here."
+        ]
+      },
+      {
+        "heading": "Strict increase and equal heights",
+        "paragraphs": [
+          "The stack stores indices with strictly increasing heights. Pop an old index when the new height is less than or equal to the top, using >= to handle equal bars. At equal heights, the old bar first receives a shorter rectangle, but the newly pushed bar inherits the earlier left boundary and will later resolve the full width, so no answer is lost."
+        ]
+      },
+      {
+        "heading": "Left and right boundaries after a pop",
+        "paragraphs": [
+          "After popping middle, the current position i is the boundary that stops its rightward expansion. The new stack top is the lower bar to its left; if the stack is empty, treat the left boundary as -1. Usable bars run from left+1 through i-1, giving width i-left-1. Multiply the popped height by this width for a candidate. Every rectangle has a shortest bar and will ultimately be covered by one of these resolutions."
+        ]
+      },
+      {
+        "heading": "A trailing sentinel and implementation",
+        "paragraphs": [
+          "Include position n in the scan and assign that virtual position height zero to force resolution of bars still waiting at the end. Do not push the virtual position, avoiding a later access to heights[n]. For [2,1,5,6,2,3], encountering 2 first resolves height 6 at width 1, then height 5 at width 2 for area 10. Each real index is pushed and popped at most once.",
+          "An input of n identical bars of height h must give h*n. The code repeatedly lets a later equal-height bar inherit the earlier left boundary, then resolves the full width during the final flush. This example is especially useful for detecting a lost left boundary after popping equal bars or an implementation that calculates only single-bar areas."
+        ]
+      }
+    ],
+    "code": "def largest_rectangle(heights):\n    stack = []\n    best = 0\n    n = len(heights)\n    for i in range(n + 1):\n        current = heights[i] if i < n else 0\n        while stack and heights[stack[-1]] >= current:\n            middle = stack.pop()\n            left = stack[-1] if stack else -1\n            width = i - left - 1\n            best = max(best, heights[middle] * width)\n        if i < n:\n            stack.append(i)\n    return best",
+    "time": "O(n); each real index is pushed and popped at most once.",
+    "space": "O(n); increasing heights retain all indices.",
+    "example": {
+      "input": "[2,1,5,6,2,3]",
+      "output": "10",
+      "walkthrough": [
+        "At index 4 with height 2, first resolve height 6 for area 6.",
+        "Then resolve height 5. Its boundary indices are 1 and 4, giving width 2 and area 10."
+      ]
+    },
+    "pitfalls": [
+      "Read the new stack top as the left boundary after popping.",
+      "Width is the right boundary minus the left boundary minus one.",
+      "Flush the stack at the end or increasing input will miss its complete answer.",
+      "Keep equal-height handling consistent with the stack monotonicity."
+    ],
+    "tests": [
+      {
+        "expression": "largest_rectangle([2,1,5,6,2,3])",
+        "expected": 10
+      },
+      {
+        "expression": "largest_rectangle([2,2])",
+        "expected": 4
+      },
+      {
+        "expression": "largest_rectangle([1,2,3])",
+        "expected": 4
+      },
+      {
+        "expression": "largest_rectangle([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "mono-summary",
+    "chapter": "单调栈",
+    "title": "Monotonic Stack Summary: Greater Values, Rain Water, and Rectangles",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Although all these methods pop a stack, next-greater problems resolve positional relationships while water and rectangle problems resolve different geometric quantities.",
+    "sections": [
+      {
+        "heading": "The next-greater family",
+        "paragraphs": [
+          "Daily temperatures and both next-greater-element problems keep entries waiting for a greater value. Pop when the new value is strictly greater; answers are either index distances or the new value itself. Circular arrays only extend the scanning range while preserving one question per position. Only the unique-value subset problem can use values directly as mapping keys."
+        ]
+      },
+      {
+        "heading": "How rain water and rectangles differ",
+        "paragraphs": [
+          "Trapping rain water maintains decreasing heights. A higher bar pops a depression bottom, then the new top and current bar form the two boundaries for a horizontal water layer. Largest rectangle maintains increasing heights. A lower bar pops a limiting height and resolves its maximum contiguous width. Both use i-left-1, but their height formulas are entirely different."
+        ]
+      },
+      {
+        "heading": "Boundaries and equal values",
+        "paragraphs": [
+          "A strictly-greater query cannot be resolved by an equal value. Retaining equal-height bars in water trapping can produce zero-height layers. The rectangle algorithm pops equal bars using >= and passes ownership of the full width to the later equal-height bar. Equal-value policies can vary, but changing them requires coordinated changes to the stack invariant, boundary interpretation, and correctness argument, not merely changing one operator."
+        ]
+      },
+      {
+        "heading": "Verification methods",
+        "paragraphs": [
+          "Check empty input, single elements, increasing and decreasing values, all-equal values, and arrays with several valleys. For complex geometry, write a small brute-force reference: enumerate intervals and calculate rectangle area from their minimum height, or calculate water at each position using the highest bars on its left and right. Cross-checking random short arrays is more likely to expose width and equal-height mistakes than checking just one classic example."
+        ]
+      }
+    ],
+    "code": "def largest_rectangle_reference(heights):\n    best = 0\n    for left in range(len(heights)):\n        minimum = heights[left]\n        for right in range(left, len(heights)):\n            minimum = min(minimum, heights[right])\n            best = max(best, minimum * (right - left + 1))\n    return best",
+    "time": "O(n²); the brute-force reference enumerates all contiguous intervals.",
+    "space": "O(1); only the current interval minimum and largest area are stored.",
+    "example": {
+      "input": "[2,1,2]",
+      "output": "3",
+      "walkthrough": [
+        "The whole interval has minimum height 1 and width 3, so its area is 3."
+      ]
+    },
+    "pitfalls": [
+      "Use the brute-force reference to verify short arrays; it is unsuitable for large inputs.",
+      "Do not reuse the meaning of popped elements from next-greater problems in geometry problems."
+    ],
+    "tests": [
+      {
+        "expression": "largest_rectangle_reference([2,1,2])",
+        "expected": 3
+      }
+    ]
+  }
+]

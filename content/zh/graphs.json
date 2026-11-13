@@ -1,0 +1,2051 @@
+[
+  {
+    "id": "graph-model",
+    "chapter": "图论",
+    "title": "图的表示与问题建模",
+    "problem": "",
+    "kind": "理论",
+    "summary": "先明确方向、权重和状态，再选择邻接表或矩阵。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "图由顶点和边组成，顶点不一定是城市，也可能是单词、棋盘位置或某个搜索状态。有向边表示只能沿箭头行动，无向边表示双方都能访问。建模前要说明顶点编号范围、是否允许自环与重边，以及空图如何返回；这些约定会影响后续算法的正确性。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "邻接表为每个顶点存储出边，遍历一个顶点时只访问真实存在的边。邻接矩阵则用二维表表达两个顶点是否相连，查边方便但占用平方空间。稀疏图通常适合邻接表；需要频繁查询两点关系或实现稠密图算法时，矩阵可能更直观。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "无向边需要在邻接表中记录两个方向，有向边只记录一次。带权图的元素可以写成目标顶点和权重组成的元组。输入的一条边与存储的一个邻接项不是同一概念，分析无向图遍历时虽然会检查两次每条边，整体仍为线性复杂度。",
+          "例如道路问题中，两条道路共享端点才表示连接；它们在平面图上相交却没有路口时，不能自行添加新顶点。若边权表示耗时，方向表示单行限制，两种信息都必须保存。还应确定编号是否连续：字符串名称可先映射成整数，再建立数组，避免把业务名称与数组位置混用。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "下面模板支持有向和无向建图，并验证端点范围。孤立点仍拥有一个空列表，避免根据边推断顶点数时漏掉它。模板保留重边与自环；若题目需要简单图，可按目标顶点去重，但带权重边要保留最小权而不能随意覆盖。"
+        ]
+      }
+    ],
+    "code": "def build_graph(n, edges, directed=False):\n    if n < 0:\n        raise ValueError(\"negative vertex count\")\n    graph = [[] for _ in range(n)]\n    for u, v in edges:\n        if not (0 <= u < n and 0 <= v < n):\n            raise ValueError(\"invalid vertex\")\n        graph[u].append(v)\n        if not directed:\n            graph[v].append(u)\n    return graph\n",
+    "time": "O(V+E)，V 为顶点数，E 为输入边数。",
+    "space": "O(V+E)，包含输出邻接表。",
+    "example": {
+      "input": "n=3, edges=[(0,1)]",
+      "output": "[[1],[0],[]]",
+      "walkthrough": [
+        "顶点 2 没有边，但仍需要保存空邻接表。"
+      ]
+    },
+    "pitfalls": [
+      "不要把无向边只添加一个方向。",
+      "不能用 0 同时表示无边和零权边。"
+    ],
+    "tests": [
+      {
+        "expression": "build_graph(3, [(0,1)])",
+        "expected": [
+          [
+            1
+          ],
+          [
+            0
+          ],
+          []
+        ]
+      },
+      {
+        "expression": "build_graph(0, [])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "graph-dfs",
+    "chapter": "图论",
+    "title": "深度优先搜索：沿分支探索",
+    "problem": "",
+    "kind": "理论",
+    "summary": "DFS 用栈保存待探索状态，适合连通性和结构分析。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "深度优先搜索从起点出发，先沿一个分支继续深入，再返回尚未处理的分支。它可以用递归调用栈，也可以用显式栈实现。下面讨论已给定邻接表的有向图，只访问从起点可达的顶点，并且访问顺序由邻接表的排列方式决定。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "维护 seen 集合表示已经发现的顶点，发现一个新顶点时立即标记，再加入栈。这个不变量保证每个顶点至多入栈一次，即使图中存在环、自环或多个前驱也不会重复扩展。栈代表未来还要处理的工作，seen 不代表该顶点的所有出边都已处理完。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "当栈弹出顶点 u 时，检查它的全部出边；未发现的邻居继续加入栈。任何可达点都有一条从起点出发的路径，沿这条路径逐段考虑，前驱被处理后下一点必会被发现，因此不会遗漏可达顶点。不可达点没有可行探索链，自然不会进入结果。",
+          "要判断有向图是否存在环，需要进一步区分正在当前路径上的点和已经结束的点。一个邻居已经被发现并不必然说明有环，它可能只是两个分支共同到达的节点。普通 DFS 的 seen 只回答是否发现，三色状态才有能力识别指向当前祖先的回边。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "显式栈避免 Python 在长链图上的递归深度限制。为使较小位置的邻居优先弹出，模板反向扫描邻居，但提前标记可能使它与递归 DFS 的完整访问次序不同。若需要递归进入和退出事件，例如拓扑分析，应使用记录迭代位置的栈帧。"
+        ]
+      }
+    ],
+    "code": "def dfs(graph, start):\n    if not 0 <= start < len(graph):\n        raise ValueError(\"invalid start\")\n    seen = {start}\n    stack = [start]\n    order = []\n    while stack:\n        u = stack.pop()\n        order.append(u)\n        for v in reversed(graph[u]):\n            if v not in seen:\n                seen.add(v)\n                stack.append(v)\n    return order\n",
+    "time": "O(V+E)，只扫描可达部分时可用相应顶点和边数量表示。",
+    "space": "O(V)，访问集合、结果和栈。",
+    "example": {
+      "input": "[[1],[2],[0]], start=0",
+      "output": "[0,1,2]",
+      "walkthrough": [
+        "0 发现 1，1 发现 2，2 的邻居 0 已标记，搜索结束。"
+      ]
+    },
+    "pitfalls": [
+      "在弹出时才标记可能导致重复入栈。",
+      "普通 seen 无法区分有向图中的回边与已完成分支。"
+    ],
+    "tests": [
+      {
+        "expression": "dfs([[1],[2],[0]], 0)",
+        "expected": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "expression": "dfs([[]], 0)",
+        "expected": [
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "id": "graph-bfs",
+    "chapter": "图论",
+    "title": "广度优先搜索：层数就是边数",
+    "problem": "",
+    "kind": "理论",
+    "summary": "无权图中，首次发现顶点时就得到最少边数距离。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "广度优先搜索先处理距离起点一条边的顶点，再处理两条边的顶点，逐层向外扩展。这里每条边的代价统一为一，图可以有方向。目标是返回所有顶点的最少边数距离，用 -1 表示不可达，起点距离为零，而不是一。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "队列中顶点按非递减距离排列。处理距离为 d 的顶点时，只会发现距离 d+1 的邻居，因此新发现的状态放在队尾不会破坏层次顺序。某顶点首次发现之后不再更新；如果存在更短路径，它的前驱会更早出队，与首次发现矛盾。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "从起点入队开始，弹出 u 后对每条出边检查 v。若 v 尚未发现，就设置 dist[v]=dist[u]+1 并入队。这个步骤同时完成标记和确定最短距离。搜索结束后仍为 -1 的顶点没有从起点到达的路径，不能拿它们的值参与距离比较。",
+          "若有多个起点且它们到目标的初始代价都是零，可将全部起点距离设为零并同时入队，这就是多源 BFS。它等价于增加一个零层超级起点，得到离最近起点的距离，而不是到全部起点的距离之和。网格最近出口和传播时间问题经常使用这个变体。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "Python 使用 collections.deque 的 popleft 保证队首删除为常数时间，普通列表 pop(0) 会移动大量元素。下面函数校验起点有效性；若希望恢复具体路线，可在首次发现时额外记录 parent[v]=u，再从目标反向追溯到起点。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\ndef bfs_distances(graph, start):\n    if not 0 <= start < len(graph):\n        raise ValueError(\"invalid start\")\n    dist = [-1] * len(graph)\n    dist[start] = 0\n    queue = deque([start])\n    while queue:\n        u = queue.popleft()\n        for v in graph[u]:\n            if dist[v] == -1:\n                dist[v] = dist[u] + 1\n                queue.append(v)\n    return dist\n",
+    "time": "O(V+E)。",
+    "space": "O(V)。",
+    "example": {
+      "input": "graph=[[1,2],[3],[3],[],[]], start=0",
+      "output": "[0,1,1,2,-1]",
+      "walkthrough": [
+        "1 和 2 属于同一层。",
+        "3 第一次被发现时距离已经最短。",
+        "4 保持不可达标记。"
+      ]
+    },
+    "pitfalls": [
+      "边权不一致时不能直接使用普通 BFS。",
+      "发现时标记，而不是等出队才标记。"
+    ],
+    "tests": [
+      {
+        "expression": "bfs_distances([[1,2],[3],[3],[],[]],0)",
+        "expected": [
+          0,
+          1,
+          1,
+          2,
+          -1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dag-all-paths",
+    "chapter": "图论",
+    "title": "797. 所有可能的路径",
+    "problem": "797",
+    "kind": "题解",
+    "summary": "DAG 中回溯维护当前路径，每到终点就复制答案。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "给定有向无环图，顶点编号为 0 到 n-1，枚举从 0 到 n-1 的所有路径。路径的身份是顶点序列，题目通常保证没有重复出边。无环条件很重要：它使每个分支一定终止，也让路径中不需要额外维护用于阻止环的访问集合。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "维护 path 为从起点走到当前顶点的完整路线。进入邻居之前追加它，返回之后弹出它，恢复到进入该分支之前的状态。这里不能用全局 visited 阻止重复到达，因为两个不同前缀可能在中途汇合，汇合后的路径需要分别计入答案。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "到达终点时复制 path 加入结果，然后立即返回。复制不可省略，否则答案保存的是同一个可变列表，回溯结束后内容会丢失。从每个顶点枚举所有出边，等价于枚举路径下一步的全部选择，所以不会遗漏合法路径；每个决策序列只生成一次。",
+          "即使终点不可达，回溯也可能枚举大量最终失败的前缀。可以先在反向图中标记能够到达终点的顶点，搜索时跳过其余分支以减少工作。这个剪枝不会删除任何答案，因为合法路径的每个后缀都必须到达终点，但预处理并不能消除答案数量本身的指数增长。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码以递归展示回溯结构，适合题目的小型 DAG。空图返回空答案，单顶点图返回只包含起点的路径。递归深度最多为 V；工程中的长 DAG 应改为显式回溯栈。输出数量本身可能指数增长，因此不能声称算法是普通的 O(V+E) 遍历。"
+        ]
+      }
+    ],
+    "code": "def all_paths(graph):\n    if not graph:\n        return []\n    result = []\n    path = [0]\n    def visit(u):\n        if u == len(graph) - 1:\n            result.append(path.copy())\n            return\n        for v in graph[u]:\n            path.append(v)\n            visit(v)\n            path.pop()\n    visit(0)\n    return result\n",
+    "time": "O(V·2^V) 为简单 DAG 的宽松上界，实际取决于搜索前缀与输出总长度。",
+    "space": "O(V) 工作空间；另有答案总长度的输出空间。",
+    "example": {
+      "input": "[[1,2],[3],[3],[]]",
+      "output": "[[0,1,3],[0,2,3]]",
+      "walkthrough": [
+        "走 0→1→3 后保存副本。",
+        "回退到 0，再走 0→2→3。"
+      ]
+    },
+    "pitfalls": [
+      "全局 visited 会漏掉汇合后的另一条路径。",
+      "有环输入不符合算法前提。"
+    ],
+    "tests": [
+      {
+        "expression": "all_paths([[1,2],[3],[3],[]])",
+        "expected": [
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            2,
+            3
+          ]
+        ]
+      },
+      {
+        "expression": "all_paths([[]])",
+        "expected": [
+          [
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "islands-dfs",
+    "chapter": "图论",
+    "title": "200. 岛屿数量：DFS",
+    "problem": "200",
+    "kind": "题解",
+    "summary": "每次从未访问陆地开始搜索，就发现一个新的连通分量。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "网格中的字符串 '1' 代表陆地，'0' 代表水，只有上下左右相邻的陆地相连。目标不是统计陆地格数，而是统计相互隔离的陆地区域数。对角接触不能合并岛屿。下面保留原网格，通过 visited 集合记录发现状态，因此调用之后还可以继续使用原数据。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "扫描网格时，遇到一个尚未访问的陆地格便把岛屿数加一，再用 DFS 标记与它连通的所有陆地。核心不变量是每次搜索结束后，这座岛上的所有格都已经标记，而任何其他岛都不会被误标记，因为探索只允许穿过合法的陆地邻接边。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "一个岛一定会有按扫描顺序最早遇到的格，这个格尚未被此前的搜索覆盖，因此恰好触发一次计数。同岛之后的格已经标记，不再触发计数。这个一一对应关系说明答案等于岛屿数量，而不是 DFS 分支数，也不依赖搜索方向的排列。",
+          "若允许对网格原地修改，可以在发现陆地时将它改成水，用输入本身充当访问标记。这样省去 seen，却仍需要最坏线性大小的显式栈，不能宣称总额外空间变成常数。还需告诉调用者网格已变化，否则重复调用会错误地得到零座岛。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "显式栈用来实现 DFS，发现邻居时立即标记，避免多个格把同一邻居重复入栈。边界检查必须放在读取 grid[nr][nc] 之前。空网格返回零；实现假设输入是规则矩形。字符网格应明确比较 '1'，不能依赖字符串的真假值判断水。"
+        ]
+      }
+    ],
+    "code": "def count_islands(grid):\n    if not grid or not grid[0]:\n        return 0\n    rows, cols = len(grid), len(grid[0])\n    seen = set()\n    count = 0\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] != '1' or (r, c) in seen:\n                continue\n            count += 1\n            stack = [(r, c)]\n            seen.add((r, c))\n            while stack:\n                x, y = stack.pop()\n                for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)):\n                    nx, ny = x + dx, y + dy\n                    if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] == '1' and (nx,ny) not in seen:\n                        seen.add((nx,ny))\n                        stack.append((nx,ny))\n    return count\n",
+    "time": "O(RC)，R、C 为行列数。",
+    "space": "O(RC)，visited 与栈。",
+    "example": {
+      "input": "[['1','0'],['0','1']]",
+      "output": "2",
+      "walkthrough": [
+        "两个陆地只在对角线上相邻，分别启动 DFS。"
+      ]
+    },
+    "pitfalls": [
+      "字符串 '0' 的布尔值为真。",
+      "不能把对角方向算作连接。"
+    ],
+    "tests": [
+      {
+        "expression": "count_islands([['1','0'],['0','1']])",
+        "expected": 2
+      },
+      {
+        "expression": "count_islands([])",
+        "expected": 0
+      },
+      {
+        "expression": "count_islands([['1','1'],['1','0']])",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": "islands-bfs",
+    "chapter": "图论",
+    "title": "200. 岛屿数量：BFS",
+    "problem": "200",
+    "kind": "题解",
+    "summary": "队列扩展整座岛，扫描时只在新岛的第一个格计数。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "岛屿定义仍是四方向相连的 '1'，但这次用广度优先搜索扩展区域。计数题并不需要最短路径，BFS 与 DFS 都能正确完成连通分量遍历。选择队列主要改变探索顺序，岛屿的数量由连接关系决定，不由按层还是按深度探索决定。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "外层扫描寻找尚未发现的陆地。把它标记后放入队列，并增加答案。队列中保存这座岛尚未扩展的格，seen 包含已经发现的全部格。弹出一个格时检查四个邻居，把新陆地标记并入队；每个格只会承担一次出队扩展工作。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "当队列清空时，该岛所有能够通过陆地到达的格都已发现。若还有某个同岛格未发现，沿起点到它的路径寻找第一个未发现格，其前驱必已出队并应发现它，形成矛盾。因此扫描后来遇到同岛格不会重复计数，而下一座岛会正常触发。",
+          "BFS 一层中包含与起点相同边数距离的陆地，但计数只发生在外层启动搜索时，不发生在每层开始时。长条岛可能形成许多层，仍只是一座岛；一个宽大的岛可能队列很大，仍只增加一次答案。层数、队列长度与岛屿数量代表三个不同概念。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码使用 deque，使出队操作保持常数时间。访问集合可以换成布尔矩阵；若允许修改输入，也能把已发现的 '1' 改成 '0'，但要在入队时修改。下面不改输入，并处理空网格。超宽岛屿可能使队列很大，所以空间不能简单写成网格边长。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\ndef count_islands_bfs(grid):\n    if not grid or not grid[0]:\n        return 0\n    rows, cols = len(grid), len(grid[0])\n    seen = set()\n    answer = 0\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] != '1' or (r,c) in seen:\n                continue\n            answer += 1\n            queue = deque([(r,c)])\n            seen.add((r,c))\n            while queue:\n                x, y = queue.popleft()\n                for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)):\n                    nx, ny = x+dx, y+dy\n                    if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] == '1' and (nx,ny) not in seen:\n                        seen.add((nx,ny))\n                        queue.append((nx,ny))\n    return answer\n",
+    "time": "O(RC)。",
+    "space": "O(RC)。",
+    "example": {
+      "input": "[['1','1','0','1']]",
+      "output": "2",
+      "walkthrough": [
+        "前两个陆地在同一队列搜索中标记。",
+        "最后一个陆地另起一次 BFS。"
+      ]
+    },
+    "pitfalls": [
+      "普通列表 pop(0) 会引入移动成本。",
+      "从队列弹出后才标记会重复入队。"
+    ],
+    "tests": [
+      {
+        "expression": "count_islands_bfs([['1','1','0','1']])",
+        "expected": 2
+      },
+      {
+        "expression": "count_islands_bfs([['0']])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "island-max-area",
+    "chapter": "图论",
+    "title": "695. 岛屿的最大面积",
+    "problem": "695",
+    "kind": "题解",
+    "summary": "给每个连通分量累加格数，取其中的最大值。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "整数网格中的 1 表示陆地，0 表示水，岛屿按四方向连通定义。面积是同一岛中的格数，而不是周长，也不是它包围的矩形面积。要求返回面积最大的岛的格数；没有陆地时返回零。下面通过通用分量搜索收集每座岛的所有坐标。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "components 函数保证每个陆地格只归入一个 group。DFS 弹出一个格就加入当前分量，邻居在入栈时标记，因而不会重复贡献面积。一个 group 的长度就是该岛面积，遍历所有 group 后取最大长度即可；岛的位置与发现顺序不影响结果。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "为什么不能只数每行连续的 1？同岛可以跨行拐弯，甚至形状非常不规则；四方向搜索才体现完整连通关系。反过来，矩形中可能混有水或其他岛，所以不能用行列跨度估算面积。搜索逐格计数恰好满足面积定义，正确性直接来自分量划分。",
+          "例如蛇形岛可能跨越很多行列却面积很小，实心方块则几乎填满外接矩形。面积统计不需要知道 DFS 的父节点，也不需要恢复路线，只需知道哪些格属于当前分量。由于每个格在发现时归属唯一 group，后续遇到它时必须跳过，否则面积会被重复放大。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "模板保留原网格，并把所有坐标组保存下来，方便理解和后续复用；如果只要求最大面积，可以在 DFS 内用整数累计，搜索结束更新最大值，从而不保留全部 group，但 visited 仍需线性空间。max 的 default=0 明确处理全水和空网格。"
+        ]
+      }
+    ],
+    "code": "DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))\n\ndef components(grid):\n    if not grid or not grid[0]:\n        return []\n    rows, cols = len(grid), len(grid[0])\n    seen = set()\n    groups = []\n    for r in range(rows):\n        for c in range(cols):\n            if not grid[r][c] or (r, c) in seen:\n                continue\n            stack = [(r, c)]\n            seen.add((r, c))\n            group = []\n            while stack:\n                x, y = stack.pop()\n                group.append((x, y))\n                for dx, dy in DIRS:\n                    nx, ny = x + dx, y + dy\n                    if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] and (nx, ny) not in seen:\n                        seen.add((nx, ny))\n                        stack.append((nx, ny))\n            groups.append(group)\n    return groups\n\ndef max_area(grid):\n    return max((len(group) for group in components(grid)), default=0)\n",
+    "time": "O(RC)，每个陆地格检查四个邻居。",
+    "space": "O(RC)，访问记录、栈与分量坐标。",
+    "example": {
+      "input": "[[1,1,0],[0,1,0],[1,0,1]]",
+      "output": "3",
+      "walkthrough": [
+        "左上三个格连通，另两个格各自成岛。",
+        "面积为 3、1、1，最大为 3。"
+      ]
+    },
+    "pitfalls": [
+      "陆地输入类型是整数，不是字符串。",
+      "面积应统计整个分量，不能只计一条 DFS 分支。"
+    ],
+    "tests": [
+      {
+        "expression": "max_area([[1,1,0],[0,1,0],[1,0,1]])",
+        "expected": 3
+      },
+      {
+        "expression": "max_area([[0]])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "island-enclaves",
+    "chapter": "图论",
+    "title": "1020. 飞地的数量",
+    "problem": "1020",
+    "kind": "题解",
+    "summary": "接触边界的陆地分量可以逃离，其他分量的面积之和就是答案。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "飞地问题统计不能通过陆地走出网格的陆地格数。走出网格必须经过边界上的陆地，因此一个分量只要包含任一边界格，整个分量都可以逃离。答案是封闭在内部的陆地总面积，注意不是内部岛屿的数量，也不是与边界不直接相邻的格数。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "先按四方向划分陆地连通分量，再检查每个分量是否包含行号为 0 或 R-1、列号为 0 或 C-1 的格。若包含，整组排除；若不包含，加入 len(group)。同一分量内各点之间可相互到达，所以逃离能力是分量级的属性。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "对于接触边界的分量，任意点都可以先沿陆地路径走到边界，再迈出网格。对于不接触边界的分量，任何离开网格的路线必须先达到边界，但分量中不存在这样的陆地格，因此没有逃离路径。这两个方向证明筛选条件既必要也充分。",
+          "考虑内部陆地通过一条很窄的通道连向边界：尽管多数格离边界很远，它们仍全部可以逃离。只删边界格而不继续搜索，会把通道后面的格误计为飞地。判断必须针对完整连通分量或从边界传播到固定点，而不是只针对边界一圈位置。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码复用 components，避免修改原网格。另一种实现是从边界陆地开始多源搜索，标记所有能逃离的格，再数剩余陆地；它无需保存分量坐标，也有相同时间上界。只有一行或一列时所有陆地都在边界，结果自然为零。"
+        ]
+      }
+    ],
+    "code": "DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))\n\ndef components(grid):\n    if not grid or not grid[0]:\n        return []\n    rows, cols = len(grid), len(grid[0])\n    seen = set()\n    groups = []\n    for r in range(rows):\n        for c in range(cols):\n            if not grid[r][c] or (r, c) in seen:\n                continue\n            stack = [(r, c)]\n            seen.add((r, c))\n            group = []\n            while stack:\n                x, y = stack.pop()\n                group.append((x, y))\n                for dx, dy in DIRS:\n                    nx, ny = x + dx, y + dy\n                    if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] and (nx, ny) not in seen:\n                        seen.add((nx, ny))\n                        stack.append((nx, ny))\n            groups.append(group)\n    return groups\n\ndef count_enclaves(grid):\n    if not grid or not grid[0]:\n        return 0\n    rows, cols = len(grid), len(grid[0])\n    total = 0\n    for group in components(grid):\n        if all(0 < r < rows - 1 and 0 < c < cols - 1 for r,c in group):\n            total += len(group)\n    return total\n",
+    "time": "O(RC)。",
+    "space": "O(RC)。",
+    "example": {
+      "input": "[[0,0,0,0],[0,1,1,0],[0,0,1,0],[0,0,0,0]]",
+      "output": "3",
+      "walkthrough": [
+        "三个陆地互相连通。",
+        "这一分量没有边界格，全部计入飞地面积。"
+      ]
+    },
+    "pitfalls": [
+      "边界相连的内部格也不能计入答案。",
+      "返回面积总和，不是封闭分量数。"
+    ],
+    "tests": [
+      {
+        "expression": "count_enclaves([[0,0,0,0],[0,1,1,0],[0,0,1,0],[0,0,0,0]])",
+        "expected": 3
+      },
+      {
+        "expression": "count_enclaves([[1,1]])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "surrounded-regions",
+    "chapter": "图论",
+    "title": "130. 被围绕的区域",
+    "problem": "130",
+    "kind": "题解",
+    "summary": "保留与边界相连的 O，其他 O 才能翻转为 X。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "字符棋盘中的 O 形成四方向连通区域，X 是阻隔。只有完全被 X 包围且不能通过 O 到达棋盘边界的区域才应翻转。这里输出完整棋盘，函数返回一个新二维列表，保留调用者输入；若在线评测要求原地修改，可将结果逐行赋回 board。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "直接从内部某个 O 判断是否被包围，会重复检查长路径。更合适的做法是反过来从所有边界 O 搜索，把能与边界相连的 O 标记为 safe。这个集合中的格一定不能翻转，剩下的 O 一定处于封闭区域，最终只需一次全表扫描。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "边界 O 本身显然不会被围住；沿 O 路径走到它的格也同样与外部相通。搜索只经过 O，故不会错把跨越 X 的格加入 safe。任一与边界相通的 O 都有一条这样的路径，搜索最终会遍历它，这说明保留集合恰好等于全部不能翻转的格。",
+          "安全搜索结束前不要立即把所有内部 O 改成 X，因为某个尚未检查的内部格可能通过远处通道连接边界。一旦提前改动它，通道会被人为阻断，后续搜索依据的图已不同于原棋盘。先完成保留集合，再统一变换字符，把判断阶段与结果构造阶段分开。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "用显式栈做多源 DFS，并让 seed 在加入栈前去重。四条边在角点处有重叠，一行或一列也可能重复扫描，去重能统一处理。输出时根据原格和 safe 决定字符；空棋盘返回空列表。不要只检查格本身是否在边界，区域可能通过弯曲路径连接边界。"
+        ]
+      }
+    ],
+    "code": "def capture(board):\n    if not board or not board[0]:\n        return [row[:] for row in board]\n    rows, cols = len(board), len(board[0])\n    safe, stack = set(), []\n    def seed(r, c):\n        if board[r][c] == 'O' and (r,c) not in safe:\n            safe.add((r,c))\n            stack.append((r,c))\n    for r in range(rows):\n        seed(r, 0)\n        seed(r, cols-1)\n    for c in range(cols):\n        seed(0, c)\n        seed(rows-1, c)\n    while stack:\n        r, c = stack.pop()\n        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n            nr, nc = r+dr, c+dc\n            if 0 <= nr < rows and 0 <= nc < cols:\n                seed(nr, nc)\n    return [[('O' if (r,c) in safe else 'X') if board[r][c] == 'O' else board[r][c]\n             for c in range(cols)] for r in range(rows)]\n",
+    "time": "O(RC)。",
+    "space": "O(RC)，包含新棋盘输出。",
+    "example": {
+      "input": "['XXXX','XOOX','XXOX','XOXX']",
+      "output": "['XXXX','XXXX','XXXX','XOXX']",
+      "walkthrough": [
+        "底边的 O 被标记安全。",
+        "中间三个 O 无法通向边界，全部翻转。"
+      ]
+    },
+    "pitfalls": [
+      "只有四方向相邻有效。",
+      "本函数返回新棋盘，调用时要接收返回值。"
+    ],
+    "tests": [
+      {
+        "expression": "[''.join(row) for row in capture([list(s) for s in ['XXXX','XOOX','XXOX','XOXX']])]",
+        "expected": [
+          "XXXX",
+          "XXXX",
+          "XXXX",
+          "XOXX"
+        ]
+      },
+      {
+        "expression": "capture([['O']])",
+        "expected": [
+          [
+            "O"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pacific-atlantic",
+    "chapter": "图论",
+    "title": "417. 太平洋大西洋水流问题",
+    "problem": "417",
+    "kind": "题解",
+    "summary": "从海岸逆向走向更高或等高格，求两组可达集合的交集。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "水从一个格流到四邻格的条件是目标高度不高于当前高度。上边和左边接触太平洋，下边和右边接触大西洋，要求找出可以流向两片海的全部坐标。每个格分别向外模拟水流会重复探索，因此考虑把边的方向反转，从海岸向内搜索。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "原方向有边 u→v 当且仅当 height[v]≤height[u]。在反向图中，从 v 可以走向 u 的条件是 height[u]≥height[v]，所以反向搜索只能向更高或等高邻居扩展。太平洋可达集合表示原图中能流入太平洋的格，大西洋集合含义同理。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "分别把两片海岸的所有格作为搜索起点。原图中的一条流入海岸的路径反转后就是一条海岸到该格的反向路径，两者存在性完全等价。最终取两个 visited 集合的交集，就是同时存在两种水流路径的格；这两条路径不需要是同一条。",
+          "一行或一列的网格中，每个格都同时位于两片海的某条边界上，因此即使高度起伏很大也全部符合要求。一般网格中，水流可以选择不同方向走向不同海洋，并不要求一滴水沿一条路线先到一片海再到另一片海；这是两个存在性条件的交集。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "模板采用迭代 DFS，多源坐标先转换成集合，去掉角点重复。最终按网格的行列顺序扫描，检查坐标是否同时属于两组集合，因此不需要排序，时间保持 O(RC)。高度矩阵不被修改，两次搜索各有独立的 seen，不能共享标记，否则会混淆流向两片海的不同可达性。"
+        ]
+      }
+    ],
+    "code": "def ocean_cells(heights):\n    if not heights or not heights[0]:\n        return []\n    rows, cols = len(heights), len(heights[0])\n    def reach(starts):\n        seen = set(starts)\n        stack = list(seen)\n        while stack:\n            r, c = stack.pop()\n            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n                nr, nc = r+dr, c+dc\n                if 0 <= nr < rows and 0 <= nc < cols and (nr,nc) not in seen and heights[nr][nc] >= heights[r][c]:\n                    seen.add((nr,nc))\n                    stack.append((nr,nc))\n        return seen\n    pacific = reach([(0,c) for c in range(cols)] + [(r,0) for r in range(rows)])\n    atlantic = reach([(rows-1,c) for c in range(cols)] + [(r,cols-1) for r in range(rows)])\n    return [[r,c] for r in range(rows) for c in range(cols) if (r,c) in pacific and (r,c) in atlantic]\n",
+    "time": "O(RC)，结果采用网格顺序扫描，不使用排序。",
+    "space": "O(RC)。",
+    "example": {
+      "input": "[[1,2],[4,3]]",
+      "output": "[[0,1],[1,0],[1,1]]",
+      "walkthrough": [
+        "左上角只能向太平洋流出。",
+        "其余三格分别存在到两片海的下降路径。"
+      ]
+    },
+    "pitfalls": [
+      "反向搜索用 ≥，不能沿用原水流的 ≤。",
+      "等高格可以互通。"
+    ],
+    "tests": [
+      {
+        "expression": "ocean_cells([[1,2],[4,3]])",
+        "expected": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "ocean_cells([[7]])",
+        "expected": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "largest-island",
+    "chapter": "图论",
+    "title": "827. 最大人工岛",
+    "problem": "827",
+    "kind": "题解",
+    "summary": "先编号并记录岛屿面积，再对每个 0 合并不同邻岛。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "允许把至多一个水格 0 改成陆地 1，求最终最大岛屿面积。一次翻转只能把该格的四邻岛连接起来，不会直接连接远处岛屿。下面支持规则矩形网格，原题的方阵是其特例。全陆地无需翻转，全水网格在非空时最多形成面积为一的岛。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "先对每座岛进行 DFS，为岛分配唯一编号，并记录 size[id]。为每个陆地格保存其所属编号。接着检查每个水格，将四邻陆地编号加入集合，其翻转收益是一加这些不同岛的面积之和。集合去重是关键，因为同一岛可能从两个或更多方向接触水格。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "原有岛面积提供不翻转时的下界。对某个 0 翻转后，与它相连的原有陆地只能属于其邻接岛；每个邻接岛又整体连通，因此新岛恰好由该格和这些岛组成。枚举所有 0 的候选面积并与下界比较，覆盖了全部允许的决策。",
+          "一个被环形陆地包围的水格可能从四个方向接触同一座岛。若这座岛面积为八，翻转后的面积是九，而不是三十三。邻居去重只按岛编号进行；不同岛即使面积相同也都要计入，所以不能用面积值去重。预处理编号使这两种情况容易区分。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码通过 components 取得坐标分组，再写入 labels 矩阵，编号从一开始，零保留给水。sizes 是字典，避免误把水的面积当作可加入项。计算候选值不需要真正改网格，也无需为每个 0 重新执行 DFS，因此从平方次搜索降为一次预处理加一次扫描。"
+        ]
+      }
+    ],
+    "code": "DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))\n\ndef components(grid):\n    if not grid or not grid[0]:\n        return []\n    rows, cols = len(grid), len(grid[0])\n    seen = set()\n    groups = []\n    for r in range(rows):\n        for c in range(cols):\n            if not grid[r][c] or (r, c) in seen:\n                continue\n            stack = [(r, c)]\n            seen.add((r, c))\n            group = []\n            while stack:\n                x, y = stack.pop()\n                group.append((x, y))\n                for dx, dy in DIRS:\n                    nx, ny = x + dx, y + dy\n                    if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] and (nx, ny) not in seen:\n                        seen.add((nx, ny))\n                        stack.append((nx, ny))\n            groups.append(group)\n    return groups\n\ndef largest_island(grid):\n    if not grid or not grid[0]:\n        return 0\n    rows, cols = len(grid), len(grid[0])\n    labels = [[0] * cols for _ in range(rows)]\n    sizes = {}\n    for label, group in enumerate(components(grid), 1):\n        sizes[label] = len(group)\n        for r,c in group:\n            labels[r][c] = label\n    best = max(sizes.values(), default=0)\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c]:\n                continue\n            adjacent = set()\n            for dr,dc in DIRS:\n                nr,nc = r+dr,c+dc\n                if 0 <= nr < rows and 0 <= nc < cols and labels[nr][nc]:\n                    adjacent.add(labels[nr][nc])\n            best = max(best, 1 + sum(sizes[x] for x in adjacent))\n    return best\n",
+    "time": "O(RC)，集合最多含四个编号。",
+    "space": "O(RC)。",
+    "example": {
+      "input": "[[1,0],[0,1]]",
+      "output": "3",
+      "walkthrough": [
+        "任一水格同时邻接两座面积为一的岛。",
+        "翻转后面积为 1+1+1=3。"
+      ]
+    },
+    "pitfalls": [
+      "同一邻岛面积只能加一次。",
+      "全陆地时不能把结果初始化为零后只检查水格。"
+    ],
+    "tests": [
+      {
+        "expression": "largest_island([[1,0],[0,1]])",
+        "expected": 3
+      },
+      {
+        "expression": "largest_island([[1,1],[1,0]])",
+        "expected": 4
+      },
+      {
+        "expression": "largest_island([[0,0]])",
+        "expected": 1
+      },
+      {
+        "expression": "largest_island([[1,1]])",
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "island-perimeter",
+    "chapter": "图论",
+    "title": "463. 岛屿的周长",
+    "problem": "463",
+    "kind": "题解",
+    "summary": "每个陆地格从四条边开始，再扣除与陆地共享的边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "周长由陆地与水或网格外部接触的单位边构成。对角接触不会消去边。原题通常只有一座岛且没有湖，下面实现更一般地返回全部陆地边界长度；若存在湖，湖岸也会被计入，这与只统计外轮廓周长是不同定义。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "每个陆地格先贡献四条边。与它相邻的陆地共享边会被两个格各自计入一次，但共享边不属于边界，因此每对相邻陆地需要扣除二。只检查上方和左方邻居就能让每一对相邻格恰好处理一次，避免对同一共享边反复扣除。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "把所有格独立的四条边相加，再逐一删除内部共享边，剩下的就是边界边集合。检查上、左足以覆盖水平和竖直相邻关系：水平边由右格处理，竖直边由下格处理。任何外边或水边没有两个陆地端点，不会被扣除。",
+          "也可以对每个陆地格检查四个方向，遇到越界或水便加一，这个版本不使用扣除法。两种写法都从局部边界定义出发，结果一致。扣除法只检查上、左两个邻居，所以常数较小；四方向判断法则更直观，适合输出具体边界位置。没有陆地时贡献自然为零。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "算法只需扫描网格，不需要 DFS 或 visited，因为问题关注局部邻接贡献，而非连通分量归属。Python 中先判断 r 或 c 是否非零，再访问上一行或前一列，避免负下标环绕。空网格直接返回零；假设矩阵各行长度一致。"
+        ]
+      }
+    ],
+    "code": "def perimeter(grid):\n    if not grid or not grid[0]:\n        return 0\n    total = 0\n    for r in range(len(grid)):\n        for c in range(len(grid[0])):\n            if grid[r][c] != 1:\n                continue\n            total += 4\n            if r > 0 and grid[r-1][c] == 1:\n                total -= 2\n            if c > 0 and grid[r][c-1] == 1:\n                total -= 2\n    return total\n",
+    "time": "O(RC)。",
+    "space": "O(1)，不计输入。",
+    "example": {
+      "input": "[[1,1],[1,0]]",
+      "output": "8",
+      "walkthrough": [
+        "三个格初始贡献 12。",
+        "两条共享边各扣 2，得到 8。"
+      ]
+    },
+    "pitfalls": [
+      "四方向都检查却每次扣二会重复扣除。",
+      "带湖输入的结果包含湖岸边界。"
+    ],
+    "tests": [
+      {
+        "expression": "perimeter([[1,1],[1,0]])",
+        "expected": 8
+      },
+      {
+        "expression": "perimeter([[1]])",
+        "expected": 4
+      },
+      {
+        "expression": "perimeter([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "word-ladder",
+    "chapter": "图论",
+    "title": "127. 单词接龙",
+    "problem": "127",
+    "kind": "题解",
+    "summary": "把一次合法字母替换视为无权边，用 BFS 求最短转换长度。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "每一步只能改变单词的一个字符，新单词必须属于字典。所有单词长度一致并只含小写英文字母。返回从 begin 到 end 的最短单词序列长度，包含两端；不能完成则返回零。起点可以不在字典里，终点不同于起点时必须在字典中。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "不必显式构造任意两个单词之间的边。处理单词时逐个位置尝试二十六个字母，生成所有一步候选，再通过集合检查是否在未访问字典中。合法转换代价统一，因此 BFS 首次发现终点时对应的转换边数最少，加一起点就是题目要求的长度。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "维护队列元素为单词与当前序列长度。发现候选后立刻从 remaining 删除，它以后不再入队。这相当于 visited 标记，防止来回替换形成环。按层搜索保证较短序列先处理，故第一次发现某单词之后无需保留通向它的更长前缀。",
+          "字典中可能出现重复单词，转换成集合后只保留一个状态。若需要返回所有最短接龙序列，不能沿用删除状态后丢弃其他同层前驱的做法，需要记录同层的全部最短前驱并在距离确定后回溯。仅返回最短长度时，一次访问已经保存了足够的信息。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "模板使用切片拼接生成字符串，每次生成长度为 L 的候选成本为 O(L)，因此不能把复杂度写成只有 O(NL)。起终点相等时返回一，是这里明确采用的边界约定。过滤长度不一致的字典项，使隐式邻接规则与输入假设保持一致。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\nfrom string import ascii_lowercase\n\ndef ladder_length(begin, end, words):\n    if begin == end:\n        return 1\n    remaining = {w for w in words if len(w) == len(begin)}\n    if len(end) != len(begin) or end not in remaining:\n        return 0\n    remaining.discard(begin)\n    queue = deque([(begin, 1)])\n    while queue:\n        word, length = queue.popleft()\n        for i in range(len(word)):\n            for ch in ascii_lowercase:\n                if ch == word[i]:\n                    continue\n                nxt = word[:i] + ch + word[i+1:]\n                if nxt not in remaining:\n                    continue\n                if nxt == end:\n                    return length + 1\n                remaining.remove(nxt)\n                queue.append((nxt, length+1))\n    return 0\n",
+    "time": "O(N·26·L²)，N 为不同字典词数，L 为词长，含字符串构造和哈希成本。",
+    "space": "O(NL)，字典集合和队列中的字符串。",
+    "example": {
+      "input": "hit→cog, [hot,dot,dog,lot,log,cog]",
+      "output": "5",
+      "walkthrough": [
+        "hit→hot→dot→dog→cog 共四次替换。",
+        "序列含五个单词，因此返回五。"
+      ]
+    },
+    "pitfalls": [
+      "返回的是单词数，不是替换次数。",
+      "候选入队时应删除，避免重复扩展。"
+    ],
+    "tests": [
+      {
+        "expression": "ladder_length('hit','cog',['hot','dot','dog','lot','log','cog'])",
+        "expected": 5
+      },
+      {
+        "expression": "ladder_length('a','c',['a','b'])",
+        "expected": 0
+      },
+      {
+        "expression": "ladder_length('same','same',[])",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": "directed-reachability",
+    "chapter": "图论",
+    "title": "有向图：从源点是否能到达所有顶点",
+    "problem": "",
+    "kind": "题解",
+    "summary": "只沿出边搜索，访问数等于顶点数才表示源点能覆盖全图。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "给定有向图和指定源点，判断源点是否能通过箭头方向的路径到达所有顶点。这个条件比无向意义下连通更严格，却比强连通更弱：不要求其他顶点能够回到源点。编号为 0 到 n-1；下面将空图判为真，不读取没有意义的源点。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "以源点为起点执行 DFS，visited 只通过出边扩展。处理顶点 u 时，若 u→v 存在且 v 未访问，标记 v 后入栈。任何被发现顶点都有一条由搜索边组成的源点路径，故不会把方向相反的边当成可行路线。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "搜索结束后，visited 恰好是源点可达集合。一方面搜索加入的点都可达；另一方面每条可达路径上的顶点会依次被发现。因而集合大小与 n 相等就是所求条件。若想输出不能到达的顶点，可以对全部编号求 visited 的补集。",
+          "例如边为 0→1 与 2→1，忽略方向时三个点属于同一分量，但从 0 无法到达 2。因此无向连接测试会给出错误的真值。若要求每个顶点都能到达指定终点，可以反转所有边，再从终点执行同样搜索，路径存在性会一一对应。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "模板验证边端点和非空图源点范围，避免 Python 负下标产生隐蔽错误。无需并查集，因为并查集表示对称的连通关系，不能表达箭头可达性。若问题改成寻找某个可以覆盖全图的源点，还需要额外候选筛选，不能直接把本函数误当作答案。"
+        ]
+      }
+    ],
+    "code": "def reaches_all(n, edges, start=0):\n    if n == 0:\n        return True\n    if not 0 <= start < n:\n        raise ValueError(\"invalid source\")\n    graph = [[] for _ in range(n)]\n    for u,v in edges:\n        if not (0 <= u < n and 0 <= v < n):\n            raise ValueError(\"invalid edge\")\n        graph[u].append(v)\n    seen = {start}\n    stack = [start]\n    while stack:\n        u = stack.pop()\n        for v in graph[u]:\n            if v not in seen:\n                seen.add(v)\n                stack.append(v)\n    return len(seen) == n\n",
+    "time": "O(V+E)。",
+    "space": "O(V+E)，包含邻接表。",
+    "example": {
+      "input": "n=3, edges=[(0,1),(1,2)], start=0",
+      "output": "True",
+      "walkthrough": [
+        "顺箭头可依次发现 1 和 2。",
+        "若起点改成 2，则无法逆向返回。"
+      ]
+    },
+    "pitfalls": [
+      "不能把有向边建成双向边。",
+      "源点可达全部顶点不等于强连通。"
+    ],
+    "tests": [
+      {
+        "expression": "reaches_all(3,[(0,1),(1,2)],0)",
+        "expected": true
+      },
+      {
+        "expression": "reaches_all(3,[(0,1),(1,2)],2)",
+        "expected": false
+      },
+      {
+        "expression": "reaches_all(0,[])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "union-find",
+    "chapter": "图论",
+    "title": "并查集：维护连通分量",
+    "problem": "",
+    "kind": "理论",
+    "summary": "路径压缩与按大小合并让动态连通查询接近常数时间。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "并查集维护一组互不重叠的集合，支持 find 查询元素所在集合的代表，以及 union 合并两个集合。它适合不断添加无向边后的连通性查询，也用于 Kruskal 判断是否形成环。下面初始化 n 个独立元素，每个元素最初自成一个集合。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "parent 构成代表森林，根满足 parent[root]=root。find 沿父指针找到根，集合相同当且仅当两点的根相同。size 只在根处具有集合大小意义；合并时先找根，再把小树根挂到大树根上，避免链形树持续增长。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "路径压缩在查询过程中缩短父链，但不会改变任何元素所属的集合。按大小合并保证未压缩前的树高度也不会无界恶化。union 若发现两根相同，返回 False，表示集合结构未变化；否则返回 True，并更新新根的大小，供生成树或组件计数使用。",
+          "集合代表的编号没有业务含义，按大小合并可能让原本较小的编号挂到较大的编号下。查询时只比较 find 的返回值，不应要求代表等于某个固定成员。若需要每个分量的最小编号，可额外维护 root 的统计值，在 union 成功时合并该统计信息。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码采用路径减半，循环中把元素指向祖父，避免递归。调用方必须保证元素编号有效，Python 负编号不会自动报错。并查集不保留实际图路径，也不能直接处理删除边；需要路径输出或删除操作时应选择其他结构或离线方法。"
+        ]
+      }
+    ],
+    "code": "class DSU:\n    def __init__(self, n):\n        self.parent = list(range(n))\n        self.size = [1] * n\n\n    def find(self, x):\n        while self.parent[x] != x:\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a, b):\n        a, b = self.find(a), self.find(b)\n        if a == b:\n            return False\n        if self.size[a] < self.size[b]:\n            a, b = b, a\n        self.parent[b] = a\n        self.size[a] += self.size[b]\n        return True\n",
+    "time": "m 次操作总摊还 O((n+m)α(n))，α 为反阿克曼函数。",
+    "space": "O(n)。",
+    "example": {
+      "input": "n=4, union(0,1), union(1,2)",
+      "output": "0 与 2 同属一个集合",
+      "walkthrough": [
+        "初始有四个根。",
+        "两次成功合并后，0、1、2 共享代表，3 独立。"
+      ]
+    },
+    "pitfalls": [
+      "size 的非根项不是可靠的当前集合大小。",
+      "只能直接表达无向连通等价关系。"
+    ],
+    "tests": [
+      {
+        "expression": "list((lambda d: (d.union(0,1), d.union(1,2), d.find(0)==d.find(2)))(DSU(4)))",
+        "expected": [
+          true,
+          true,
+          true
+        ]
+      }
+    ]
+  },
+  {
+    "id": "valid-path",
+    "chapter": "图论",
+    "title": "1971. 寻找图中是否存在路径",
+    "problem": "1971",
+    "kind": "题解",
+    "summary": "无向路径存在性等价于两点属于同一个并查集集合。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "给定无向图以及 source、destination，判断两点之间是否存在路径。路径可经过任意多条边，起终点相同则长度为零的路径已经存在。图中允许孤立点，不能只从边列表出现的编号初始化集合；必须根据 n 建立全部顶点。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "把每条无向边的两个端点 union。每次合并都把通过新边相连的两个连通分量融合，若它们已经在同一分量则没有结构变化。所有边处理完后，两个顶点根相等表示属于同一无向连通分量，也就表示存在一条图路径。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "初始时各点仅与自身连通，符合零条边的图。加入边 u-v 时，新产生的路径只能连接原来 u 所在分量和 v 所在分量，不会影响其他分量。union 恰好执行这次集合合并；逐边归纳后，并查集分组与实际连通分量完全一致。",
+          "并查集会丢弃边的先后和实际路径细节，find 返回的父链不一定对应原图的边。因此不能把 parent 数组直接当作从 source 到 destination 的路线。若问题要求输出路径，应该使用 BFS 或 DFS 并记录原图前驱；多个可达性查询才体现并查集的优势。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "对于一次查询，DFS 或 BFS 同样可以解决；若同一图需要大量两点查询，并查集预处理更合适。模板复用按大小合并与路径减半。代码按题目有效编号约定运行，若用于不可信外部输入，应先校验 n、边端点及两个查询点。"
+        ]
+      }
+    ],
+    "code": "class DSU:\n    def __init__(self, n):\n        self.parent = list(range(n))\n        self.size = [1] * n\n\n    def find(self, x):\n        while self.parent[x] != x:\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a, b):\n        a, b = self.find(a), self.find(b)\n        if a == b:\n            return False\n        if self.size[a] < self.size[b]:\n            a, b = b, a\n        self.parent[b] = a\n        self.size[a] += self.size[b]\n        return True\n\ndef valid_path(n, edges, source, destination):\n    dsu = DSU(n)\n    for u,v in edges:\n        dsu.union(u,v)\n    return dsu.find(source) == dsu.find(destination)\n",
+    "time": "O((V+E)α(V))，单次根比较摊还 O(α(V))。",
+    "space": "O(V)，不另外建立邻接表。",
+    "example": {
+      "input": "n=4, [(0,1),(1,2)], source=0, destination=3",
+      "output": "False",
+      "walkthrough": [
+        "0、1、2 被合并。",
+        "3 仍是独立分量。"
+      ]
+    },
+    "pitfalls": [
+      "不能直接用于有向路径查询。",
+      "起点等于终点时答案为真。"
+    ],
+    "tests": [
+      {
+        "expression": "valid_path(4,[(0,1),(1,2)],0,3)",
+        "expected": false
+      },
+      {
+        "expression": "valid_path(1,[],0,0)",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "redundant-undirected",
+    "chapter": "图论",
+    "title": "684. 冗余连接",
+    "problem": "684",
+    "kind": "题解",
+    "summary": "顺序加入边，第一次连接同一分量两点的边就是闭环边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "输入是一棵无向树加上一条额外边，顶点编号从一开始，要求删去一条边恢复树；若多个答案可行，返回输入中最靠后的那条。树本身无环，增加一条边只会形成一个环，环上的任何边都可以删去。扫描顺序可以自然实现最后边的要求。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "按输入顺序将边交给并查集。若 union 成功，边连接两个原来互不连通的分量，不会形成环；若失败，两个端点之前已经存在路径，新边与这条路径一起构成环。在本题前提下只有一次失败，它就是唯一环中最后出现的边。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "环中的最后一条边被扫描之前，其余环边已全部加入，因此两端已经连通，必然失败。在它之前，缺少至少一条环边，不可能闭合这个唯一环，所以没有更早的失败。这说明首次失败既符合成环判断，也满足输入顺序最靠后的答案要求。",
+          "若环由边 1-2、2-3、3-1 构成，其他树枝在扫描时只会扩展森林，不影响闭环判断。额外边未必就是输入最后一条边，应该返回环中最后出现的那一条。例如最后输入一条通向新叶子的树枝时，它可以成功合并，不能把它误当作冗余。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "编号从一开始，DSU 大小需要比最大编号多一，零位置空置。下面对空边表返回空列表，但非空输入按树加一边的约定解释。一般图可能包含多个环，这时首次失败只是某一闭环边，不能直接宣称它满足原题关于删一边恢复整棵树的条件。"
+        ]
+      }
+    ],
+    "code": "class DSU:\n    def __init__(self, n):\n        self.parent = list(range(n))\n        self.size = [1] * n\n\n    def find(self, x):\n        while self.parent[x] != x:\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a, b):\n        a, b = self.find(a), self.find(b)\n        if a == b:\n            return False\n        if self.size[a] < self.size[b]:\n            a, b = b, a\n        self.parent[b] = a\n        self.size[a] += self.size[b]\n        return True\n\ndef redundant_edge(edges):\n    if not edges:\n        return []\n    dsu = DSU(max(max(e) for e in edges) + 1)\n    for u,v in edges:\n        if not dsu.union(u,v):\n            return [u,v]\n    return []\n",
+    "time": "O(Eα(V))，V 由最大编号确定。",
+    "space": "O(V)。",
+    "example": {
+      "input": "[[1,2],[1,3],[2,3]]",
+      "output": "[2,3]",
+      "walkthrough": [
+        "前两边连接三个顶点。",
+        "最后一边的两端已连通，闭合唯一环。"
+      ]
+    },
+    "pitfalls": [
+      "题目前提是树加一条边。",
+      "一开始编号不能直接只分配 V 个下标。"
+    ],
+    "tests": [
+      {
+        "expression": "redundant_edge([[1,2],[1,3],[2,3]])",
+        "expected": [
+          2,
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "id": "redundant-directed",
+    "chapter": "图论",
+    "title": "685. 冗余连接 II",
+    "problem": "685",
+    "kind": "题解",
+    "summary": "先识别双父节点，再用忽略候选边后的成环情况确定删除哪条边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "输入是一棵有根有向树加上一条有向边，节点编号为一到 n。合法结果要求根入度为零，其他节点入度为一，并且所有节点从根可达。多余边可能造成有向环、某节点有两个父节点，或者两种情况同时发生；单纯做无向环判断不足以覆盖所有情况。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "先扫描入边，若某节点 v 第二次出现父边，记录较早边 first 和较晚边 second。暂时跳过 second，再对剩余边做并查集合并。此时每个节点入度至多一，题目结构保证无向成环检查能够定位需要处理的唯一循环。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "若没有双父节点，唯一问题就是环，返回使 union 失败的边。若有双父节点且跳过 second 后没有环，删 second 就得到树，并满足选较晚边的要求。若仍有环，说明 first 位于环中而 second 不负责打破它，必须删 first 才能同时消除双父和循环。",
+          "例如 2→1、3→1、4→2、1→4 中，1 有两个父节点。跳过 3→1 后，2→1→4→2 仍成环，因此要删较早的 2→1。这个例子说明偏好较晚边只在删除它确实能恢复有根树时成立，不能不加检查地总选第二条父边。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "记录边的索引而不是只记录端点，能够明确区分先后顺序。parent_edge 是入边记录，DSU.parent 是集合森林，它们含义不同。下面按原题节点范围和树加一边的保证编写；一般有向图并不能靠该流程删一条边恢复树，不能将这里的结论无条件推广。"
+        ]
+      }
+    ],
+    "code": "class DSU:\n    def __init__(self, n):\n        self.parent = list(range(n))\n        self.size = [1] * n\n\n    def find(self, x):\n        while self.parent[x] != x:\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a, b):\n        a, b = self.find(a), self.find(b)\n        if a == b:\n            return False\n        if self.size[a] < self.size[b]:\n            a, b = b, a\n        self.parent[b] = a\n        self.size[a] += self.size[b]\n        return True\n\ndef redundant_directed(edges):\n    if not edges:\n        return []\n    n = len(edges)\n    incoming = {}\n    first = second = None\n    for i,(u,v) in enumerate(edges):\n        if v in incoming:\n            first, second = incoming[v], i\n        else:\n            incoming[v] = i\n    dsu = DSU(n+1)\n    for i,(u,v) in enumerate(edges):\n        if i == second:\n            continue\n        if not dsu.union(u,v):\n            return list(edges[first if second is not None else i])\n    return list(edges[second]) if second is not None else []\n",
+    "time": "O(Vα(V))，树加一边时 E=V。",
+    "space": "O(V)。",
+    "example": {
+      "input": "[[1,2],[1,3],[2,3]]",
+      "output": "[2,3]",
+      "walkthrough": [
+        "节点 3 有两条入边。",
+        "跳过较晚的 2→3 后无环，因此删除它。"
+      ]
+    },
+    "pitfalls": [
+      "双父问题必须先处理，不能只寻找闭环边。",
+      "并查集成环判断成立依赖树加一边结构。"
+    ],
+    "tests": [
+      {
+        "expression": "redundant_directed([[1,2],[1,3],[2,3]])",
+        "expected": [
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "redundant_directed([[2,1],[3,1],[4,2],[1,4]])",
+        "expected": [
+          2,
+          1
+        ]
+      },
+      {
+        "expression": "redundant_directed([[1,2],[2,3],[3,1]])",
+        "expected": [
+          3,
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mst-prim",
+    "chapter": "图论",
+    "title": "Prim：逐步扩展最小生成树",
+    "problem": "",
+    "kind": "题解",
+    "summary": "每次选择连接已选集合与外部顶点的最轻边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "最小生成树在连通无向带权图中选取 V-1 条边，连通全部顶点且总权重最小。它优化全部连接成本，区别于从某源点到每个顶点的最短路径。边权可以为负，也可以有重边。下面返回总权重；图不连通时抛出 ValueError，空图约定权重为零。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "从任意顶点开始维护已选集合 S，堆中保存由 S 指向外部的候选边。每次弹出权重最小且终点尚未被选的边，把终点加入 S，再压入它的所有出边。已选顶点对应的旧候选直接跳过，保证每次成功选择都只引入一个新顶点。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "跨越割 S 与其补集的最轻边是安全边：若某最优树没有它，加入后形成环，环上必有另一条跨割边，其权重不小于所选边；替换后仍是生成树且不更贵。因此每一步都能保留某棵最优树，最终所有顶点加入后得到最小生成树。",
+          "已选集合只需有一个入口，随后所有有效候选都来自已选点的出边。堆中可能留有两条指向同一外部顶点的边，较轻者先进入树，较重者后来因顶点已选而丢弃。这是边界候选的懒处理，不是对所有源点距离求和，也无需计算从起点沿树到各点的距离。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "模板使用邻接表和 heapq，堆元素为权重与顶点，起点放入权重零的虚拟入口。平权时按编号比较不影响总权重。堆最多保存 O(E) 项，复杂度应写为 O(E log E) 而不是忽略重边后的固定 log V；计数不足 V 时必须报不连通。"
+        ]
+      }
+    ],
+    "code": "from heapq import heappush, heappop\n\ndef prim(n, edges):\n    if n == 0:\n        return 0\n    graph = [[] for _ in range(n)]\n    for u,v,w in edges:\n        graph[u].append((v,w))\n        graph[v].append((u,w))\n    seen = set()\n    heap = [(0,0)]\n    total = 0\n    while heap:\n        weight,u = heappop(heap)\n        if u in seen:\n            continue\n        seen.add(u)\n        total += weight\n        for v,w in graph[u]:\n            if v not in seen:\n                heappush(heap,(w,v))\n    if len(seen) != n:\n        raise ValueError(\"graph is disconnected\")\n    return total\n",
+    "time": "O(V+E log(E+1))，允许重边。",
+    "space": "O(V+E)，邻接表及堆。",
+    "example": {
+      "input": "n=3, [(0,1,4),(0,2,1),(2,1,2)]",
+      "output": "3",
+      "walkthrough": [
+        "从 0 选择权重 1 的边连接 2。",
+        "跨割最小边为 2→1 的权重 2，总和为 3。"
+      ]
+    },
+    "pitfalls": [
+      "最小生成树允许负权；Dijkstra 的负权限制不适用。",
+      "不连通图不能悄悄返回单个分量的权重。"
+    ],
+    "tests": [
+      {
+        "expression": "prim(3,[(0,1,4),(0,2,1),(2,1,2)])",
+        "expected": 3
+      },
+      {
+        "expression": "prim(1,[])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "mst-kruskal",
+    "chapter": "图论",
+    "title": "Kruskal：按边权合并分量",
+    "problem": "",
+    "kind": "题解",
+    "summary": "从小到大检查边，仅接受连接不同分量的边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "Kruskal 面向无向带权图，以边为中心构造最小生成树。初始每个顶点自成一个分量，将边按权重从小到大排列，逐条考虑是否纳入生成树。允许负权、平权与重边；自环永远不需要选取。空图权重约定为零，不连通图必须明确失败。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "并查集维护当前已选边形成的森林。如果一条边两端根不同，选它并合并两个分量；若两端根相同，已有路径连接它们，加入该边会成环，应跳过。每次成功合并使分量数减少一，所以连通图恰好选择 V-1 条边。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "处理边 u-v 时，若两端还在不同分量，它是按排序首次遇到的连接这些当前分量的便宜选择，可用割性质证明安全。若拒绝闭环边，森林连通关系不会失去未来方案。反复加入安全边直到只剩一个分量，就得到权重最小且无环的连接方案。",
+          "与 Prim 从一个分量向外扩展不同，Kruskal 可以同时维护许多小树，最便宜的安全边可能位于任意两个分量之间。两种算法都依赖割性质而非路线长度。若需要最小生成森林，可删除不连通报错并保留所有成功合并边，但应在接口名字和返回定义中明确这个变化。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "排序 key 只用第三个元素权重，避免错误地按端点编号排序。模板累计 chosen 数，达到 n-1 后可提前结束；扫描完仍不足则抛出异常。总时间主要来自排序，DSU 的近常数摊还操作只是后续筛选成本。若需要具体树边，可在 union 成功时额外保存。"
+        ]
+      }
+    ],
+    "code": "class DSU:\n    def __init__(self, n):\n        self.parent = list(range(n))\n        self.size = [1] * n\n\n    def find(self, x):\n        while self.parent[x] != x:\n            self.parent[x] = self.parent[self.parent[x]]\n            x = self.parent[x]\n        return x\n\n    def union(self, a, b):\n        a, b = self.find(a), self.find(b)\n        if a == b:\n            return False\n        if self.size[a] < self.size[b]:\n            a, b = b, a\n        self.parent[b] = a\n        self.size[a] += self.size[b]\n        return True\n\ndef kruskal(n, edges):\n    if n == 0:\n        return 0\n    dsu = DSU(n)\n    total = chosen = 0\n    for u,v,w in sorted(edges, key=lambda edge: edge[2]):\n        if dsu.union(u,v):\n            total += w\n            chosen += 1\n            if chosen == n-1:\n                break\n    if chosen != n-1:\n        raise ValueError(\"graph is disconnected\")\n    return total\n",
+    "time": "O(V+E log(E+1)+Eα(V))。",
+    "space": "O(V+E)，排序副本与并查集。",
+    "example": {
+      "input": "n=3, [(0,1,4),(0,2,1),(2,1,2)]",
+      "output": "3",
+      "walkthrough": [
+        "排序后先选权重 1，再选权重 2。",
+        "已有两条边连接全部三点，结束。"
+      ]
+    },
+    "pitfalls": [
+      "必须按权重排序。",
+      "返回森林权重与返回整图生成树权重是不同约定。"
+    ],
+    "tests": [
+      {
+        "expression": "kruskal(3,[(0,1,4),(0,2,1),(2,1,2)])",
+        "expected": 3
+      },
+      {
+        "expression": "kruskal(1,[])",
+        "expected": 0
+      },
+      {
+        "expression": "kruskal(2,[(0,1,-2)])",
+        "expected": -2
+      }
+    ]
+  },
+  {
+    "id": "topological-sort",
+    "chapter": "图论",
+    "title": "拓扑排序：依赖先于使用者",
+    "problem": "",
+    "kind": "题解",
+    "summary": "重复取出入度零的顶点；处理不足全部顶点则存在有向环。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "有向边 u→v 表示 u 必须排在 v 前面。拓扑排序寻找满足所有这种先后约束的顶点排列，常用于课程依赖和任务安排。只有有向无环图存在拓扑序；排序不是按编号大小或按权重排序，并且同一 DAG 往往存在多个合法结果。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "Kahn 算法维护当前未删除图中每个顶点的入度。入度为零表示没有剩余前驱限制，可以放入结果。取出一个顶点后等价于删除它及其出边，因此每条出边目标的入度减一；某目标入度恰好变零时，将它加入队列。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "每次输出的顶点没有未输出前驱，故不会违反任何依赖。若处理完全部顶点，结果就是合法拓扑序。若队列空但仍有顶点，它们每个都有剩余前驱；不断沿前驱回溯，在有限图中必会重复某点，从而形成有向环，所以必须报告失败。",
+          "若队列中同时有多个入度零顶点，任选其一都合法；当前 deque 的顺序由初始化编号和邻接表顺序决定。若题目要求字典序最小拓扑序，应把队列换成最小堆，代价变为 O((V+E)log V) 的宽松上界，不能把任意合法序误称为唯一答案。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码保存完整邻接表和入度数组，重边要在两处一致处理：建图时加入几次，删除时就减几次。初始孤立点也应入队，不能只关注边中出现的节点。空图的拓扑序是空列表。抛异常比返回部分顺序更清楚，避免调用者把未完成结果当成有效计划。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\ndef topological_sort(n, edges):\n    graph = [[] for _ in range(n)]\n    indegree = [0] * n\n    for u,v in edges:\n        graph[u].append(v)\n        indegree[v] += 1\n    queue = deque(u for u in range(n) if indegree[u] == 0)\n    order = []\n    while queue:\n        u = queue.popleft()\n        order.append(u)\n        for v in graph[u]:\n            indegree[v] -= 1\n            if indegree[v] == 0:\n                queue.append(v)\n    if len(order) != n:\n        raise ValueError(\"directed cycle\")\n    return order\n",
+    "time": "O(V+E)。",
+    "space": "O(V+E)。",
+    "example": {
+      "input": "n=4, [(0,2),(1,2),(2,3)]",
+      "output": "[0,1,2,3]",
+      "walkthrough": [
+        "0、1 初始入度为零。",
+        "两者都移除后，2 才能进入队列。",
+        "2 移除后释放 3。"
+      ]
+    },
+    "pitfalls": [
+      "环图不能返回残缺顺序当作答案。",
+      "重边的计数与删除必须一致。"
+    ],
+    "tests": [
+      {
+        "expression": "topological_sort(4,[(0,2),(1,2),(2,3)])",
+        "expected": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "topological_sort(0,[])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "dijkstra-dense",
+    "chapter": "图论",
+    "title": "Dijkstra：稠密图的数组版本",
+    "problem": "",
+    "kind": "题解",
+    "summary": "非负边权保证当前最小的未确定距离可以永久确定。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "求有向带权图中源点到每个顶点的最短距离，要求全部边权非负。这里用邻接矩阵实现，math.inf 表示没有边，零权边仍是合法边，重边只保留最小权。距离为 inf 表示不可达，源点到自身的距离为零；任何负权输入均直接报错。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "维护 dist 为当前已知路径长度，fixed 为距离已确定的顶点。每轮从未确定顶点中线性扫描距离最小的 u，将它确定，再尝试通过 u 更新所有邻居。只有当 dist[u]+w 小于现值时才松弛。候选值代表确实存在的路径，而不是任意估计。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "非负权使尚未确定顶点之间的后续移动不会降低路径前缀长度。若 u 的最短路线更短，它从已确定集合跨出的第一个未确定点就应拥有不大于该路线的候选距离，不可能比当前最小的 u 更晚确定。因此贪心选择成立；负边会破坏这个论证。",
+          "无向非负图中，输入同一条边的两个方向共享相同权重，可在矩阵构造时同时写入两个位置。不要在后续松弛阶段临时反转边，因为算法必须始终面对同一个固定图。若只查询一个目标，可在目标被确定后退出，但此时其余顶点的候选距离未必最终正确。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "当找不到有限距离候选时，剩余顶点全部不可达，立即退出而不把 inf 加上权重。矩阵初始化与每轮选点、松弛都需要平方工作，适合稠密图和规模适中的教材示例。Python 使用真正的 inf，避免固定大整数被合法长路径超过。"
+        ]
+      }
+    ],
+    "code": "from math import inf\n\ndef dijkstra_dense(n, edges, source):\n    if not 0 <= source < n:\n        raise ValueError(\"invalid source\")\n    matrix = [[inf] * n for _ in range(n)]\n    for u,v,w in edges:\n        if w < 0:\n            raise ValueError(\"Dijkstra requires nonnegative weights\")\n        matrix[u][v] = min(matrix[u][v],w)\n    dist = [inf] * n\n    dist[source] = 0\n    fixed = [False] * n\n    for _ in range(n):\n        u = -1\n        for v in range(n):\n            if not fixed[v] and (u == -1 or dist[v] < dist[u]):\n                u = v\n        if u == -1 or dist[u] == inf:\n            break\n        fixed[u] = True\n        for v,w in enumerate(matrix[u]):\n            if not fixed[v] and w != inf and dist[u]+w < dist[v]:\n                dist[v] = dist[u]+w\n    return dist\n",
+    "time": "O(V²+E)。",
+    "space": "O(V²)。",
+    "example": {
+      "input": "n=4, [(0,1,4),(0,2,1),(2,1,2)]",
+      "output": "[0,3,1,inf]",
+      "walkthrough": [
+        "先确定 0，再确定 2。",
+        "经 2 把 1 的候选距离从 4 降到 3。",
+        "顶点 3 保持不可达。"
+      ]
+    },
+    "pitfalls": [
+      "负权边不适用，即使没有负环也不行。",
+      "零权不能被当作无边标记。"
+    ],
+    "tests": [
+      {
+        "expression": "dijkstra_dense(3,[(0,1,4),(0,2,1),(2,1,2)],0)",
+        "expected": [
+          0,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "dijkstra_dense(2,[(0,1,0)],0)",
+        "expected": [
+          0,
+          0
+        ]
+      },
+      {
+        "expression": "dijkstra_dense(2,[],0)[1] == float('inf')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "dijkstra-heap",
+    "chapter": "图论",
+    "title": "Dijkstra：优先队列版本",
+    "problem": "",
+    "kind": "题解",
+    "summary": "堆选择最小候选距离，用过期项检查实现简洁的松弛更新。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "在稀疏有向图中，矩阵 Dijkstra 的平方扫描浪费较多工作。邻接表只保存真实边，最小堆用来快速选取当前距离最小的顶点。输入必须非负权，孤立点和不可达顶点返回 inf。无向图可以把每条边先扩展为两个方向，再复用同一函数。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "每次距离改善就把新二元组 (距离,顶点) 压入堆，旧候选不从堆中删除。当弹出的 d 不等于 dist[u] 时，说明该项已被后来的更短路线替代，直接跳过。有效项出堆后扫描 u 的出边，保持 dist 始终是已发现路径中的最小长度。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "最小堆弹出有效候选的顺序与数组版本选取最小未确定顶点相同，非负权证明仍然适用。严格小于才更新可避免零权环导致无限压入。无需维护额外 fixed 集合，因为有效弹出后不可能再获得更小距离，过期项检查已承担重复处理过滤。",
+          "当边权全部为一时，BFS 比堆版本更简洁且时间线性；边权只有零和一时，可以用双端队列进行 0-1 BFS。选择堆并不自动更先进，关键是它解决了不同候选代价的排序问题。对于大量重复边，可预先保留每对端点的最轻边，减少堆压力。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "heapq 没有直接减少键操作，采用懒删除更加简单，但堆规模可能达到 O(E)，在允许多重边时应使用 log(E+1) 描述。校验全部边权而不是只检查可达边，使函数输入契约统一。模板只返回距离，若要恢复路线可在成功松弛时保存前驱。"
+        ]
+      }
+    ],
+    "code": "from heapq import heappush, heappop\nfrom math import inf\n\ndef dijkstra_heap(n, edges, source):\n    if not 0 <= source < n:\n        raise ValueError(\"invalid source\")\n    graph = [[] for _ in range(n)]\n    for u,v,w in edges:\n        if w < 0:\n            raise ValueError(\"Dijkstra requires nonnegative weights\")\n        graph[u].append((v,w))\n    dist = [inf] * n\n    dist[source] = 0\n    heap = [(0,source)]\n    while heap:\n        d,u = heappop(heap)\n        if d != dist[u]:\n            continue\n        for v,w in graph[u]:\n            candidate = d+w\n            if candidate < dist[v]:\n                dist[v] = candidate\n                heappush(heap,(candidate,v))\n    return dist\n",
+    "time": "O(V+E log(E+1))，允许重边的堆式实现。",
+    "space": "O(V+E)，邻接表和可能包含过期项的堆。",
+    "example": {
+      "input": "n=3, [(0,1,10),(0,2,1),(2,1,2)]",
+      "output": "[0,3,1]",
+      "walkthrough": [
+        "堆先保存 1 的距离 10。",
+        "经 2 改善为 3，随后旧的距离 10 项被跳过。"
+      ]
+    },
+    "pitfalls": [
+      "不要对过期堆项再次扩展。",
+      "候选值相等时不必重复压堆。"
+    ],
+    "tests": [
+      {
+        "expression": "dijkstra_heap(3,[(0,1,10),(0,2,1),(2,1,2)],0)",
+        "expected": [
+          0,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "dijkstra_heap(3,[(0,1,0),(1,0,0)],0)[2] == float('inf')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "bellman-ford",
+    "chapter": "图论",
+    "title": "Bellman–Ford：允许负边的最短路",
+    "problem": "",
+    "kind": "题解",
+    "summary": "反复松弛全部边，并检测源点可达的负权环。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "Bellman–Ford 处理有向图的单源最短路，可以存在负权边。若源点能到达某个负权环，至少部分最短距离没有有限最小值，下面直接抛出 ValueError，而不是返回经过固定轮数后仍在下降的数字。不可达负环不影响该源点，函数不会因此报错。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "初始仅源点距离为零，其余为 inf。每一轮遍历所有边 u→v，若 u 可达且 dist[u]+w 更小便更新 v。使用当前数组原地松弛，一个轮次可能传播多条边的信息，因此不能把轮数精确解释为当前路径边数；但至少能传播一层，这是正确性所需。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "没有可达负环时，最短路线可以去掉非负环而变成最多 V-1 条边的简单路径。经过 V-1 轮后所有这样的路径均已被覆盖。再检查一轮，若仍存在可松弛边，就意味着可达路线通过循环继续降低成本，必须存在源点可达负环。",
+          "可达负环并不意味着所有顶点的最短距离都未定义，只有从该负环继续能够到达的目标受影响。模板统一抛错是为了给调用者清楚的失败状态，未逐点输出负无穷。若需要精细结果，可将检测轮还能改善的点作为种子，再沿出边搜索受影响集合。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "每次计算候选前先排除 inf 起点，确保不可达区域不会参与判断。某轮没有更新可以提前退出，因为所有边已经满足松弛约束。代码保留显式负环检测，即使提前退出也检查同一条件；调用者可用 try/except 区分有限解与未定义情形。"
+        ]
+      }
+    ],
+    "code": "from math import inf\n\ndef bellman_ford(n, edges, source):\n    if not 0 <= source < n:\n        raise ValueError(\"invalid source\")\n    dist = [inf] * n\n    dist[source] = 0\n    for _ in range(n-1):\n        changed = False\n        for u,v,w in edges:\n            if dist[u] != inf and dist[u]+w < dist[v]:\n                dist[v] = dist[u]+w\n                changed = True\n        if not changed:\n            break\n    for u,v,w in edges:\n        if dist[u] != inf and dist[u]+w < dist[v]:\n            raise ValueError(\"reachable negative cycle\")\n    return dist\n",
+    "time": "O(VE)，可因提前收敛而减少轮数。",
+    "space": "O(V)，不复制边列表。",
+    "example": {
+      "input": "n=3, [(0,1,4),(0,2,5),(1,2,-2)]",
+      "output": "[0,4,2]",
+      "walkthrough": [
+        "0→1→2 的代价为 2，优于直达的 5。",
+        "下一轮没有改进，结果稳定。"
+      ]
+    },
+    "pitfalls": [
+      "原地轮次不等于严格边数层次。",
+      "不能把检测到负环后的有限数字当作最短距离。"
+    ],
+    "tests": [
+      {
+        "expression": "bellman_ford(3,[(0,1,4),(0,2,5),(1,2,-2)],0)",
+        "expected": [
+          0,
+          4,
+          2
+        ]
+      },
+      {
+        "expression": "bellman_ford(3,[(1,2,-1),(2,1,-1)],0)[2] == float('inf')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "spfa",
+    "chapter": "图论",
+    "title": "SPFA：只处理距离发生变化的顶点",
+    "problem": "",
+    "kind": "题解",
+    "summary": "队列减少无效扫描，但最坏时间仍为 O(VE)，并必须防止负环无限更新。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "SPFA 是 Bellman–Ford 的工作队列形式，适用于可能含负边的单源问题。某顶点距离下降后，只有它的出边可能带来新的改善，所以把该顶点放进队列等待处理。它不保证比堆 Dijkstra 更快，且非负图通常优先选择 Dijkstra。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "queue 保存距离更新后尚未扩展的顶点，in_queue 表示是否已经排队。成功松弛邻居 v 后，若 v 不在队列才加入，避免同一点同时占据多个队列位置。顶点出队时清除标记，因为后续如果再次改善仍然需要重新进入队列。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "负环会让队列永不稳定。这里给每次改善对应的候选路线记录边数 depth[v]=depth[u]+1；若达到 V，则候选路线必重复顶点，而严格改善形成的重复部分说明存在可达负环，于是抛异常。不要把某顶点的普通松弛次数直接当作路径边数，这两者含义不同。",
+          "某个顶点可能在队列中等待时多次获得改善，只保留最后的距离值即可，出队扩展会使用这个最新值。队列位置不表示其最短距离已经确定，与 Dijkstra 的确定顺序不同。尤其不能在目标第一次出队时提前返回，因为负边可能让后续分支再次改善它。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "距离下降只在严格小于时发生，零权环不会让队列循环。邻接表只扩展出队顶点的边，可能节省实际运行时间，但对抗图仍可反复入队达到 O(VE)。本实现输出 inf 表示不可达，负环异常只针对源点可达部分，输入端点遵循有效编号约定。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\nfrom math import inf\n\ndef spfa(n, edges, source):\n    if not 0 <= source < n:\n        raise ValueError(\"invalid source\")\n    graph = [[] for _ in range(n)]\n    for u,v,w in edges:\n        graph[u].append((v,w))\n    dist = [inf] * n\n    depth = [0] * n\n    in_queue = [False] * n\n    dist[source] = 0\n    queue = deque([source])\n    in_queue[source] = True\n    while queue:\n        u = queue.popleft()\n        in_queue[u] = False\n        for v,w in graph[u]:\n            if dist[u]+w < dist[v]:\n                dist[v] = dist[u]+w\n                depth[v] = depth[u]+1\n                if depth[v] >= n:\n                    raise ValueError(\"reachable negative cycle\")\n                if not in_queue[v]:\n                    in_queue[v] = True\n                    queue.append(v)\n    return dist\n",
+    "time": "最坏 O(VE)，不能声称一般线性保证。",
+    "space": "O(V+E)，邻接表、队列及状态数组。",
+    "example": {
+      "input": "n=3, [(0,1,5),(0,2,2),(2,1,-4)]",
+      "output": "[0,-2,2]",
+      "walkthrough": [
+        "0 先发现 1 的代价 5。",
+        "扩展 2 后把 1 改善为 -2，必要时重新排队。"
+      ]
+    },
+    "pitfalls": [
+      "in_queue 必须在出队时清除。",
+      "存在可达负环时必须中止，不能任由队列无限处理。"
+    ],
+    "tests": [
+      {
+        "expression": "spfa(3,[(0,1,5),(0,2,2),(2,1,-4)],0)",
+        "expected": [
+          0,
+          -2,
+          2
+        ]
+      },
+      {
+        "expression": "spfa(2,[(0,1,0),(1,0,0)],0)",
+        "expected": [
+          0,
+          0
+        ]
+      },
+      {
+        "expression": "spfa(3,[(1,2,-2),(2,1,1)],0)[1] == float('inf')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "negative-cycle",
+    "chapter": "图论",
+    "title": "Bellman–Ford：检测任意位置的负环",
+    "problem": "",
+    "kind": "题解",
+    "summary": "把所有顶点初始距离设为零，相当于增加能到达全图的超级源点。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "负权环是总权重小于零的有向闭合路线，反复经过它可以无限降低路径代价。本节只判断图中任意位置是否存在负环，而不是只判断某个源点可达部分。两个问题的初始化不同：普通单源 Bellman–Ford 将不可达点设为 inf，会忽略其他分量的负环。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "让所有 dist 初始为零，等价于增加一个超级源点，用零权边连接每个顶点。于是所有分量都处于可达范围。每轮松弛全部原图边，如果某轮没有变化，则所有边已经满足距离约束，继续松弛也不会产生更新，可以立即返回 False。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "对 V 个原顶点进行 V 轮松弛。没有负环时，超级源点后的路径至多包含 V-1 条原边，因此此前已达到稳定状态。如果第 V 轮仍发生严格改善，就存在可以继续降低距离的循环，返回 True。负自环会在第一轮改善，V=1 时也能正确检测。",
+          "负边并不等于负环：一条 -5 的单向边在无回路图中完全合法。反过来，环中多数边为正也可能总和为负，因此必须检查循环的总效果。初始化全零并非猜测真实最短距离，而是提供一组能触发所有分量松弛的势值，适合纯存在性检测。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "本函数用布尔结果表达全图负环判定，没有抛异常，因为发现负环就是它的正常任务。普通最短路接口才需要明确错误或特殊状态。零权和正权环不会被误判，原因是只有严格小于才更新。空图没有环，循环不执行，返回 False。"
+        ]
+      }
+    ],
+    "code": "def has_negative_cycle(n, edges):\n    dist = [0] * n\n    for round_index in range(n):\n        changed = False\n        for u,v,w in edges:\n            if dist[u]+w < dist[v]:\n                dist[v] = dist[u]+w\n                changed = True\n        if not changed:\n            return False\n        if round_index == n-1:\n            return True\n    return False\n",
+    "time": "O(VE)。",
+    "space": "O(V)。",
+    "example": {
+      "input": "n=4, [(2,3,-2),(3,2,1)]",
+      "output": "True",
+      "walkthrough": [
+        "即使 0 无法到达 2 和 3，二者仍被初始化为可达。",
+        "环权重为 -1，因此能够反复改善。"
+      ]
+    },
+    "pitfalls": [
+      "全图检测应覆盖不可达分量。",
+      "第 V 轮的严格更新是判断依据，不是看某条负边是否存在。"
+    ],
+    "tests": [
+      {
+        "expression": "has_negative_cycle(4,[(2,3,-2),(3,2,1)])",
+        "expected": true
+      },
+      {
+        "expression": "has_negative_cycle(2,[(0,1,-2),(1,0,2)])",
+        "expected": false
+      },
+      {
+        "expression": "has_negative_cycle(1,[(0,0,-1)])",
+        "expected": true
+      },
+      {
+        "expression": "has_negative_cycle(0,[])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "bounded-shortest-path",
+    "chapter": "图论",
+    "title": "限制最多 K 条边的最短路径",
+    "problem": "",
+    "kind": "题解",
+    "summary": "每轮只读取上一轮快照，避免在同一轮串联多条边。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "给定有向带权图、源点和非负整数 K，求最多使用 K 条边时到每个顶点的最小代价。允许负边甚至负环，因为边数限制使路线集合长度有界，答案仍有意义。这里是至多 K 条边，不是恰好 K 条；源点可以使用零条边，初始代价为零。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "定义第 t 层 dist[v] 为最多 t 条边到 v 的最小代价。第 t+1 层先复制旧 dist，保留少用边的解，再对每条 u→v 计算 old[u]+w。所有转移都读取 old，而不是正在写的新数组，这样每条候选恰好只增加一条边。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "任一最多 t+1 条边的路线，要么已经最多 t 条边，要么可去掉最后一条边得到最多 t 条边的前缀。复制操作覆盖第一种，逐边松弛覆盖第二种，因此归纳成立。若直接原地松弛，按边顺序会在一轮中传播长链信息，违反 K 限制并产生虚假答案。",
+          "若题意是最多 K 次中转，通常意味着最多 K+1 条航段，转换预算时要先读清端点是否算中转。另一个常见错误是给每个顶点只保存不限层的最优值：较便宜但耗边多的前缀可能无法继续到目标，因此边数应作为独立动态规划维度。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "不可达起点不能产生转移，所以先检查 old[u] 是否为 inf。K=0 时直接返回初始数组；负 K 作为无效输入抛异常。没有更新时可提前结束，因为下一层也无法改善。这个版本无需负环报错，负环只会在有限预算内被利用，不等同于无限制最短路。"
+        ]
+      }
+    ],
+    "code": "from math import inf\n\ndef bounded_shortest_paths(n, edges, source, k):\n    if k < 0 or not 0 <= source < n:\n        raise ValueError(\"invalid source or edge budget\")\n    dist = [inf] * n\n    dist[source] = 0\n    for _ in range(k):\n        old = dist\n        dist = old.copy()\n        for u,v,w in edges:\n            if old[u] != inf and old[u]+w < dist[v]:\n                dist[v] = old[u]+w\n        if dist == old:\n            break\n    return dist\n",
+    "time": "O(V+K(V+E))，每层包含数组复制。",
+    "space": "O(V)，旧层与新层两个数组。",
+    "example": {
+      "input": "n=3, [(0,1,1),(1,2,1),(0,2,10)], K=1",
+      "output": "[0,1,10]",
+      "walkthrough": [
+        "单轮可使用直达 2 的边，代价 10。",
+        "0→1→2 需要两条边，不能在本轮串联。"
+      ]
+    },
+    "pitfalls": [
+      "必须复制数组，old=dist 后原地写入同一列表仍然错误。",
+      "恰好 K 条边的版本不能保留旧层，需要每层重新初始化 inf。"
+    ],
+    "tests": [
+      {
+        "expression": "bounded_shortest_paths(3,[(0,1,1),(1,2,1),(0,2,10)],0,1)",
+        "expected": [
+          0,
+          1,
+          10
+        ]
+      },
+      {
+        "expression": "bounded_shortest_paths(3,[(0,1,1),(1,2,1),(0,2,10)],0,2)",
+        "expected": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "expression": "bounded_shortest_paths(1,[(0,0,-1)],0,3)",
+        "expected": [
+          -3
+        ]
+      },
+      {
+        "expression": "bounded_shortest_paths(2,[],0,0)[1] == float('inf')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "floyd-warshall",
+    "chapter": "图论",
+    "title": "Floyd–Warshall：所有点对的最短路",
+    "problem": "",
+    "kind": "题解",
+    "summary": "按允许中间点的集合逐层扩展，三重循环的外层必须是中间点。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "求有向带权图中任意两顶点之间的最短距离。矩阵 dist[i][j] 初始化为直达边的最小权重，dist[i][i]=0，其他位置为 inf。允许负边，但本函数检测到任意负环时抛出 ValueError，因为部分点对最短距离将没有有限定义。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "动态规划层 k 表示路线只允许使用编号小于等于 k 的顶点作为中间点。最短路线要么不经过 k，保持旧值；要么经过 k，可拆成 i→k 与 k→j，候选为两段距离之和。因此更新公式为 dist[i][j]=min(dist[i][j],dist[i][k]+dist[k][j])。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "将 k 放在最外层，才能保证每轮确实扩大一个允许中间点集合。没有负环时，最短路可选简单路径，拆分不会要求重复使用 k；原地更新因此可行。全部 k 处理完成后，所有顶点都可作为中间点，得到所有点对最短距离。",
+          "若需要恢复路线，可维护 next[i][j] 为从 i 前往 j 时的下一站；经 k 成功改善时复制 next[i][k]。无路径时仍需保留独立标记。若只是查询可达性，可以把最小加法更新换成布尔与或运算，得到传递闭包，但不能把布尔闭包混同为带权距离。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "遇到 inf 的两段时跳过，避免用不可达路线参与加法，尤其不能用固定大整数加负边伪造可达性。重边取最小值，负自环不能被初始化零覆盖。结束后若某个 dist[v][v]<0 就存在负环；严格的点对接口可以进一步标记受影响点对，但这里统一报错。"
+        ]
+      }
+    ],
+    "code": "from math import inf\n\ndef floyd_warshall(n, edges):\n    dist = [[inf] * n for _ in range(n)]\n    for i in range(n):\n        dist[i][i] = 0\n    for u,v,w in edges:\n        dist[u][v] = min(dist[u][v],w)\n    for k in range(n):\n        for i in range(n):\n            if dist[i][k] == inf:\n                continue\n            for j in range(n):\n                if dist[k][j] != inf:\n                    dist[i][j] = min(dist[i][j], dist[i][k]+dist[k][j])\n    if any(dist[v][v] < 0 for v in range(n)):\n        raise ValueError(\"negative cycle\")\n    return dist\n",
+    "time": "O(V³+E)。",
+    "space": "O(V²)，包含输出矩阵。",
+    "example": {
+      "input": "n=3, [(0,1,2),(1,2,-1),(0,2,5)]",
+      "output": "0→2 的最短距离为 1",
+      "walkthrough": [
+        "初始化直达 0→2 为 5。",
+        "允许 1 作中间点后，候选 2+(-1)=1，替换原值。"
+      ]
+    },
+    "pitfalls": [
+      "最外层应是中间点 k。",
+      "负自环必须保留才能检测负环。"
+    ],
+    "tests": [
+      {
+        "expression": "floyd_warshall(3,[(0,1,2),(1,2,-1),(0,2,5)])[0]",
+        "expected": [
+          0,
+          2,
+          1
+        ]
+      },
+      {
+        "expression": "floyd_warshall(2,[])[1][0] == float('inf')",
+        "expected": true
+      },
+      {
+        "expression": "floyd_warshall(0,[])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "astar-knight",
+    "chapter": "图论",
+    "title": "A*：有限棋盘上的骑士最短步数",
+    "problem": "",
+    "kind": "题解",
+    "summary": "用可证明的下界启发式搜索骑士路线，保持与 BFS 相同的最短性。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "棋盘为 rows×cols 的有限矩形，坐标从零开始，骑士每步按 (±1,±2) 或 (±2,±1) 移动，每步代价为一。可给出不能进入的 blocked 集合，起终点必须在棋盘内。返回最少步数，不可达返回 -1，起终点被阻挡也返回 -1。这不是无限棋盘距离公式。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "令 dx、dy 为到目标的坐标差绝对值。一步最多使曼哈顿差减少三，且最多使任一坐标差减少二，因此 h=max(ceil((dx+dy)/3),ceil(max(dx,dy)/2)) 是必要步数下界。障碍只会增加实际距离，不会破坏这个下界；不能直接把曼哈顿距离作为骑士步数估计。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "A* 用 f=g+h 排序，其中 g 是从起点实际走过的步数。两种下界沿任一合法边最多下降一，它们的最大值仍满足 h(u)≤1+h(v)，即一致性。故目标作为有效堆项弹出时，其 g 已最短。发现目标时立即结束则不成立，因为其他分支还可能产生更短路线。",
+          "启发式越接近真实距离，通常越能避开无关方向，但更强的估计必须仍有证明。有限棋盘的边界会使实际路线绕行，小棋盘还可能分裂成不连通区域，所以简单的坐标下界不是答案公式。将 h 全设为零会退化成单位权 Dijkstra，也能作为正确性对照。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "代码为每个状态保存当前最佳 g，只有严格改善才压堆，弹出过期项直接跳过。堆元素含坐标用于稳定比较，不影响正确性。启发式通常减少探索，但最坏仍可能访问全棋盘；有限边界必须检查，否则不可达情形会在无限状态空间里无法结束。"
+        ]
+      }
+    ],
+    "code": "from heapq import heappush, heappop\n\ndef knight_distance(rows, cols, start, goal, blocked=()):\n    blocked = set(blocked)\n    def inside(p):\n        return 0 <= p[0] < rows and 0 <= p[1] < cols\n    if not inside(start) or not inside(goal):\n        raise ValueError(\"position outside board\")\n    if start in blocked or goal in blocked:\n        return -1\n    def heuristic(p):\n        dx,dy = abs(p[0]-goal[0]), abs(p[1]-goal[1])\n        return max((dx+dy+2)//3, (max(dx,dy)+1)//2)\n    moves = ((1,2),(1,-2),(-1,2),(-1,-2),(2,1),(2,-1),(-2,1),(-2,-1))\n    best = {start: 0}\n    heap = [(heuristic(start),0,start)]\n    while heap:\n        _,g,p = heappop(heap)\n        if g != best.get(p):\n            continue\n        if p == goal:\n            return g\n        for dr,dc in moves:\n            nxt = (p[0]+dr,p[1]+dc)\n            if inside(nxt) and nxt not in blocked and g+1 < best.get(nxt,float('inf')):\n                best[nxt] = g+1\n                heappush(heap,(g+1+heuristic(nxt),g+1,nxt))\n    return -1\n",
+    "time": "O(RC log(RC+1))，有限棋盘每个格最多八条边。",
+    "space": "O(RC+B)，B 为 blocked 输入中的不同坐标数，含堆和最佳距离。",
+    "example": {
+      "input": "8×8, start=(0,0), goal=(1,2)",
+      "output": "1",
+      "walkthrough": [
+        "目标是一个合法马步。",
+        "h 起点为一，目标出堆时 g=1。"
+      ]
+    },
+    "pitfalls": [
+      "普通曼哈顿距离会高估骑士所需步数。",
+      "目标第一次入堆时不能直接返回。",
+      "有限棋盘限制与无限棋盘题目不能混淆。"
+    ],
+    "tests": [
+      {
+        "expression": "knight_distance(8,8,(0,0),(1,2))",
+        "expected": 1
+      },
+      {
+        "expression": "knight_distance(1,2,(0,0),(0,1))",
+        "expected": -1
+      },
+      {
+        "expression": "knight_distance(3,3,(0,0),(0,0))",
+        "expected": 0
+      },
+      {
+        "expression": "knight_distance(8,8,(0,0),(1,2),[(1,2)])",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "shortest-path-summary",
+    "chapter": "图论",
+    "title": "最短路径算法总结",
+    "problem": "",
+    "kind": "总结",
+    "summary": "先识别权重条件、查询范围和边数限制，再选择最短路模型。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "最短路径题首先要问代价是什么。若每条边代价相同，BFS 的层数直接给出最短边数；若边权非负，Dijkstra 用贪心确定最小候选；若允许负边，Bellman–Ford 不依赖贪心，但必须处理负环。算法名称不能替代输入条件，存在负边却套 Dijkstra 是建模错误。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "查询范围也决定工具。单源少量查询适合一次 BFS 或 Dijkstra；小规模图大量任意点对查询可用 Floyd 的平方存储和立方预处理。SPFA 是减少无效边扫描的队列策略，仍没有优于 Bellman–Ford 的最坏保证。A* 在单目标搜索中用有证明的距离下界引导扩展。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "边数预算会改变状态：最多 K 条边应按层用上轮快照转移，不能原地连锁松弛。负环在无限制路径里导致距离无下界，但在有限 K 条边里只会影响有限候选。不可达的 inf 与负环导致的未定义距离也不同，接口应该用不同机制表达，避免把它们都当成一个普通数字。",
+          "选择完成后还应检查输出含义：距离是否包含起点、是否需要路径、是否允许重复经过顶点。单词接龙返回单词数，骑士问题返回动作数，两者都来自单位边搜索却有不同计数约定。示例、测试与接口说明必须一起覆盖这些差异，避免算法正确而答案差一。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "下面的检查函数验证有限距离标签是否满足源点条件与全部边的松弛不等式。它只能作为调试辅助，不能单独证明这些标签最短，因为任意过低的标签也可能满足不等式；还需知道每个有限标签来自一条真实路径。路径可行性与不存在可改善边结合，才支撑正确性。"
+        ]
+      }
+    ],
+    "code": "from math import inf\n\ndef distance_constraints(n, edges, source, distances):\n    if len(distances) != n or distances[source] != 0:\n        return False\n    for u,v,w in edges:\n        if distances[u] != inf and distances[v] > distances[u]+w:\n            return False\n    return True\n",
+    "time": "O(V+E) 的宽松上界；当前实现检查列表长度后逐边为 O(E)。",
+    "space": "O(1)，不复制输入。",
+    "example": {
+      "input": "edges=[(0,1,2),(1,2,3)], distances=[0,2,5]",
+      "output": "True",
+      "walkthrough": [
+        "源点为零。",
+        "两条边都满足目标距离不超过起点距离加边权。",
+        "真实路径恰好实现这些标签，结合约束才能确认最短。"
+      ]
+    },
+    "pitfalls": [
+      "约束检查不是完整的最短路算法。",
+      "报告不可达和报告负环应区分含义。"
+    ],
+    "tests": [
+      {
+        "expression": "distance_constraints(3,[(0,1,2),(1,2,3)],0,[0,2,5])",
+        "expected": true
+      },
+      {
+        "expression": "distance_constraints(3,[(0,1,2),(1,2,3)],0,[0,2,9])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "graph-summary",
+    "chapter": "图论",
+    "title": "图论总结：从状态与不变量选择工具",
+    "problem": "",
+    "kind": "总结",
+    "summary": "连通性、依赖、最小连接成本和最短路线是四类不同目标。",
+    "sections": [
+      {
+        "heading": "问题与建模",
+        "paragraphs": [
+          "把题意写成顶点与边是图论的第一步。网格格点、单词、棋盘位置都能成为隐式图状态；邻居生成规则决定允许的移动。方向决定可达性是否对称，权重决定层数是否等于代价。只有明确这些条件，才能准确解释一个 visited 集合或一个距离数组代表什么。"
+        ]
+      },
+      {
+        "heading": "核心不变量",
+        "paragraphs": [
+          "DFS 与 BFS 都能遍历连通区域，岛屿数量、面积和边界逃离只需要完整覆盖分量；BFS 额外适合单位边最短路。回溯枚举路径则保留分支历史，不能用全局 visited 抹掉不同前缀。逆向搜索适合所有点流向共同目标，例如海洋问题的边方向翻转。"
+        ]
+      },
+      {
+        "heading": "推导与正确性",
+        "paragraphs": [
+          "并查集表达不断合并的无向连通分量，适合路径存在查询、冗余边与 Kruskal。Prim 和 Kruskal 追求连接全图的总成本，Dijkstra 追求从源点出发的路线成本，两者不能互相替代。拓扑排序表达先后依赖，并用未处理顶点检测环；它要求有向图，不能套到普通无向连接问题。",
+          "最后用极端图检验不变量：空图、单点、长链、纯环、多个分量、重边和自环分别暴露不同问题。网格还应检查一行、一列、全水与全陆地。测试不只是检查某个数字，而是验证模型承诺，例如代码是否保留输入、失败是否明确、不可达标记是否一致。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "实现时应明确失败状态：不可达返回标记，生成树不存在与负环使最短路无定义则报告错误。下面为无向图返回连通分量，能作为分析其他模型的起点。显式栈避免深递归，孤立点保留为单元素分量，空图返回空列表，结果中的分量顺序来自编号扫描。"
+        ]
+      }
+    ],
+    "code": "def connected_components(n, edges):\n    graph = [[] for _ in range(n)]\n    for u,v in edges:\n        graph[u].append(v)\n        graph[v].append(u)\n    seen = set()\n    groups = []\n    for start in range(n):\n        if start in seen:\n            continue\n        seen.add(start)\n        stack = [start]\n        group = []\n        while stack:\n            u = stack.pop()\n            group.append(u)\n            for v in graph[u]:\n                if v not in seen:\n                    seen.add(v)\n                    stack.append(v)\n        groups.append(group)\n    return groups\n",
+    "time": "O(V+E)。",
+    "space": "O(V+E)，包含邻接表和输出。",
+    "example": {
+      "input": "n=5, [(0,1),(2,3)]",
+      "output": "[[0,1],[2,3],[4]]",
+      "walkthrough": [
+        "两条边各形成一个二点分量。",
+        "没有出现在边中的顶点 4 仍是独立分量。"
+      ]
+    },
+    "pitfalls": [
+      "无向分量不能代替有向强连通分量。",
+      "复杂度必须计入 visited、栈和结果保存成本。"
+    ],
+    "tests": [
+      {
+        "expression": "connected_components(5,[(0,1),(2,3)])",
+        "expected": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "connected_components(0,[])",
+        "expected": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,3118 @@
+[
+  {
+    "id": "backtracking-theory",
+    "chapter": "回溯算法",
+    "title": "Backtracking: Managing State in a Decision Tree",
+    "problem": "",
+    "kind": "理论",
+    "summary": "Separate the current path, candidate range, and undo operations to make recursive search understandable.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Backtracking enumerates solutions that satisfy constraints: combinations ask which elements to choose, permutations ask in what order to arrange them, and partitioning asks where to place boundaries. Draw one level of decisions before writing recursion. A tree node represents choices already made, and an edge represents a new choice. Leaves are not necessarily valid answers: specify when to collect results and which nodes can no longer lead to a complete solution."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "A recursive function should describe one state: the current path and the choices still available. On entry, the path must satisfy the constraints for the portion already processed. Add one element to the path, then pass the candidate range to the next level. After recursion returns, restore the path and related markers so the next sibling branch begins from the same parent state."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Combinations use increasing indices to eliminate duplicates caused by ordering; permutations use usage markers to place each item only once; partitioning uses a start position to ensure segments cover the input continuously. Pruning requires justification: for example, stop when too few elements remain to complete a combination. Skipping a choice simply because it currently looks poor can remove correct answers as well.",
+          "For debugging, print recursion depth, the current path, and the next starting position to observe the edge corresponding to each choice. If a parent’s second branch inherits markers from its first branch, restoration is incomplete. First make the version without pruning correct, then add individually justified filters and compare the resulting answer sets."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "The template below enumerates combinations of k indices. Each path.append is paired with path.pop. Copy the path when collecting it so later changes do not alter lists already stored in the result. Answer length determines recursion depth; visited search nodes and answer copying determine most of the running time. When the function finishes, path should be empty again, a useful check for leaked state."
+        ]
+      }
+    ],
+    "code": "def choose_indices(n, k):\n    out, path = [], []\n    def dfs(start):\n        if len(path) == k:\n            out.append(path.copy())\n            return\n        for i in range(start, n):\n            path.append(i)\n            dfs(i + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(0)\n    return out\n",
+    "time": "O(Σ(d=0..k) C(n,d) + k·C(n,k)), including answer copying",
+    "space": "O(k) for recursion and the path; O(k·C(n,k)) for output",
+    "example": {
+      "input": "n=3, k=2",
+      "output": "[[0,1],[0,2],[1,2]]",
+      "walkthrough": [
+        "The root first chooses 0; the next level may choose only 1 or 2.",
+        "After undoing 0, choose 1; only 2 can follow."
+      ]
+    },
+    "pitfalls": [
+      "Do not place the mutable path itself directly into the results.",
+      "State restoration must include usage markers or the board as well as the path."
+    ],
+    "tests": [
+      {
+        "expression": "choose_indices(3,2)",
+        "expected": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combinations-basic",
+    "chapter": "回溯算法",
+    "title": "77. Combinations: Start with the Complete Search Tree",
+    "problem": "77",
+    "kind": "题解",
+    "summary": "Advance the next starting position so every unordered combination appears once.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Choose k distinct integers from 1 through n. Only membership matters, not order: [1,3] and [3,1] are the same combination. To make output unique, require the path to be strictly increasing. This chooses a canonical representation for each unordered set rather than imposing an additional restriction. For k=0, there is one empty combination; for k>n, there is no solution."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The recursive state consists of start and path. Values in path have been chosen in increasing order, and start is the smallest currently available value. After adding i, the next level starts at i+1, so it can neither reuse i nor return to a smaller number. A single starting position thus prevents reuse and eliminates duplicates caused by ordering."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Once the path length equals k, collect it and return immediately; going farther would only produce paths that are too long. Otherwise, try every number from start through n. Every valid combination has a smallest element, and that element’s branch can then choose the second smallest, so no combination is omitted. Branches also differ in their first choice, ensuring distinct results.",
+          "For k=2, each root candidate determines the first item in a combination, and each second-level candidate determines the second item. Use this small example to check the meaning of start, then generalize to deeper levels without writing a separate loop for every level."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "The baseline deliberately retains branches with too few remaining elements so the complete search is visible. The for loop ends at n+1 because Python range excludes its right endpoint. Store path.copy() in the results, and execute pop after recursion returns. Distinguish space for the current path from space for all results; output is often much larger than the search stack."
+        ]
+      }
+    ],
+    "code": "def solve(n, k):\n    ans, path = [], []\n    def dfs(start):\n        if len(path) == k:\n            ans.append(path.copy())\n            return\n        for x in range(start, n + 1):\n            path.append(x)\n            dfs(x + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(1)\n    return ans\n",
+    "time": "O(Σ(d=0..k) C(n,d) + k·C(n,k)); invalid k returns immediately",
+    "space": "O(k) auxiliary search space; O(k·C(n,k)) output",
+    "example": {
+      "input": "n=4, k=2",
+      "output": "[[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]",
+      "walkthrough": [
+        "After choosing 1, try only 2, 3, and 4.",
+        "When the root chooses 4, no second number is available, so that branch ends naturally."
+      ]
+    },
+    "pitfalls": [
+      "Starting the next level at i reuses the same number.",
+      "This code has no pruning based on the remaining count; complexity cannot count only valid answers."
+    ],
+    "tests": [
+      {
+        "expression": "solve(4,2)",
+        "expected": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "solve(3,0)",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combinations-pruning",
+    "chapter": "回溯算法",
+    "title": "77. Combinations: Pruning by the Remaining Count",
+    "problem": "77",
+    "kind": "题解",
+    "summary": "Derive the loop’s upper bound from the number of choices still needed to eliminate branches that cannot be completed.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "The combination baseline visits many nodes that must fail. For example, when choosing 3 numbers from 1 through 5, choosing 4 first already leaves too few later numbers. This section preserves the definition of combinations and the output order, changing only the candidate loop’s upper bound. Understanding this bound matters more than memorizing its formula, because the same reasoning applies to fixed-length strings and partitioning tasks."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "Suppose d numbers have already been chosen and need=k-d remain. If the next choice is x, at least need-1 larger numbers must remain afterward. There are n-x numbers from x+1 through n, so n-x≥need-1, or x≤n-need+1. This is a necessary condition, so removing candidates that violate it cannot remove correct answers."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "At each level, iterate only from start through last, where last=n-need+1. Return first if the path already has length k; no candidates need to be computed then. The path remains strictly increasing, and the baseline’s completeness and uniqueness arguments still apply: the next item of every valid combination satisfies the remaining-count condition, so its entire search path survives."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Python range(start,last+1) converts the inclusive inequality into a half-open range. Do not write last as n-k+1, because need changes with recursion depth. Pruning reduces visited nodes, but enumerating all answers still has an output lower bound. Copying each result takes k elements, so total time cannot be O(k)."
+        ]
+      }
+    ],
+    "code": "def solve(n, k):\n    ans, path = [], []\n    def dfs(start):\n        need = k - len(path)\n        if need == 0:\n            ans.append(path.copy())\n            return\n        last = n - need + 1\n        for x in range(start, last + 1):\n            path.append(x)\n            dfs(x + 1)\n            path.pop()\n    if 0 <= k <= n:\n        dfs(1)\n    return ans\n",
+    "time": "O(k·C(n,k)) for 1≤k≤n; O(1) when k=0",
+    "space": "O(k) auxiliary search space; O(k·C(n,k)) output",
+    "example": {
+      "input": "n=5, k=3",
+      "output": "10 combinations in total; the first is [1,2,3] and the last is [3,4,5]",
+      "walkthrough": [
+        "At the root, need=3 and the largest candidate is 3.",
+        "After choosing 3, need=2, and the next level can start only at 4."
+      ]
+    },
+    "pitfalls": [
+      "Update the upper bound with the current path length.",
+      "Pruning removes invalid branches but cannot avoid the cost of outputting every combination."
+    ],
+    "tests": [
+      {
+        "expression": "len(solve(5,3))",
+        "expected": 10
+      },
+      {
+        "expression": "solve(5,3)[-1]",
+        "expected": [
+          3,
+          4,
+          5
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-three",
+    "chapter": "回溯算法",
+    "title": "216. Combination Sum III",
+    "problem": "216",
+    "kind": "题解",
+    "summary": "Use the remaining count and minimum and maximum achievable sums together to decide whether a branch can succeed.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Use only numbers 1 through 9, each at most once, to choose exactly k numbers whose sum is n. This adds a sum constraint to ordinary combinations and a count constraint to reusable combination sum. Build the path in increasing order so the same group of numbers cannot appear multiple times in different orders. Collect a result only when both its length and sum are correct."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "Pass start and remain to recursion: remain is the sum still needed, and need is the number of missing numbers. The smallest achievable sum uses need consecutive numbers starting at start; the largest uses the need largest numbers, 9, 8, and so on. If too few candidates remain or remain lies outside these bounds, the branch has no solution."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "When need=0, check whether remain is zero. Otherwise, check the bounds first, then try numbers x in increasing order. All numbers are positive, so if x>remain, all later, larger numbers are unusable too, and the loop can stop. Each recursive step decreases both the remaining count and the remaining sum, keeping the constraints consistent at every node."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Arithmetic-series formulas avoid allocating temporary lists for pruning: min_sum=need*(2*start+need-1)//2 and max_sum=need*(19-need)//2. These formulas assume candidates are fixed at 1 through 9 and cannot be transferred directly to an arbitrary input array. Store copies in the output; if k is outside 0 through 9, return an empty list immediately."
+        ]
+      }
+    ],
+    "code": "def solve(k, n):\n    ans, path = [], []\n    def dfs(start, remain):\n        need = k - len(path)\n        if need == 0:\n            if remain == 0:\n                ans.append(path.copy())\n            return\n        if 10 - start < need:\n            return\n        low = need * (2 * start + need - 1) // 2\n        high = need * (19 - need) // 2\n        if remain < low or remain > high:\n            return\n        for x in range(start, 11 - need):\n            if x > remain:\n                break\n            path.append(x)\n            dfs(x + 1, remain - x)\n            path.pop()\n    if 0 <= k <= 9:\n        dfs(1, n)\n    return ans\n",
+    "time": "O(Σ(d=0..k) C(9,d)+k·C(9,k)), usually less after pruning",
+    "space": "O(k) auxiliary search space, excluding results",
+    "example": {
+      "input": "k=3, n=9",
+      "output": "[[1,2,6],[1,3,5],[2,3,4]]",
+      "walkthrough": [
+        "After choosing 1, two numbers with sum 8 are still needed.",
+        "After [1,2], the final number must be 6; after [1,3], it must be 5."
+      ]
+    },
+    "pitfalls": [
+      "Do not collect a path that reaches the target sum with too few numbers.",
+      "Both maximum-sum and minimum-sum pruning require enough candidates to remain."
+    ],
+    "tests": [
+      {
+        "expression": "solve(3,9)",
+        "expected": [
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            1,
+            3,
+            5
+          ],
+          [
+            2,
+            3,
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "solve(4,1)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "phone-letter-combinations",
+    "chapter": "回溯算法",
+    "title": "17. Letter Combinations of a Phone Number",
+    "problem": "17",
+    "kind": "题解",
+    "summary": "Each level handles one digit, so input length naturally determines result length.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Given a digit string containing only 2 through 9, choose one keypad letter for each digit and return all possible strings. Positions make independent choices even when their digits match: 22 produces aa and ab, for example. This is a Cartesian product of candidate sets rather than choosing several elements from one shared set, so neither start nor used is needed."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The recursive index pos is the number of digits already processed, and path always has length pos. Level pos may choose only letters mapped from digits[pos], then proceeds to pos+1. This invariant makes termination direct: when pos reaches input length, the path contains exactly one letter for every digit."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "For any valid result, its first letter corresponds to one edge from the root, and each later position corresponds to another edge, so the search must visit it. Conversely, every path reaching the end chooses one letter from each mapping and is therefore valid. Candidate sets at different levels are independent; there are no reordered duplicates to remove.",
+          "A digit 7 or 9 provides four candidates, while every other digit provides three. The result count must equal the product of these counts. This gives an independent check: count the results, then check each string’s length and whether each position belongs to the appropriate mapping."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Store characters in a list and execute ''.join(path) at each leaf to avoid repeatedly concatenating long strings during recursion. By this problem’s convention, empty input returns an empty list rather than a list containing the empty string. The sample implementation explicitly rejects 0, 1, and other characters, distinguishing invalid input from valid input with no results."
+        ]
+      }
+    ],
+    "code": "def solve(digits):\n    keys = {\"2\":\"abc\",\"3\":\"def\",\"4\":\"ghi\",\"5\":\"jkl\",\n            \"6\":\"mno\",\"7\":\"pqrs\",\"8\":\"tuv\",\"9\":\"wxyz\"}\n    if not digits:\n        return []\n    if any(d not in keys for d in digits):\n        raise ValueError(\"digits must contain only 2..9\")\n    ans, path = [], []\n    def dfs(pos):\n        if pos == len(digits):\n            ans.append(\"\".join(path))\n            return\n        for c in keys[digits[pos]]:\n            path.append(c)\n            dfs(pos + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(m·P), where m is the digit count and P is the product of the letter counts at all positions",
+    "space": "O(m) auxiliary search space; O(m·P) results",
+    "example": {
+      "input": "digits='23'",
+      "output": "['ad','ae','af','bd','be','bf','cd','ce','cf']",
+      "walkthrough": [
+        "Choose a at the first level, then d, e, and f in turn at the second.",
+        "Undo a, choose b at the first level, and repeat the second-level choices."
+      ]
+    },
+    "pitfalls": [
+      "Match the problem’s convention for empty input.",
+      "Do not reuse the first digit’s candidate set at every level."
+    ],
+    "tests": [
+      {
+        "expression": "solve('23')",
+        "expected": [
+          "ad",
+          "ae",
+          "af",
+          "bd",
+          "be",
+          "bf",
+          "cd",
+          "ce",
+          "cf"
+        ]
+      },
+      {
+        "expression": "solve('')",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-reuse",
+    "chapter": "回溯算法",
+    "title": "39. Combination Sum: Reusing Candidates",
+    "problem": "39",
+    "kind": "题解",
+    "summary": "Recurse from the current index to permit reuse; nondecreasing indices eliminate duplicates caused by ordering.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Given distinct positive integers candidates, each of which may be used any number of times, find combinations summing to target. Positivity is essential for termination and pruning. A reusable zero prevents recursion from making progress, while negative numbers mean exceeding the target does not prove the remaining branch impossible. The implementation below explicitly validates positivity and sorts candidates."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The state start is the smallest index still available, and remain is the sum still needed. After choosing nums[i], the next level still starts at i, allowing the current value to be reused. It never returns to a smaller index, so each combination appears only in nondecreasing order. The sum of path plus remain always equals the initial target."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Save an answer when remain=0. While scanning candidates, break if the current value exceeds remain, since all later values are at least as large. Each recursive step decreases remain by at least the smallest candidate, guaranteeing termination. Every valid nondecreasing combination can follow its corresponding indices one item at a time, ensuring completeness and uniqueness.",
+          "For example, with only candidate 2 and target 5, the remaining sum eventually becomes 1. No candidate is then usable, and the branch returns naturally. Search need not select an element at every level: an unsatisfiable node simply finishes its loop. Only nodes with zero remaining sum contribute answers."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "The example creates a new sorted candidate list to preserve the caller’s data. set merges duplicate candidates because equal values have no separate identity in this problem. target=0 returns one empty combination, matching the mathematical convention of choosing zero numbers. Time depends on the target and smallest candidate, so a polynomial bound cannot be given from candidates length alone."
+        ]
+      }
+    ],
+    "code": "def solve(candidates, target):\n    if any(x <= 0 for x in candidates):\n        raise ValueError(\"positive candidates required\")\n    nums = sorted(set(candidates))\n    ans, path = [], []\n    def dfs(start, remain):\n        if remain == 0:\n            ans.append(path.copy())\n            return\n        for i in range(start, len(nums)):\n            x = nums[i]\n            if x > remain:\n                break\n            path.append(x)\n            dfs(i, remain - x)\n            path.pop()\n    if target >= 0:\n        dfs(0, target)\n    return ans\n",
+    "time": "O(m log m) sorting; conservative search bound O((m+1)^D·(D+1)), with D=floor(target/min(nums))",
+    "space": "O(m+D) auxiliary space, excluding output; D=0 with no candidates",
+    "example": {
+      "input": "candidates=[2,3,6,7], target=7",
+      "output": "[[2,2,3],[7]]",
+      "walkthrough": [
+        "After choosing 2 twice, remain=3.",
+        "Choosing 3 completes an answer; choosing 7 also directly reduces the remaining sum to zero."
+      ]
+    },
+    "pitfalls": [
+      "When reuse is allowed, recurse from i rather than i+1.",
+      "The positivity assumption is essential; this algorithm does not apply to inputs containing zero or negative numbers."
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,6,7],7)",
+        "expected": [
+          [
+            2,
+            2,
+            3
+          ],
+          [
+            7
+          ]
+        ]
+      },
+      {
+        "expression": "solve([],0)",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "combination-sum-once",
+    "chapter": "回溯算法",
+    "title": "40. Combination Sum II: Skipping Equal Values at the Same Level",
+    "problem": "40",
+    "kind": "题解",
+    "summary": "Separate element identity from answer values: deduplicate within a level and advance one index for the next level.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "The array may contain duplicate values, but each array position may be used at most once, and output value combinations must be distinct. Two cards valued 1 may be used together to form [1,1], but choosing either card as a single 1 must not produce duplicate answers. Sorting puts these equivalent choices next to each other for comparison."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The state start prevents indices from moving backward. After choosing i, recurse from i+1 so each position is used at most once. The condition i>start and nums[i]==nums[i-1] skips duplicate candidates only at the current level. When i==start, a value equal to one from the previous level remains allowed, preserving valid combinations such as [1,1]."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "The first occurrence of an equal value at a level already represents every solution beginning with that value. Starting instead at a later equal occurrence only repeats solutions or reduces available positions; it cannot create new value combinations. Collect when remain=0 and stop the loop when the candidate exceeds remain. Positive input ensures the remaining sum decreases and makes break valid.",
+          "Consider [1,1,2] with target 2. Choosing the first 1 at the root still permits the second 1 at the next level, producing [1,1]. The root skips its second 1, while 2 independently produces [2]. This example checks both usage limits and the scope of deduplication."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Do not convert nums to a set beforehand: duplicate counts determine whether some combinations exist. Obtain a copy with sorted, then validate that all candidates are positive. Write both parts of the deduplication condition explicitly so it is clear that it compares sibling branches rather than forbidding equal adjacent values on a path."
+        ]
+      }
+    ],
+    "code": "def solve(candidates, target):\n    nums = sorted(candidates)\n    if any(x <= 0 for x in nums):\n        raise ValueError(\"positive candidates required\")\n    ans, path = [], []\n    def dfs(start, remain):\n        if remain == 0:\n            ans.append(path.copy())\n            return\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            if nums[i] > remain:\n                break\n            path.append(nums[i])\n            dfs(i + 1, remain - nums[i])\n            path.pop()\n    if target >= 0:\n        dfs(0, target)\n    return ans\n",
+    "time": "O(n log n+n·2^n) conservative upper bound, including result copying",
+    "space": "O(n) for search and the sorted copy, excluding output",
+    "example": {
+      "input": "candidates=[10,1,2,7,6,1,5], target=8",
+      "output": "[[1,1,6],[1,2,5],[1,7],[2,6]]",
+      "walkthrough": [
+        "Keep the first 1 at the root and skip the second 1 as a sibling branch.",
+        "Inside the next level after the first 1, the second 1 is that level’s starting candidate and may be chosen."
+      ]
+    },
+    "pitfalls": [
+      "A global set cannot replace the array in this problem.",
+      "Using i>0 for deduplication incorrectly removes repeated numbers needed across different levels."
+    ],
+    "tests": [
+      {
+        "expression": "solve([10,1,2,7,6,1,5],8)",
+        "expected": [
+          [
+            1,
+            1,
+            6
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            6
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "palindrome-partition",
+    "chapter": "回溯算法",
+    "title": "131. Palindrome Partitioning",
+    "problem": "131",
+    "kind": "题解",
+    "summary": "Precompute palindromic intervals, then enumerate valid next segments starting at the current position.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Split the entire string into nonempty segments, each of which must be a palindrome, and return every partition. Preserve character order; characters cannot be rearranged. Each decision selects the next segment’s ending position. For aab, the first segment can be a or aa, but aab itself is not a palindrome and cannot be taken as a complete solution."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The recursive start means the prefix s[:start] has already been validly partitioned, with its segments stored in path. Try every end≥start, continuing only when s[start:end+1] is a palindrome. To avoid repeatedly scanning the same interval, let pal[i][j] record whether the closed interval is palindromic, determined by matching endpoints and a palindromic interior."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Precompute with i moving right to left, ensuring pal[i+1][j-1] is ready when needed. For intervals of length one or two, compare endpoints only. At start=n, the whole string has been covered, so collect immediately. Each partition has a unique boundary sequence, and the loop enumerates every possible boundary, giving neither omissions nor duplicates.",
+          "For aaaa, every nonempty contiguous segment is palindromic, and every gap between adjacent characters may either be cut or left intact. Output therefore reaches its worst-case exponential size. Precomputation optimizes repeated validation but cannot reduce enumeration of every partition to polynomial time."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Python string slices copy characters, so recursion count alone does not capture the cost. Precomputation uses an O(n²) Boolean table. The segments in each output partition contain n characters in total, and there can be 2^(n-1) partitions. This general implementation treats the empty string as having one empty partition; if the problem guarantees nonempty input, that case merely completes the interface."
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    n = len(s)\n    pal = [[False] * n for _ in range(n)]\n    for i in range(n - 1, -1, -1):\n        for j in range(i, n):\n            pal[i][j] = s[i] == s[j] and (j - i < 2 or pal[i + 1][j - 1])\n    ans, path = [], []\n    def dfs(start):\n        if start == n:\n            ans.append(path.copy())\n            return\n        for end in range(start, n):\n            if pal[start][end]:\n                path.append(s[start:end + 1])\n                dfs(end + 1)\n                path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n²+n·2^n) worst case, including string slicing and output",
+    "space": "O(n²) palindrome table plus O(n) search stack, excluding output",
+    "example": {
+      "input": "s='aab'",
+      "output": "[['a','a','b'],['aa','b']]",
+      "walkthrough": [
+        "With a as the first segment, the remaining ab must be split into a and b.",
+        "With aa as the first segment, the remaining b is itself a palindrome."
+      ]
+    },
+    "pitfalls": [
+      "The next partitioning level must start at end+1.",
+      "Do not create the Boolean table with [[False]*n]*n, which shares rows."
+    ],
+    "tests": [
+      {
+        "expression": "solve('aab')",
+        "expected": [
+          [
+            "a",
+            "a",
+            "b"
+          ],
+          [
+            "aa",
+            "b"
+          ]
+        ]
+      },
+      {
+        "expression": "solve('')",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "restore-ip-addresses",
+    "chapter": "回溯算法",
+    "title": "93. Restore IP Addresses",
+    "problem": "93",
+    "kind": "题解",
+    "summary": "Bound the remaining character count by the remaining segment count, then validate each numeric segment’s format.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Split a digit string into four segments, each valued from 0 through 255, with no leading zero in a multi-digit segment. Use every character without deleting or reordering any. Validity includes format as well as numeric range: 00 has numeric value zero but is invalid, while a segment consisting only of 0 is valid."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The state start is the next segment’s beginning, and path length is the number of segments already formed. If parts=4-len(path) segments remain, the remaining character count must lie between parts and 3*parts, since each segment uses one to three digits. This count constraint eliminates many impossible branches before specific segments are tried."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "At each level, try next-segment lengths one through three. Stop upon encountering a multi-digit segment beginning with 0, since longer segments retain the same problem. Also stop when its value exceeds 255: a longer nonnegative decimal number cannot become smaller. Output only when all four segments are complete and all characters are consumed; both conditions must hold.",
+          "An input of length 13 can stop at the root: even four three-digit segments cover only twelve digits. For 010010, the first segment must be 0; reject 01 before recursion because it violates formatting. Such boundary cases expose errors more effectively than ordinary addresses alone."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Keep segments as strings and join them with periods at the end, preserving formatting information that numeric conversion would discard. int validates range only and cannot replace the leading-zero check. Return an empty list if input contains nondigits. Four segments of at most three digits impose a small absolute bound on the candidate count; do not describe it as exponential search growing arbitrarily with string length."
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    if not s.isdigit():\n        return []\n    ans, path = [], []\n    def dfs(start):\n        parts = 4 - len(path)\n        left = len(s) - start\n        if left < parts or left > 3 * parts:\n            return\n        if parts == 0:\n            ans.append(\".\".join(path))\n            return\n        for end in range(start + 1, min(start + 3, len(s)) + 1):\n            piece = s[start:end]\n            if len(piece) > 1 and piece[0] == \"0\":\n                break\n            if int(piece) > 255:\n                break\n            path.append(piece)\n            dfs(end)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n+3^4), where n is input length; valid lengths are only 4..12",
+    "space": "O(4) auxiliary search space, excluding output",
+    "example": {
+      "input": "s='25525511135'",
+      "output": "['255.255.11.135','255.255.111.35']",
+      "walkthrough": [
+        "The length constraint forces the first two segments to be the three-digit 255.",
+        "Split the remaining 11135 into 11|135 or 111|35."
+      ]
+    },
+    "pitfalls": [
+      "Do not check numeric value while ignoring leading zeros.",
+      "Do not output four segments if characters remain."
+    ],
+    "tests": [
+      {
+        "expression": "solve('25525511135')",
+        "expected": [
+          "255.255.11.135",
+          "255.255.111.35"
+        ]
+      },
+      {
+        "expression": "solve('0000')",
+        "expected": [
+          "0.0.0.0"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "subsets-distinct",
+    "chapter": "回溯算法",
+    "title": "78. Subsets: Every Node Represents an Answer",
+    "problem": "78",
+    "kind": "题解",
+    "summary": "A valid current path is already a subset; there is no need to wait for a leaf.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Given distinct integers, return all subsets, including the empty set and the full set. Subset length is unrestricted, so the combination rule of collecting only at length k does not apply. Require increasing element indices, and each path corresponds uniquely to a subset; path length is simply that subset’s size."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The state start restricts subsequent choices to that index or later positions, and path represents the current subset. Save path on every recursive entry: whether or not it can be extended, it is already valid. Then choose a later element and move the starting position to i+1, preventing reuse and duplicates caused by ordering."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "The root’s empty path contributes the empty set. Every nonempty subset has a unique smallest index, chosen in its corresponding branch, after which later recursion adds the remaining indices. Collecting every node instead of only leaves covers subsets of every size without separately running combinations for different k values.",
+          "The subset [2] need not be represented by a leaf at a fixed depth. It is the node reached when the root selects the second item. Recording it immediately preserves [2] while still allowing the next level to generate larger subsets such as [2,3]."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "Copy the path into results. Input needs no sorting because distinct values are guaranteed, and original index order already provides a unique representation. There are 2^n subsets of n elements, with n·2^(n-1) elements across all outputs, so O(n·2^n) time and output size are natural. The current path and recursion stack need only O(n)."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n·2^n); O(1) when n=0",
+    "space": "O(n) auxiliary space; O(n·2^n) output",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "First record [] at the root.",
+        "Choose 1 and record [1], then choose 2 and record [1,2]; finally choose 2 at the root."
+      ]
+    },
+    "pitfalls": [
+      "Collecting only at the end misses many shorter subsets.",
+      "Deduplication here depends on input values being distinct."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      {
+        "expression": "solve([])",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "subsets-duplicates",
+    "chapter": "回溯算法",
+    "title": "90. Subsets II: Skip Duplicate Values Only at the Same Level",
+    "problem": "90",
+    "kind": "题解",
+    "summary": "After sorting, skip equivalent sibling branches while retaining repeated values on a single path.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "The array may contain duplicate integers; subsets are compared by value and must be unique. For [1,2,2], both [2] and [2,2] are allowed, but choosing either individual 2 position must produce only one [2]. Sort to place equal values next to each other, then use the current level’s start to distinguish duplicate branches from valid repeated members."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "Each node first collects its current path, then tries later indices. If i>start and nums[i]==nums[i-1], that value has already been tried at this level, so skip it. After choosing the first 2, the next level may choose the second 2: it is exactly the new level’s start and does not satisfy the skip condition."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Why does keeping only the first equal value at each level suffice? Its position is earliest, so it has at least as many equal elements available afterward as any later occurrence. Every possible repetition count can therefore be built starting from it. Skipping later positions removes duplicate representations without losing subsets such as [2,2] that need multiple equal elements.",
+          "For an array containing three 2s, the only distinct value subsets are [], [2], [2,2], and [2,2,2]. Search keeps one equal-valued starting choice per level while allowing remaining positions at deeper levels. This example clearly shows why deduplication reduces the node count."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "The code uses sorted(nums) to preserve caller input. A global set that removes input duplicates discards counts that form part of the answer. Likewise, forbidding additions with path[-1]==nums[i] removes valid repeated members outright. Output count is at most 2^n and is smaller with many duplicates, but worst-case analysis still uses distinct input values."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n log n+n·2^n) worst case",
+    "space": "O(n) auxiliary space, excluding output",
+    "example": {
+      "input": "nums=[1,2,2]",
+      "output": "[[],[1],[1,2],[1,2,2],[2],[2,2]]",
+      "walkthrough": [
+        "Under [1], choose the first 2, then enter the next level and choose the other 2.",
+        "Back at the same level under [1], skip the second 2."
+      ]
+    },
+    "pitfalls": [
+      "Apply the deduplication restriction only to sibling branches.",
+      "Converting input to a set loses duplicate counts."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            2
+          ],
+          [
+            2,
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "increasing-subsequences",
+    "chapter": "回溯算法",
+    "title": "491. Nondecreasing Subsequences: Do Not Sort the Input",
+    "problem": "491",
+    "kind": "题解",
+    "summary": "Preserve original order and use a separate set at each level to eliminate equal candidate values.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Find nondecreasing subsequences of length at least two. Elements need not be contiguous, but must retain their order in the original array. Nondecreasing permits equal adjacent values. Unlike Subsets II, sorting changes which elements can precede others and therefore changes the problem itself; do not sort and apply the adjacent-value deduplication formula."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "The state start restricts later elements to positions after the current one, and the final value in path supplies the nondecreasing threshold. A smaller nums[i] cannot be added. Create a new seen set for every recursive call to record values already tried at that level and prevent equivalent sibling branches. Sets at different levels must remain independent."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "The earliest occurrence of a value at a level has the most subsequent candidates. Choosing a later occurrence of the same value cannot create additional value sequences, so skipping duplicates at that level is safe. Record a path as soon as its length reaches two, then keep extending it to include both short and long sequences. Recurse from i+1 to preserve original order.",
+          "For [7,4,7], globally forbidding the final 7 because 7 has already been seen would lose [7,7]. The final 7 competes with the first 7 at the root, but is a valid extension at the next level after choosing the first 7."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "seen records neither every element ever visited nor the values already in the current path. Reusing it globally incorrectly removes valid results. The code calls seen.add after validity checks, making it explicit that the set records only candidates actually expanded. Negative numbers do not affect the comparison logic. Search remains exponential in the worst case; include output copying and per-level sets in the analysis."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    ans, path = [], []\n    def dfs(start):\n        if len(path) >= 2:\n            ans.append(path.copy())\n        seen = set()\n        for i in range(start, len(nums)):\n            x = nums[i]\n            if x in seen or (path and x < path[-1]):\n                continue\n            seen.add(x)\n            path.append(x)\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "O(n·2^n) worst case, including candidate scans and answer copying",
+    "space": "O(n²) conservative auxiliary bound for seen sets across recursive levels, plus O(n) for the path",
+    "example": {
+      "input": "nums=[4,6,7,7]",
+      "output": "[[4,6],[4,6,7],[4,6,7,7],[4,7],[4,7,7],[6,7],[6,7,7],[7,7]]",
+      "walkthrough": [
+        "After choosing the first 7 at the root, the next level may still choose the second 7.",
+        "When the root encounters 7 again, its current-level seen already contains 7, so skip the equivalent branch."
+      ]
+    },
+    "pitfalls": [
+      "Sorting input destroys the subsequence’s original order.",
+      "Create a new seen inside every dfs call."
+    ],
+    "tests": [
+      {
+        "expression": "solve([4,6,7,7])",
+        "expected": [
+          [
+            4,
+            6
+          ],
+          [
+            4,
+            6,
+            7
+          ],
+          [
+            4,
+            6,
+            7,
+            7
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            4,
+            7,
+            7
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            7,
+            7
+          ],
+          [
+            7,
+            7
+          ]
+        ]
+      },
+      {
+        "expression": "solve([3,2,1])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "permutations-distinct",
+    "chapter": "回溯算法",
+    "title": "46. Permutations: Tracking Used Indices",
+    "problem": "46",
+    "kind": "题解",
+    "summary": "Every permutation level chooses from all elements; used prevents reusing an input position.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Given distinct integers, return every permutation. Combinations can eliminate ordering through increasing indices, but permutations must retain both [1,2] and [2,1], so the next level cannot start at i+1. Each input element is used exactly once in a complete path, and its position in the path is its position in the permutation."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "used[i] records whether the ith input element is already in the current permutation. On entering recursion at depth d, path has length d and used has exactly d true entries, corresponding one-to-one to path elements. Every level scans all indices, skips used elements, and may choose any remaining index as its next item."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "At path length n, every element has been used exactly once, so collect and return. The first, second, and later items of any permutation can be chosen at their corresponding levels, making search complete. Distinct input elements make different choice sequences yield different results. After recursion, undo both path and used so earlier choices do not contaminate sibling branches.",
+          "used refers to indices rather than values, separating element identity from its current position. The index-based framework is unchanged for strings or other comparable objects. Equal element values, however, require additional permutation deduplication; Boolean usage markers do not automatically eliminate identical results."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "This example uses a Boolean array instead of searching with x in path, making usage checks constant time. Length-zero input produces one empty permutation, useful as a building block for other algorithms. There are n! results, each copying n items, so time is O(n·n!). used, the path, and the recursion stack need only linear auxiliary space."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    n = len(nums)\n    used = [False] * n\n    ans, path = [], []\n    def dfs():\n        if len(path) == n:\n            ans.append(path.copy())\n            return\n        for i in range(n):\n            if used[i]:\n                continue\n            used[i] = True\n            path.append(nums[i])\n            dfs()\n            path.pop()\n            used[i] = False\n    dfs()\n    return ans\n",
+    "time": "O(n·n!); O(1) when n=0",
+    "space": "O(n) auxiliary space; O(n·n!) output",
+    "example": {
+      "input": "nums=[1,2,3]",
+      "output": "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]",
+      "walkthrough": [
+        "After choosing 1 for the first position, the second may choose 2 or 3.",
+        "Back at the root, undo 1; the next major branch may start with 2."
+      ]
+    },
+    "pitfalls": [
+      "Permutations cannot restrict candidates with an increasing start.",
+      "Forgetting to undo used makes later branches miss answers."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2])",
+        "expected": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "solve([])",
+        "expected": [
+          []
+        ]
+      }
+    ]
+  },
+  {
+    "id": "permutations-duplicates",
+    "chapter": "回溯算法",
+    "title": "47. Permutations II: Distinguishing Levels from Branches",
+    "problem": "47",
+    "kind": "题解",
+    "summary": "After sorting, require equal elements to enter the path in index order, avoiding duplicates from swapping equal elements.",
+    "sections": [
+      {
+        "heading": "Understanding the problem and boundaries",
+        "paragraphs": [
+          "Input may contain duplicate values; return all distinct permutations. Different positions with equal values have separate uses, but swapping them produces no new answer. For example, [1,1,2] has three permutations. Treating the two 1s as labeled objects creates six leaf paths, whose equivalent representations must be eliminated."
+        ]
+      },
+      {
+        "heading": "Choices and invariants",
+        "paragraphs": [
+          "Sort first and retain the used array. Skip candidate i if it has already been used. Also skip it if nums[i]==nums[i-1] and the previous position has not been used. This requires equal values to enter the path in original index order. When the previous position is already in the current path, adding the later equal value is entirely valid."
+        ]
+      },
+      {
+        "heading": "Search process and correctness",
+        "paragraphs": [
+          "Two equal values at the same level generate the same subsequent value permutations, so the earliest unused position suffices as their representative. More intuitively, every value permutation has a unique assignment of its first 1 to the first input 1, its second 1 to the second input 1, and so on. This canonical assignment preserves exactly one search path.",
+          "Running [1,1] alone should yield just [1,1]. The first level rejects starting with the second 1, and the next level permits it after the first. This preserves both available uses while eliminating duplicates from exchanging the cards’ identities."
+        ]
+      },
+      {
+        "heading": "Python implementation and tradeoffs",
+        "paragraphs": [
+          "This deduplication condition differs from i>start in combinations because permutations have no increasing starting position. not used[i-1] asks whether the previous equal element is still competing at this level. Reversing it may yield another search strategy, but changes the proof and search efficiency. When learning, retain this consistent invariant."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    nums = sorted(nums)\n    n = len(nums)\n    used = [False] * n\n    ans, path = [], []\n    def dfs():\n        if len(path) == n:\n            ans.append(path.copy())\n            return\n        for i in range(n):\n            if used[i]:\n                continue\n            if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                continue\n            used[i] = True\n            path.append(nums[i])\n            dfs()\n            path.pop()\n            used[i] = False\n    dfs()\n    return ans\n",
+    "time": "O(n log n+n·n!) conservative worst-case upper bound",
+    "space": "O(n) auxiliary space, excluding output",
+    "example": {
+      "input": "nums=[1,1,2]",
+      "output": "[[1,1,2],[1,2,1],[2,1,1]]",
+      "walkthrough": [
+        "At the root, only the first 1 may start a permutation.",
+        "Once the first 1 is in the path, the second may be added at the next level."
+      ]
+    },
+    "pitfalls": [
+      "Two equal values still provide two uses; do not convert input to a set.",
+      "Do not mix the usage-marker deduplication rule with the starting-position rule for combinations."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,1,2])",
+        "expected": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            1,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dedup-set-or-sort",
+    "chapter": "回溯算法",
+    "title": "Deduplication: Per-Level Sets and Adjacent Comparisons After Sorting",
+    "problem": "",
+    "kind": "理论",
+    "summary": "Deduplication eliminates equivalent candidate branches; sorting and sets are two ways to express that equivalence.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "Duplicate answers often arise when different indices with the same value generate identical continuations at one level. If input order has no meaning, sort to place duplicates together, then test i>start and equality with the preceding item. If input order determines answers, as in nondecreasing subsequences, preserve it and use a per-level set to record values already tried."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "Both functions below generate distinct subsets so their mechanisms can be compared. The sorted version builds canonical nondecreasing paths. The set version preserves original index order, so it cannot claim unique value subsets for arbitrary unsorted duplicate input: [1,2,1], for example, produces both [1,2] and [2,1]. For a fair comparison, the set version in this example also sorts first."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "A new set is created in each recursive call and constrains only sibling branches of that node; repeated values along a path remain allowed. Adjacent comparisons after sorting implicitly encode whether this level has already chosen a value through the loop index. The mechanisms are equivalent in essence, but sets need extra hash storage, while sorted comparisons require equal values to be adjacent.",
+          "Compare actual value sequences and duplicates, not just the final counts from the two methods. If the set version preserves original order for a subsequence problem, reanalyze it together with nondecreasing or other validity constraints. Equivalence for sorted subsets does not automatically extend to order-sensitive problems."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "First ask whether input may be reordered, then whether duplicates represent separate available uses. A set must not globally remove duplicate inputs beforehand, which would lose [2,2]. If output order also carries meaning, the set version is not a universal deduplication tool: prove again that equal candidates represent identical subsequent answers."
+        ]
+      }
+    ],
+    "code": "def subsets_sorted(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            if i > start and nums[i] == nums[i - 1]:\n                continue\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n\ndef subsets_layer_set(nums):\n    nums = sorted(nums)\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        seen = set()\n        for i in range(start, len(nums)):\n            if nums[i] in seen:\n                continue\n            seen.add(nums[i])\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "Both have worst-case O(n log n+n·2^n) time",
+    "space": "O(n) auxiliary space for sorted comparisons; conservative O(n²) for per-level sets, excluding results",
+    "example": {
+      "input": "nums=[2,1,2]",
+      "output": "Both implementations produce [[],[1],[1,2],[1,2,2],[2],[2,2]]",
+      "walkthrough": [
+        "Sort to [1,2,2]; exclude the second 2 at the same level.",
+        "After choosing the first 2, the new level may still choose the second."
+      ]
+    },
+    "pitfalls": [
+      "Do not sort problems that require preserving original order.",
+      "A per-level set is not global removal of duplicate values."
+    ],
+    "tests": [
+      {
+        "expression": "subsets_sorted([2,1,2]) == subsets_layer_set([2,1,2])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "reconstruct-itinerary",
+    "chapter": "回溯算法",
+    "title": "332. Reconstruct Itinerary: Building an Eulerian Path in Reverse",
+    "problem": "332",
+    "kind": "题解",
+    "summary": "Consume edges first and append an airport only when no continuation remains, keeping small dead ends out of the route’s front.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "Each ticket is a directed edge. Start at JFK, use every ticket exactly once, and select the lexicographically smallest feasible itinerary. Airports may appear repeatedly, and duplicate tickets are distinct edges. A visited set of airports is therefore unsuitable: edges are what must be consumed. The problem normally guarantees an itinerary using all tickets."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "This is an Eulerian path in a directed graph. Sort each airport’s destinations in reverse order so popping the last item yields its lexicographically smallest remaining edge. Follow edges until no continuation remains, append the airport to route, and backtrack. These records are in completion order rather than departure order; reverse them to obtain the itinerary. Dead ends naturally settle at the end."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "An iterative stack simulates Hierholzer’s algorithm. If its top has an outgoing edge, push that destination; otherwise, pop the airport into the reversed answer. Later-discovered circuits are inserted at their matching positions in the earlier route, connecting every consumed edge into a complete path. Exploring smaller destinations first gives the lexicographically smallest feasible splicing when an Eulerian path exists.",
+          "If KUL is immediately recorded as the second stop from JFK, travel gets stuck and leaves two tickets unused. Reverse construction can explore this terminal airport first while reserving it for the end. This counterexample shows that lexicographic choices must be combined with the global structure required to use every edge."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "Checking result length alone does not validate itineraries for arbitrary invalid input. Without Eulerian conditions, adjacent airports after reversal may not correspond to tickets. This implementation additionally uses Counter to verify usage counts for every adjacent edge and returns an empty list if validation fails. An iterative stack avoids Python recursion-depth limits, and adjacency lists naturally preserve parallel edges."
+        ]
+      }
+    ],
+    "code": "from collections import defaultdict, Counter\n\ndef solve(tickets):\n    graph = defaultdict(list)\n    for a, b in tickets:\n        graph[a].append(b)\n    for destinations in graph.values():\n        destinations.sort(reverse=True)\n    stack, route = [\"JFK\"], []\n    while stack:\n        airport = stack[-1]\n        if graph[airport]:\n            stack.append(graph[airport].pop())\n        else:\n            route.append(stack.pop())\n    route.reverse()\n    if len(route) != len(tickets) + 1:\n        return []\n    counts = Counter((a, b) for a, b in tickets)\n    for a, b in zip(route, route[1:]):\n        if counts[(a, b)] == 0:\n            return []\n        counts[(a, b)] -= 1\n    return route\n",
+    "time": "O(E log E), where E is the ticket count; traversal and validation take O(E)",
+    "space": "O(E+V), including adjacency lists, the stack, and edge counts",
+    "example": {
+      "input": "tickets=[['JFK','KUL'],['JFK','NRT'],['NRT','JFK']]",
+      "output": "['JFK','NRT','JFK','KUL']",
+      "walkthrough": [
+        "Explore KUL first. With no outgoing edges, it is added first to the reversed result.",
+        "Then explore NRT→JFK; after reversal, KUL becomes the final stop."
+      ]
+    },
+    "pitfalls": [
+      "Immediately outputting the smallest destination can prevent using remaining tickets.",
+      "Do not globally mark airports visited; edges are the units consumed.",
+      "Do not convert parallel edges to a set before sorting."
+    ],
+    "tests": [
+      {
+        "expression": "solve([['JFK','KUL'],['JFK','NRT'],['NRT','JFK']])",
+        "expected": [
+          "JFK",
+          "NRT",
+          "JFK",
+          "KUL"
+        ]
+      },
+      {
+        "expression": "solve([['JFK','A'],['JFK','B']])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "n-queens",
+    "chapter": "回溯算法",
+    "title": "51. N-Queens: Row-by-Row Search and Diagonal Identifiers",
+    "problem": "51",
+    "kind": "题解",
+    "summary": "Place one queen per row and check conflicts with column and two diagonal sets.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "Place n queens on an n×n board so no two share a row, column, or diagonal, and return every board. Recursing row by row places exactly one queen per level and automatically eliminates same-row conflicts. Only columns and the two diagonal directions remain to manage; there is no need to scan the whole board against all placed queens for each attempt."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "One diagonal family through (r,c) shares r-c; the other shares r+c. cols, diag_down, and diag_up store occupied column and diagonal identifiers. On entering level r, these three sets describe exactly the queens in the first r rows. Item i in the positions list is the queen’s column in row i."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "Try each column. If none of its three identifiers is occupied, update state and recurse to the next row. On return from a failed branch, undo all three sets and the position list. At r=n, every row contains a queen, and each insertion passed the conflict check, so the board is valid. Every valid board likewise corresponds to a unique row-by-row sequence of column choices.",
+          "Neither n=2 nor n=3 has a solution; search backtracks completely to the root and returns an empty list. n=1 has one solution, useful for checking board-string generation. For n=4, independently validate output by reading the queen’s column in each row and checking that columns and both diagonal identifiers have no duplicates."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "Store search state as a position list and generate strings of Qs and periods only when a solution is found, reducing board copying in invalid branches. r-c may be negative; sets support negative integers without any offset. This implementation gives one empty-board solution for n=0 and no results for negative n. Generating each complete board costs O(n²) characters."
+        ]
+      }
+    ],
+    "code": "def solve(n):\n    if n < 0:\n        return []\n    cols, down, up = set(), set(), set()\n    positions, ans = [], []\n    def dfs(r):\n        if r == n:\n            ans.append([\".\" * c + \"Q\" + \".\" * (n - c - 1)\n                        for c in positions])\n            return\n        for c in range(n):\n            if c in cols or r - c in down or r + c in up:\n                continue\n            cols.add(c); down.add(r - c); up.add(r + c)\n            positions.append(c)\n            dfs(r + 1)\n            positions.pop()\n            cols.remove(c); down.remove(r - c); up.remove(r + c)\n    dfs(0)\n    return ans\n",
+    "time": "O(n·n!+S·n²) conservative upper bound, where S is the solution count; every node scans n columns",
+    "space": "O(n) auxiliary search space; O(S·n²) output",
+    "example": {
+      "input": "n=4",
+      "output": "2 boards; one is ['.Q..','...Q','Q...','..Q.']",
+      "walkthrough": [
+        "Choose column 1 in the first row, then continue in the second row only at positions without column or diagonal conflicts.",
+        "The column sequence [1,3,0,2] generates a complete board."
+      ]
+    },
+    "pitfalls": [
+      "Undo both diagonal sets as well as the columns.",
+      "The two diagonal families use difference and sum identifiers, respectively."
+    ],
+    "tests": [
+      {
+        "expression": "len(solve(4))",
+        "expected": 2
+      },
+      {
+        "expression": "solve(1)",
+        "expected": [
+          [
+            "Q"
+          ]
+        ]
+      },
+      {
+        "expression": "solve(2)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "sudoku",
+    "chapter": "回溯算法",
+    "title": "37. Sudoku Solver: Choose the Empty Cell with the Fewest Candidates",
+    "problem": "37",
+    "kind": "题解",
+    "summary": "Maintain row, column, and box constraints, prioritizing the cell with the fewest remaining candidates to reduce trial and error.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "Fill periods in a 9×9 board so every row, column, and 3×3 box contains digits 1 through 9 without repetition. Existing digits are fixed constraints and cannot change during search. The interface below copies input and returns one solution, or None for an unsatisfiable board or conflicting initial constraints, allowing independent testing without modifying the caller’s board."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "Maintain nine row sets, column sets, and box sets. Cell (r,c) belongs to box (r//3)*3+c//3. Its available digits are 1..9 minus the union of its three used sets. Every set must match the current board. Placing a digit requires synchronized updates, and failed attempts require synchronized undo operations."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "Each time, choose the remaining empty cell with the fewest candidates: the minimum remaining values strategy. A cell with no candidate makes the branch fail immediately. Prioritizing a cell with just one candidate often triggers more forced choices. This only changes search order without removing valid digits, so completeness is preserved. Return success when all empty cells are filled.",
+          "Choices are not undone after success because the function returns the first complete solution rather than enumerating every solution. If the task changes to listing all Sudoku solutions, successful nodes must also record copies and continue restoring state. The Boolean return interface and termination behavior would need corresponding changes."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "To avoid repeatedly copying the empty-cell list, swap the selected cell into the current position and swap it back on return. Once a solution is found, return directly along the successful path without undoing the finished board. Check duplicate fixed digits during initialization so an invalid board is not mistaken for a solved board. The general upper bound remains exponential; a heuristic does not guarantee polynomial time."
+        ]
+      }
+    ],
+    "code": "def solve(board):\n    if len(board) != 9 or any(len(row) != 9 for row in board):\n        return None\n    board = [list(row) for row in board]\n    rows, cols, boxes = [set() for _ in range(9)], [set() for _ in range(9)], [set() for _ in range(9)]\n    empty = []\n    digits = set(\"123456789\")\n    for r in range(9):\n        for c in range(9):\n            x = board[r][c]\n            b = (r // 3) * 3 + c // 3\n            if x == \".\":\n                empty.append((r, c))\n            elif x not in digits or x in rows[r] or x in cols[c] or x in boxes[b]:\n                return None\n            else:\n                rows[r].add(x); cols[c].add(x); boxes[b].add(x)\n    def candidates(r, c):\n        return digits - rows[r] - cols[c] - boxes[(r // 3) * 3 + c // 3]\n    def dfs(pos):\n        if pos == len(empty):\n            return True\n        best = min(range(pos, len(empty)),\n                   key=lambda i: len(candidates(*empty[i])))\n        empty[pos], empty[best] = empty[best], empty[pos]\n        r, c = empty[pos]\n        b = (r // 3) * 3 + c // 3\n        for x in sorted(candidates(r, c)):\n            board[r][c] = x\n            rows[r].add(x); cols[c].add(x); boxes[b].add(x)\n            if dfs(pos + 1):\n                return True\n            rows[r].remove(x); cols[c].remove(x); boxes[b].remove(x)\n            board[r][c] = \".\"\n        empty[pos], empty[best] = empty[best], empty[pos]\n        return False\n    return board if dfs(0) else None\n",
+    "time": "O(m·9^m) conservative upper bound, where m is the empty-cell count; each cell selection scans remaining positions",
+    "space": "O(m+81) auxiliary space, including the board copy and recursion stack",
+    "example": {
+      "input": "The board’s first row is '.34678912'; the other rows use the complete valid Sudoku from the sample test",
+      "output": "The first row becomes '534678912'",
+      "walkthrough": [
+        "The only empty cell’s row lacks 5, and its column and box also allow 5.",
+        "After placing 5, all cells in the empty-cell list are complete; return the board."
+      ]
+    },
+    "pitfalls": [
+      "The box identifier needs both integer divisions; do not use r+c.",
+      "Check duplicate fixed digits before searching.",
+      "After a failed attempt, restore the board and all three sets."
+    ],
+    "tests": [
+      {
+        "expression": "''.join(solve(['.34678912','672195348','198342567','859761423','426853791','713924856','961537284','287419635','345286179'])[0])",
+        "expected": "534678912"
+      },
+      {
+        "expression": "solve(['111111111']*9)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-combinations",
+    "chapter": "回溯算法",
+    "title": "Checkpoint: Fixed Length, Reuse, and Partitioning",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Decide each level’s responsibility before choosing start, remain, and length bounds.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "In 77, each level chooses one number; 216 constrains both count and sum; in 17, each level is tied to one input position. All may look like append followed by recursion, but their candidate sets come from different sources. A one-sentence description of the current level’s responsibility yields correct parameters more reliably than memorizing a universal template."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "39 allows candidate reuse, so after choosing i, continue from i. 40 permits each position once, so start the next level at i+1. Both construct paths with nondecreasing indices, but duplicate input and repeated use are different concepts. The former affects deduplication of equivalent branches; the latter determines whether an already-used position may be selected again."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "In 131 and 93, candidates are contiguous segments, and the next start follows the current segment’s end. A palindrome table preprocesses validity, while an IP address’s remaining character count supports reachability pruning. List validation and pruning separately to avoid treating a prefix that temporarily fails the final goal as necessarily unsatisfiable.",
+          "As a review, write the next starting positions for 77, 39, and 40 as i+1, i, and i+1, explaining each. Then write end+1 for 131. The common principle is that already-processed resources must not be reused accidentally, rather than any fixed parameter formula."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "The subset template below shows starting-position advancement: after choosing an index, subsequent choices move only rightward. Collecting only at length k gives combinations; changing value selection to interval selection gives partitioning. Before modifying it, recheck invariants, especially the collection condition, recursive start, and empty-input convention."
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "See the algorithms compared; the example template takes O(n·2^n)",
+    "space": "O(n) auxiliary space for the example, excluding output",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "First determine whether answers require order and a fixed length.",
+        "Then decide which nodes to collect, the candidate range, and whether reuse is permitted."
+      ]
+    },
+    "pitfalls": [
+      "Define the recursive state before applying a code structure.",
+      "Explain pruning and deduplication separately rather than conflating them."
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-dedup",
+    "chapter": "回溯算法",
+    "title": "Checkpoint: Deduplicating Subsets, Subsequences, and Permutations",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Whether order carries meaning determines whether sorting is allowed; equivalence at the current level determines deduplication.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "78 has distinct input, so increasing indices generate each subset uniquely. 90 requires sorting and same-level skipping for duplicate values. 491 must retain original relative order, replacing sorting with a per-level set. All three move paths rightward, but answer validity and equivalence differ; do not exchange deduplication code merely because recursive structures look alike."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "In 46, any unused element may fill the next position, so used replaces the start restriction. 47 additionally requires equal values to enter the path in index order, detecting same-level competition when the preceding equal element remains unused. used describes usage in the current branch, not every element visited throughout the whole search."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "To check whether deduplication is too strict, test a valid path containing two equal values, such as [2,2] or permutation [1,1,2]. If the second equal value can never enter the next level, repeated values along branches have also been forbidden. To check whether deduplication is too weak, see whether different equal-valued starting indices regenerate the same value result.",
+          "The preceding equal element in a deduplication condition is not permanently forbidden; it helps identify a representative. Sorted combinations identify representatives with the level’s start, sorted permutations with the previous element’s usage state, and order-preserving subsequences with a per-level set. All three manage equivalent sibling branches."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "The template below deliberately leaves duplicate paths from repeated input intact to reveal their source. Test distinct input first, then add duplicate values for comparison. When implementing deduplication, change only candidate filtering and preserve collection and undo mechanisms. This helps distinguish missing answers from faulty state restoration."
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "See the algorithms compared; the example template takes O(n·2^n)",
+    "space": "O(n) auxiliary space for the example, excluding output",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "First determine whether answers require order and a fixed length.",
+        "Then decide which nodes to collect, the candidate range, and whether reuse is permitted."
+      ]
+    },
+    "pitfalls": [
+      "Define the recursive state before applying a code structure.",
+      "Explain pruning and deduplication separately rather than conflating them."
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-phase-constraints",
+    "chapter": "回溯算法",
+    "title": "Checkpoint: Graph Edges and Board Constraints",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Identify the resource unit before maintaining state that supports quick conflict checks.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "An itinerary consumes edges rather than airports. Queens occupy columns and diagonals, not just board cells. Sudoku occupies digits within each row, column, and box. Misidentifying resource units can remove valid repeated visits or miss necessary conflicts even when the recursive structure appears complete."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "332 uses Eulerian-path structure to avoid enumerating every route and appends answers in reverse when edges run out. 51 naturally ensures one queen per row through row-by-row search, compressing the remaining constraints into three sets. 37 retains every empty cell but orders them by fewest candidates, exposing contradictions early."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "Determining whether constraints permit continuation and deciding what to search first are separate decisions. Queen conflict checks eliminate invalid candidates; Sudoku’s fewest-candidates strategy only reorders search. After optimization, still explain which search path represents each valid solution. Fast execution is not a correctness argument.",
+          "Complexity must also match the state representation. Queen sets provide constant-time conflict checks, yet every node still scans columns. Sudoku’s fewest-candidates selection scans remaining empty cells. Itinerary reconstruction pays for sorting adjacency edges. Reducing validation cost does not make an entire search linear. Count visited states, work per state, and answer-copying costs separately."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "The enumeration template below shows basic path restoration. Board problems extend append/pop into occupying and releasing constraint sets. Graph problems may instead use a global construction that consumes each edge once, where mechanically restoring edges would be wrong. State lifetime follows the algorithm’s meaning; not every recursive function must contain undo operations."
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "See the algorithms compared; the example template takes O(n·2^n)",
+    "space": "O(n) auxiliary space for the example, excluding output",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "First determine whether answers require order and a fixed length.",
+        "Then decide which nodes to collect, the candidate range, and whether reuse is permitted."
+      ]
+    },
+    "pitfalls": [
+      "Define the recursive state before applying a code structure.",
+      "Explain pruning and deduplication separately rather than conflating them."
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "backtracking-summary",
+    "chapter": "回溯算法",
+    "title": "Backtracking Summary: Match the Search Tree to the Code",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Check state, candidates, collection, restoration, pruning, and deduplication to complete a backtracking design.",
+    "sections": [
+      {
+        "heading": "Problem and applicability",
+        "paragraphs": [
+          "Begin search design by drawing two tree levels for a minimal example. Combination edges choose elements, permutation edges fill positions, partitioning edges select the next segment, and board edges choose placements. Then state in one sentence which conditions hold on function entry. Recursive parameters need only information required to advance search; quantities derivable from the path need not be stored again."
+        ]
+      },
+      {
+        "heading": "State and key invariants",
+        "paragraphs": [
+          "Collection conditions determine answer nodes: every node for subsets, specified depths for fixed-length combinations and permutations, full character coverage for partitioning, and all positions completed for constraint solving. Early termination should occur only when success is impossible. Too few remaining elements and an insufficient positive remaining sum have mathematical justifications; a subjective impression that a choice looks poor does not."
+        ]
+      },
+      {
+        "heading": "Derivation and correctness",
+        "paragraphs": [
+          "Deduplication removes equivalent representations, while pruning removes unsatisfiable prefixes; each needs a different proof. Equal values at the same level represent identical continuations, permitting sorting or a per-level set for deduplication. Insufficient remaining resources permit pruning. Permutation used and combination start control usage counts and must also be distinguished from value deduplication.",
+          "When results are missing, first check candidate ranges and collection conditions. For duplicate results, check canonical representations and same-level equivalence. If every result has identical contents, check whether a path copy was saved. These three error categories usually locate faults more effectively than randomly switching recursive templates."
+        ]
+      },
+      {
+        "heading": "Implementation details and decisions",
+        "paragraphs": [
+          "After coding, check the inverse of each state mutation, and test empty input, no solution, multiple solutions, and duplicate values. Complexity must include at least output copying, recursion depth, and auxiliary constraint tables. Use the small template below as an exercise: identify its state, collection point, and undo actions, then convert it to fixed-length combinations and independently derive its loop upper bound."
+        ]
+      }
+    ],
+    "code": "def enumerate_paths(nums):\n    ans, path = [], []\n    def dfs(start):\n        ans.append(path.copy())\n        for i in range(start, len(nums)):\n            path.append(nums[i])\n            dfs(i + 1)\n            path.pop()\n    dfs(0)\n    return ans\n",
+    "time": "See the algorithms compared; the example template takes O(n·2^n)",
+    "space": "O(n) auxiliary space for the example, excluding output",
+    "example": {
+      "input": "nums=[1,2]",
+      "output": "[[],[1],[1,2],[2]]",
+      "walkthrough": [
+        "First determine whether answers require order and a fixed length.",
+        "Then decide which nodes to collect, the candidate range, and whether reuse is permitted."
+      ]
+    },
+    "pitfalls": [
+      "Define the recursive state before applying a code structure.",
+      "Explain pruning and deduplication separately rather than conflating them."
+    ],
+    "tests": [
+      {
+        "expression": "enumerate_paths([1,2])",
+        "expected": [
+          [],
+          [
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "greedy-theory",
+    "chapter": "贪心算法",
+    "title": "Greedy Algorithms: Proving a Local Choice Can Be Retained",
+    "problem": "",
+    "kind": "理论",
+    "summary": "A greedy algorithm needs justified irreversible choices, rather than simply taking the largest-looking value at every step.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "A greedy algorithm processes input in an order and makes choices without backtracking. Problems it solves efficiently have useful structure: a current choice can belong to some optimal solution, and the remainder is still the same kind of problem. There is no universal meaning of locally best: it may mean earliest finish, least consumption, farthest coverage, or temporarily making no decision."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Common proofs use exchange arguments and boundary invariants. An exchange argument starts with an optimal solution, replaces its first choice with the greedy choice, and proves the result is no worse. A boundary invariant states that after processing the current prefix, the algorithm retains enough information to represent the future, such as the farthest reachable position or the farthest boundary of all possible landing positions after the current number of jumps."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "To find a strategy, identify the final optimization objective, then compare how two local choices affect later possibilities. Earlier-ending intervals leave more time for the future. Giving small cookies to small appetites preserves large cookies for larger demands. If a choice also harms another independent metric, sorting and staged processing or a richer state are often needed.",
+          "As an exercise, enumerate optimal retained sets for small inputs containing at most four intervals, then compare them with the earliest-finish strategy. If a counterexample appears, determine whether the strategy is wrong or the endpoint convention differs. Finding no counterexample still does not replace an exchange argument that generalizes the result."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "The interval scheduling template below selects the largest number of mutually nonoverlapping half-open intervals, allowing touching endpoints. Sort by finish time and always choose the first interval that fits afterward. Every choice leaves an ending boundary no later than alternative choices, so an exchange does not reduce remaining candidates. Half-open endpoint rules are part of input semantics; closed intervals require a different compatibility condition."
+        ]
+      }
+    ],
+    "code": "def select_intervals(intervals):\n    chosen = []\n    end = None\n    for start, finish in sorted(intervals, key=lambda x: x[1]):\n        if end is None or start >= end:\n            chosen.append([start, finish])\n            end = finish\n    return chosen\n",
+    "time": "O(n log n), dominated by sorting",
+    "space": "O(n) for the sorted copy, excluding output",
+    "example": {
+      "input": "intervals=[[1,4],[2,3],[3,5]]",
+      "output": "[[2,3],[3,5]]",
+      "walkthrough": [
+        "First choose the earliest-finishing interval, [2,3].",
+        "[3,5] touches its endpoint and can also be chosen."
+      ]
+    },
+    "pitfalls": [
+      "Prove a greedy strategy for its objective; do not copy it blindly from another problem.",
+      "Open or closed endpoint conventions change interval compatibility."
+    ],
+    "tests": [
+      {
+        "expression": "select_intervals([[1,4],[2,3],[3,5]])",
+        "expected": [
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "assign-cookies",
+    "chapter": "贪心算法",
+    "title": "455. Assign Cookies",
+    "problem": "455",
+    "kind": "题解",
+    "summary": "Use the smallest cookie that satisfies the smallest unmet appetite, preserving larger resources for later.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Each child may receive at most one cookie, and its size must be at least the child’s appetite. Maximize the number of satisfied children. There is no requirement to maximize what a particular child eats or distribute every cookie. Sort appetites and cookies in ascending order, then compare small demands with small resources using two pointers."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "The pointer child identifies the smallest unmet appetite. Process cookies from smallest to largest. Skip a cookie that is too small: if it cannot satisfy the smallest remaining appetite, it cannot satisfy later children. Otherwise, give it to the current child and advance child. After each step, the satisfied count is the maximum achievable with the cookies processed so far."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "If an optimal assignment gives the current cookie to a child with a larger appetite, redirect it to the smallest unmet child. If the smaller child already has a cookie, a standard exchange can reassign that cookie without worsening the result. Alternatively, replace a larger demand with the smaller one without reducing the satisfied count. Taking the smallest sufficient resource also preserves larger cookies.",
+          "For a rigorous exchange, consider only remaining cookies: the current cookie is the smallest among them. If an optimal assignment gives it to a larger appetite and gives another cookie to the smallest appetite, that other cookie is at least as large and can be exchanged to satisfy the larger appetite. If the smallest appetite was unsatisfied, simply replace the recipient without changing the count."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Sort copies to preserve input. Stop once child reaches the end because every child is satisfied. There is no need to rescan cookies for each child; each cookie is checked once. Auxiliary space includes two sorted copies as well as pointers, so this implementation is not O(1) space even though the central scan maintains only constant state."
+        ]
+      }
+    ],
+    "code": "def solve(greed, cookies):\n    greed, cookies = sorted(greed), sorted(cookies)\n    child = 0\n    for size in cookies:\n        if child == len(greed):\n            break\n        if size >= greed[child]:\n            child += 1\n    return child\n",
+    "time": "O(g log g+s log s), where g and s are the numbers of children and cookies",
+    "space": "O(g+s) for sorted copies",
+    "example": {
+      "input": "greed=[1,2,3], cookies=[1,1]",
+      "output": "1",
+      "walkthrough": [
+        "The first size-1 cookie satisfies appetite 1.",
+        "The second size-1 cookie cannot satisfy the smallest remaining appetite, 2, and is skipped."
+      ]
+    },
+    "pitfalls": [
+      "A cookie too small for the smallest appetite need not be tried on other children.",
+      "The objective is the satisfied count, not total cookie size."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,3],[1,1])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([],[1])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "wiggle-subsequence",
+    "chapter": "贪心算法",
+    "title": "376. Wiggle Subsequence",
+    "problem": "376",
+    "kind": "题解",
+    "summary": "Changes in the same direction only replace an extreme; increase length only when direction reverses.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Find the longest subsequence whose adjacent differences alternate strictly between positive and negative. A subsequence may delete elements while preserving order. A zero difference is neither an upward nor a downward step. For input length zero or one, return that length directly. The key question is which endpoint to keep during consecutive changes in one direction, rather than immediately enumerating all subsequences."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "prev_sign stores the most recently accepted direction, and count stores the current wiggle length. Ignore zero differences. A difference in the same direction does not increase length; a new direction accepts another turning point and increments length. No subsequence is stored explicitly: a continued rise implicitly replaces its endpoint with a higher peak, and a continued fall with a lower valley."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "A higher peak does not obstruct a later fall, and a lower valley does not obstruct a later rise. Intermediate points in one direction can therefore be removed without decreasing the best length. Each direction change is a necessary peak-to-valley or valley-to-peak transition, and the algorithm records exactly these transitions. The first nonzero difference establishes the second element; afterward, length grows only on sign reversals.",
+          "For [1,4,7,3], 4 need not be retained. Replacing the rising segment’s endpoint with 7 still permits a fall to 3, giving length three. If the fall reaches only 5, keeping 4 would not allow a downward step. A higher peak thus really does widen the range of later downward choices."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Use (diff>0)-(diff<0) to obtain -1, 0, or 1 without a product-based test. Update prev_sign only when accepting a new nonzero direction; resetting it to zero would let a plateau erase existing direction information. This implementation returns length only. To return a subsequence, also store and replace positions of endpoint extremes."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return 0\n    count, prev_sign = 1, 0\n    for i in range(1, len(nums)):\n        diff = nums[i] - nums[i - 1]\n        sign = (diff > 0) - (diff < 0)\n        if sign and sign != prev_sign:\n            count += 1\n            prev_sign = sign\n    return count\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[1,7,4,9,2,5]",
+      "output": "6",
+      "walkthrough": [
+        "Difference signs are +, -, +, -, +.",
+        "Every step reverses direction, so all elements can be retained."
+      ]
+    },
+    "pitfalls": [
+      "A zero difference is not a wiggle step.",
+      "Same-direction changes do not increase length, but constructing a sequence requires updating its peak or valley endpoint."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,7,4,9,2,5])",
+        "expected": 6
+      },
+      {
+        "expression": "solve([1,1,1])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([1,2,3,4])",
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "maximum-subarray",
+    "chapter": "贪心算法",
+    "title": "53. Maximum Subarray",
+    "problem": "53",
+    "kind": "题解",
+    "summary": "A negative prefix only weakens later sums, so restart the current contiguous segment.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Choose a nonempty contiguous subarray of a nonempty integer array to maximize its sum. Contiguity permits one segment, with no skipping of negative elements inside it. The array may be entirely negative, in which case the answer is its largest individual element. Allowing an empty subarray to return zero would be wrong. The implementation raises an error for empty input to make the nonempty assumption explicit."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "current is the maximum subarray sum required to end at the current element. For x, either append x to the previous best ending segment or start with x alone: take max(x,current+x). best stores the largest value among all ending positions processed, so its final value is the global optimum."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "A negative previous current only lowers the sum when placed before x, so discard it. A positive current makes extending preferable to taking x alone. This is a greedy explanation based on discarding negative prefixes, and also a one-state dynamic program. One state suffices because any worse prefix with the same endpoint remains worse under an identical future suffix.",
+          "For [2,-1,3], the best contiguous segment includes -1 and sums to 4. A negative element is not the same as a negative prefix. Whether to restart depends on the sign of the entire previous current, rather than deleting x whenever it is negative. This example guards against an overly aggressive greedy rule."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Initialize both current and best to nums[0] and update from the second item, ensuring a nonempty segment throughout. Do not clamp current to zero and unconditionally update best with zero, which fails for all-negative input. To output endpoints too, record a new start when restarting at x, and record the current end whenever best improves."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        raise ValueError(\"nonempty array required\")\n    current = best = nums[0]\n    for i in range(1, len(nums)):\n        x = nums[i]\n        current = max(x, current + x)\n        best = max(best, current)\n    return best\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[-2,1,-3,4,-1,2,1,-5,4]",
+      "output": "6",
+      "walkthrough": [
+        "Discard the negative prefix and restart at 4.",
+        "The contiguous segment [4,-1,2,1] sums to 6."
+      ]
+    },
+    "pitfalls": [
+      "The nonempty-subarray requirement forbids returning zero for all-negative input.",
+      "Deleting arbitrary negative values inside a segment changes the task into a subsequence problem."
+    ],
+    "tests": [
+      {
+        "expression": "solve([-2,1,-3,4,-1,2,1,-5,4])",
+        "expected": 6
+      },
+      {
+        "expression": "solve([-5,-2,-7])",
+        "expected": -2
+      }
+    ]
+  },
+  {
+    "id": "stock-unlimited",
+    "chapter": "贪心算法",
+    "title": "122. Best Time to Buy and Sell Stock II",
+    "problem": "122",
+    "kind": "题解",
+    "summary": "With unlimited transactions, split each rise into positive adjacent gains.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Given daily prices, make multiple purchases and sales while holding at most one share at any time. Maximize profit. Selling and buying again on one day is allowed because it creates no additional profit. There are no fees, cooldowns, or transaction limits; these assumptions permit splitting rises. Adding any such restriction requires redesigning the algorithm."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Write the profit from buying on day a and selling on day b as a sum of adjacent differences. Every positive difference contributes profit, while every negative difference weakens the holding interval. Summing all positive adjacent rises is therefore equivalent to buying at each rising segment’s valley and selling at its peak."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Any trade’s profit is a segment sum of differences and cannot exceed the sum of positive differences in that segment. Multiple nonoverlapping trades likewise cannot exceed all positive differences across the array. Conversely, one valid purchase and sale can realize the full sum of every contiguous run of positive differences. The upper bound is achievable, proving global optimality.",
+          "For the steady rise [1,2,3,4], three adjacent gains of 1 sum to 3, equal to buying at 1 and selling at 4. The accumulation formula does not require actually trading daily; it is simply an easy equivalent profit calculation. Price plateaus contribute nothing and do not interfere with subsequent rises."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Start the loop at index 1 and compare each day with the previous one; no explicit holding state is needed. Empty and one-day arrays naturally return zero. Python integers safely accumulate the sum, but real trading costs are outside this problem’s model. Do not apply the strategy directly to stock problems with fees: more splitting may mean more costs."
+        ]
+      }
+    ],
+    "code": "def solve(prices):\n    profit = 0\n    for i in range(1, len(prices)):\n        profit += max(0, prices[i] - prices[i - 1])\n    return profit\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "prices=[7,1,5,3,6,4]",
+      "output": "7",
+      "walkthrough": [
+        "The rise from 1 to 5 earns 4.",
+        "The rise from 3 to 6 earns 3, giving total profit 7."
+      ]
+    },
+    "pitfalls": [
+      "Fees or transaction limits invalidate direct accumulation of positive differences.",
+      "Do not include decreasing segments in the sum."
+    ],
+    "tests": [
+      {
+        "expression": "solve([7,1,5,3,6,4])",
+        "expected": 7
+      },
+      {
+        "expression": "solve([7,6,4,3,1])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "jump-game-reachability",
+    "chapter": "贪心算法",
+    "title": "55. Jump Game: Maintaining the Farthest Reachable Position",
+    "problem": "55",
+    "kind": "题解",
+    "summary": "Only reachable positions may extend the coverage boundary.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "nums[i] gives the maximum rightward jump length from index i. Determine whether the last position is reachable from 0. Shorter jumps are allowed, so a reachable position extends a continuous interval. Input is normally nonempty and nonnegative. This implementation defines empty input as unreachable; a single element succeeds without jumping."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "far is the farthest index covered by reachable positions processed so far. When scanning i, i>far means i is unreachable, and no known route reaches later positions either, so fail immediately. Otherwise, update with max(far,i+nums[i]). Throughout the scan, every index from 0 through far is reachable."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Use induction. Initially, only 0 is reachable. If i is reachable, any allowed jump length can be chosen, so its new coverage joins the existing reachable prefix without gaps. At the first position beyond far, none of the reachable starting points can cross the boundary. An unreachable position cannot independently initiate another jump.",
+          "For [2,0,0], the middle and final positions cannot jump farther, but the start already reaches the end directly, so the answer is true. Seeing zero is not by itself failure. Failure occurs only when the entire reachable prefix cannot extend and the target remains outside it."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Return True as soon as far covers the last position; scanning farther is unnecessary. The objective is reachability, not minimum jumps, and far does not describe an actual chosen route. Never update far from an unreachable position, which would incorrectly count an inaccessible large jump as available ability."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return False\n    far = 0\n    for i, step in enumerate(nums):\n        if i > far:\n            return False\n        far = max(far, i + step)\n        if far >= len(nums) - 1:\n            return True\n    return False\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[3,2,1,0,4]",
+      "output": "False",
+      "walkthrough": [
+        "The first three positions cover at most index 3.",
+        "Index 3 has jump length zero and cannot cover index 4."
+      ]
+    },
+    "pitfalls": [
+      "Unreachable positions cannot extend the boundary.",
+      "The farthest coverage boundary is not a mandatory landing point for every jump."
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,1,1,4])",
+        "expected": true
+      },
+      {
+        "expression": "solve([3,2,1,0,4])",
+        "expected": false
+      },
+      {
+        "expression": "solve([0])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "jump-game-minimum",
+    "chapter": "贪心算法",
+    "title": "45. Jump Game II: Counting Coverage Layers",
+    "problem": "45",
+    "kind": "题解",
+    "summary": "Treat the entire interval reachable in one jump as a layer, and increment the jump count at layer boundaries.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Again given maximum rightward jump lengths, find the minimum number of jumps. The original problem guarantees the last position is reachable; this implementation additionally returns -1 for unreachable input. Always jumping to the farthest current landing position is unsafe because a nearer position may offer a stronger next jump. Compare expansions from every reachable landing position in the current layer."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "end is the farthest boundary reachable with the current jump count. far is the farthest position reachable with one more jump after scanning positions in the current layer. When i==end, all candidates in this layer have been considered: increment jumps and update end to far. This is breadth-first search with its queue compressed into continuous coverage intervals."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Do not increase jumps before the layer ends, because positions with the same jump count are still being compared. Afterward, any farther position requires at least one additional jump, so incrementing is necessary. The layer’s farthest extension covers every position reachable in one more step and therefore loses no better route.",
+          "In the example, the first jump need not land at index 2; the actual optimal route is 0→1→4. Incrementing at boundary 2 only confirms all first-jump candidates have been considered. It does not require landing at 2. Confusing a boundary with a specified landing point misreads the algorithm and yields incorrect routes."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Scan only through the second-to-last position: the destination needs no further departure. If far==end, the current layer cannot extend, so return -1 immediately. A single element returns zero, and empty input returns -1. Keep end and far separate; combining them increments jumps prematurely at individual scanned positions."
+        ]
+      }
+    ],
+    "code": "def solve(nums):\n    if not nums:\n        return -1\n    if len(nums) == 1:\n        return 0\n    jumps = end = far = 0\n    for i in range(len(nums) - 1):\n        if i > far:\n            return -1\n        far = max(far, i + nums[i])\n        if i == end:\n            if far == end:\n                return -1\n            jumps += 1\n            end = far\n            if end >= len(nums) - 1:\n                return jumps\n    return -1\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "nums=[2,3,1,1,4]",
+      "output": "2",
+      "walkthrough": [
+        "The first layer expands from index 0 to 2; the jump count becomes 1.",
+        "After scanning 1 and 2, the next layer’s boundary reaches 4; the count becomes 2."
+      ]
+    },
+    "pitfalls": [
+      "Counting another jump at the last position adds one too many.",
+      "Do not select only the farthest current landing point and ignore other positions in the layer."
+    ],
+    "tests": [
+      {
+        "expression": "solve([2,3,1,1,4])",
+        "expected": 2
+      },
+      {
+        "expression": "solve([0,1])",
+        "expected": -1
+      },
+      {
+        "expression": "solve([0])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "maximize-sum-negations",
+    "chapter": "贪心算法",
+    "title": "1005. Maximize Sum of Array After K Negations",
+    "problem": "1005",
+    "kind": "题解",
+    "summary": "Flip the most valuable negative numbers first; spend any remaining odd operation on a minimum-absolute-value item.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Each operation negates one element. Perform exactly k operations, allowing repeated selection of the same element. Negating a negative increases the sum; negating a positive decreases it. If k is large, two extra operations on the same element cancel completely, leaving only the parity of remaining operations to consider."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Sort by descending absolute value. Negate a negative number while operations remain. More negative values give larger gains, so prioritize greater absolute values. If an odd number of operations remains after processing, one uncancelled negation is necessary. Choose the smallest absolute value to minimize its loss."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Exchange argument: if a plan flips a negative with smaller absolute value but leaves a larger one unflipped, exchanging the operation increases or preserves the sum. Once all negatives have been flipped, pairs of extra operations cancel. An odd count must leave at least one sign reversed, costing at least twice the minimum absolute value; choosing that value achieves the lower bound.",
+          "For [-5,-1,2] with k=1, flipping only -5 gives the largest gain. With k=3, both negatives become positive and one operation remains. Flip the absolute-value-1 item, reducing the sum from 8 to 6. This distinguishes the two stages: maximizing gain first and minimizing the final loss."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Negation does not change absolute-value ordering, so the final item remains a minimum-absolute-value element. The code creates a copy and explicitly rejects negative k. Empty input is valid only when k=0. Zero is useful: an odd remaining flip on zero has no cost, and the formula handles it naturally without a separate search branch."
+        ]
+      }
+    ],
+    "code": "def solve(nums, k):\n    if k < 0 or (not nums and k):\n        raise ValueError(\"invalid operation count\")\n    if not nums:\n        return 0\n    nums = sorted(nums, key=abs, reverse=True)\n    for i, x in enumerate(nums):\n        if x < 0 and k:\n            nums[i] = -x\n            k -= 1\n    if k % 2:\n        nums[-1] = -nums[-1]\n    return sum(nums)\n",
+    "time": "O(n log n)",
+    "space": "O(n) for the sorted copy",
+    "example": {
+      "input": "nums=[-4,-2,3], k=2",
+      "output": "9",
+      "walkthrough": [
+        "First turn the larger-absolute-value negative -4 into 4.",
+        "Then turn -2 into 2; both operations are used and the sum is 9."
+      ]
+    },
+    "pitfalls": [
+      "Exactly k operations are required; do not ignore an odd remainder.",
+      "The final flip uses minimum absolute value, not minimum numeric value."
+    ],
+    "tests": [
+      {
+        "expression": "solve([-4,-2,3],2)",
+        "expected": 9
+      },
+      {
+        "expression": "solve([4,2,3],1)",
+        "expected": 5
+      },
+      {
+        "expression": "solve([-2,0,3],4)",
+        "expected": 5
+      }
+    ]
+  },
+  {
+    "id": "gas-station",
+    "chapter": "贪心算法",
+    "title": "134. Gas Station: Eliminating an Entire Failed Interval",
+    "problem": "134",
+    "kind": "题解",
+    "summary": "When a route segment’s cumulative fuel becomes negative, every starting point in that segment can be discarded.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "On a circular route, station i supplies gas[i] units of fuel, and reaching the next station costs cost[i]. The tank is unlimited and initially empty. Find a starting index that completes one circuit, or return -1. The net gain diff=gas[i]-cost[i] describes fuel gained or lost after that station. A negative total net gain makes a full circuit impossible from every start."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "start is the current candidate starting index, and tank is its cumulative net gain through the current station. If tank<0, this start cannot cross the current edge, and neither can any start between start and the current station. Set the next station as the new candidate and reset tank to zero. total independently tracks net gain for the whole circuit."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Why can intermediate starts be eliminated? Before the first failure, cumulative fuel from start to before any intermediate station is nonnegative. Starting at that intermediate station removes a nonnegative reserve, making fuel at the failure point no greater. After scanning, if total≥0, the final candidate follows a minimum prefix, and neither the later segment nor the wrapped earlier segment goes negative.",
+          "For net gains [-2,3,-1], the first station fails immediately, making the second station the candidate. It accumulates 3, then has 2 after the third station, and 0 after wrapping to the first, completing the circuit exactly. Zero fuel is permitted: it means no reserve, not failure."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Keep local tank separate from global total; changing candidates must not reset total. The code checks that array lengths match and returns -1 for an empty route. Accumulate gains directly without allocating diff to keep auxiliary space constant. The return value is a starting index, not minimum required fuel or total gain."
+        ]
+      }
+    ],
+    "code": "def solve(gas, cost):\n    if len(gas) != len(cost):\n        raise ValueError(\"matching lengths required\")\n    if not gas:\n        return -1\n    total = tank = 0\n    start = 0\n    for i in range(len(gas)):\n        gain = gas[i] - cost[i]\n        total += gain\n        tank += gain\n        if tank < 0:\n            start = i + 1\n            tank = 0\n    return start if total >= 0 else -1\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "gas=[1,2,3,4,5], cost=[3,4,5,1,2]",
+      "output": "3",
+      "walkthrough": [
+        "Indices 0, 1, and 2 fail in turn, moving the candidate to 3.",
+        "Starting at 3 accumulates 3 and then 6; fuel remains nonnegative after wrapping to the earlier segment."
+      ]
+    },
+    "pitfalls": [
+      "Resetting local fuel must not reset the global total.",
+      "tank equal to zero can continue; only a negative value fails."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,2,3,4,5],[3,4,5,1,2])",
+        "expected": 3
+      },
+      {
+        "expression": "solve([2,3,4],[3,4,3])",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "candy",
+    "chapter": "贪心算法",
+    "title": "135. Candy: Deriving Lower Bounds from Both Neighbors",
+    "problem": "135",
+    "kind": "题解",
+    "summary": "Use two scans for minimum left and right requirements, then take the elementwise maximum.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Every child receives at least one candy. Of two adjacent children, the higher-rated child must receive more; equal ratings impose no ordering requirement. Minimize total candies. A child may be rated above both neighbors, so a left-to-right scan alone cannot satisfy right-side constraints. Sorting ratings is also invalid because adjacency must be preserved."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Initialize every count to 1. Scan left to right through rating rises: if ratings[i]>ratings[i-1], set candies[i]=candies[i-1]+1. This gives the minimum lower bound when considering only the left side. Then scan right to left to handle right-side requirements caused by descents, using max to preserve the left-side bound already satisfied."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "The final count for each child meets requirements from both directions, satisfying every constraint. Any valid allocation must increase along each consecutive rising chain and therefore reach at least the left-scan bound. It must likewise reach the right-side bound along rising chains viewed from the right. Taking the elementwise maximum exactly achieves these necessary bounds, minimizing the sum.",
+          "For the mountain [1,2,3,2,1], the left bound is [1,2,3,1,1], and merging the right bound gives [1,2,3,2,1]. A longer descent after the peak may make the right scan raise the peak too. This preserves its requirement to exceed its left neighbor, precisely the purpose of max."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Do not overwrite candies[i] directly in the right scan, which could lower a peak and break a left-side relationship. Equal ratings require no increase, so use strict greater-than. Empty input returns zero. Store just one count array and merge during the right scan. More complex slope methods can save space, but two passes are easier to prove and debug."
+        ]
+      }
+    ],
+    "code": "def solve(ratings):\n    n = len(ratings)\n    candies = [1] * n\n    for i in range(1, n):\n        if ratings[i] > ratings[i - 1]:\n            candies[i] = candies[i - 1] + 1\n    for i in range(n - 2, -1, -1):\n        if ratings[i] > ratings[i + 1]:\n            candies[i] = max(candies[i], candies[i + 1] + 1)\n    return sum(candies)\n",
+    "time": "O(n)",
+    "space": "O(n)",
+    "example": {
+      "input": "ratings=[1,0,2]",
+      "output": "5",
+      "walkthrough": [
+        "The left scan produces [1,1,2].",
+        "The right scan raises the first child’s count to 2, giving [2,1,2]."
+      ]
+    },
+    "pitfalls": [
+      "Equal ratings require neither equal candy counts nor an increase.",
+      "Use max in the right scan; do not overwrite a larger left-side requirement."
+    ],
+    "tests": [
+      {
+        "expression": "solve([1,0,2])",
+        "expected": 5
+      },
+      {
+        "expression": "solve([1,2,2])",
+        "expected": 4
+      },
+      {
+        "expression": "solve([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "lemonade-change",
+    "chapter": "贪心算法",
+    "title": "860. Lemonade Change",
+    "problem": "860",
+    "kind": "题解",
+    "summary": "For a 20-unit payment, prefer 10+5 in change, preserving flexible 5-unit bills for later customers.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "An item costs 5 units. Customers pay in the given order with 5, 10, or 20, and must receive correct change immediately. Start without change. Customer order cannot change, and future payments cannot be borrowed. Track only counts of 5-unit and 10-unit bills: a 20-unit bill cannot help with later change amounts below 20."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Keep a received 5. A 10 payment consumes one existing 5 and adds one 10. A 20 payment requires 15 in change: prefer one 10 plus one 5, and consider three 5s only if that combination is unavailable. Having enough total money is insufficient; available denominations determine whether the required amount can be made."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Between the two ways to change 20, a 10-unit bill is useful only for changing another 20, while 5-unit bills also serve 10 payments. Spending one 10 and two fewer 5s retains more flexible change. Any successful continuation after using three 5s cannot be worsened by preserving more 5s instead.",
+          "Suppose inventory is three 5s and one 10, followed by customers paying 20 and then 10. Giving the first customer three 5s makes the second fail. Using 10+5 leaves two 5s, so the second customer can receive change. This concrete comparison demonstrates the priority rule."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Write each denomination branch explicitly and return False immediately upon failure. Unknown denominations return False; an empty queue returns True. The customer’s newly paid 10 cannot supply its own 5 in change: confirm an existing 5 is available before increasing the 10 count."
+        ]
+      }
+    ],
+    "code": "def solve(bills):\n    five = ten = 0\n    for bill in bills:\n        if bill == 5:\n            five += 1\n        elif bill == 10:\n            if five == 0:\n                return False\n            five -= 1\n            ten += 1\n        elif bill == 20:\n            if ten and five:\n                ten -= 1\n                five -= 1\n            elif five >= 3:\n                five -= 3\n            else:\n                return False\n        else:\n            return False\n    return True\n",
+    "time": "O(n)",
+    "space": "O(1)",
+    "example": {
+      "input": "bills=[5,5,5,10,20]",
+      "output": "True",
+      "walkthrough": [
+        "The first three customers leave three 5s; after the 10 payment, two 5s and one 10 remain.",
+        "Change the 20 with 10+5, leaving one 5."
+      ]
+    },
+    "pitfalls": [
+      "Tracking only total change value is insufficient.",
+      "For a 20 payment, prefer 10+5 over three 5s."
+    ],
+    "tests": [
+      {
+        "expression": "solve([5,5,5,10,20])",
+        "expected": true
+      },
+      {
+        "expression": "solve([5,5,10,10,20])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "queue-reconstruction",
+    "chapter": "贪心算法",
+    "title": "406. Queue Reconstruction by Height",
+    "problem": "406",
+    "kind": "题解",
+    "summary": "Place taller people first, then insert shorter people at the position matching their required taller-person count.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "A person is represented by [h,k], where h is height and k counts people ahead whose height is at least h. Reconstruct a queue satisfying all conditions. k is neither an original index nor the total number ahead. Inserting at index k has the intended meaning only when everyone already placed is at least as tall as the current person."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Sort by descending height, breaking equal-height ties by ascending k. For the current person, everyone in the queue is at least as tall, so insertion at k puts exactly k qualifying people ahead. Later, shorter people do not count toward this person’s k, so their insertion preserves already-satisfied constraints."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Why sort equal heights by ascending k? Place those requiring fewer qualifying people ahead first, then those requiring more; the later person does not move ahead of an earlier one and increase their count. For height-5 people with k=0 and k=2, handling k=2 first may provide neither enough insertion positions nor the intended prefix-count meaning.",
+          "After reconstruction, independently scan each person’s prefix and recount heights at least as large, checking equality with k. This check does not depend on the sorting-and-insertion logic and exposes mistakes in tie sorting or insertion positions. Even a small teaching example should validate every person, rather than queue length alone."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Python list.insert(k,p) shifts subsequent elements rightward and is not O(1). Sorting takes O(n log n), while n insertions take O(n²) in the worst case, so insertion dominates. The code copies each record to avoid sharing input sublists in the result. Original-problem input is guaranteed reconstructible; arbitrary external data also needs validation of k ranges and final conditions."
+        ]
+      }
+    ],
+    "code": "def solve(people):\n    ordered = sorted(people, key=lambda p: (-p[0], p[1]))\n    queue = []\n    for h, k in ordered:\n        queue.insert(k, [h, k])\n    return queue\n",
+    "time": "O(n²): O(n log n) sorting and O(n²) worst-case total list insertion",
+    "space": "O(n) for sorted references and the queue",
+    "example": {
+      "input": "people=[[7,0],[4,4],[7,1],[5,0],[6,1],[5,2]]",
+      "output": "[[5,0],[7,0],[5,2],[6,1],[4,4],[7,1]]",
+      "walkthrough": [
+        "Insert [7,0] and [7,1] first, satisfying constraints among the taller people.",
+        "Inserting [5,0] at the front does not affect the 7s’ counts because 5 is shorter than 7."
+      ]
+    },
+    "pitfalls": [
+      "For equal heights, sort k ascending rather than descending.",
+      "list.insert shifts elements; total time cannot be reduced to sorting complexity."
+    ],
+    "tests": [
+      {
+        "expression": "solve([[7,0],[4,4],[7,1],[5,0],[6,1],[5,2]])",
+        "expected": [
+          [
+            5,
+            0
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            5,
+            2
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            7,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "queue-insertion-analysis",
+    "chapter": "贪心算法",
+    "title": "406. Analyzing Insertions: Why Existing People Stay Valid",
+    "problem": "406",
+    "kind": "题解",
+    "summary": "Analyze how each kind of inserted person affects earlier counts, rather than memorizing a two-key sorting rule.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "This section expands the queue-reconstruction proof. Insertion changes many array indices, but the constraint concerns the number of preceding people at least as tall, rather than indices. An existing element may shift right without its count changing when the newcomer is shorter. Physical movement and constraint changes must be distinguished."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "For the current [h,k], the existing queue contains only heights≥h, so index k equals the number of qualifying predecessors. For existing people taller than h, the newcomer does not count. Existing people of height h have k no larger than the current k because of sorting; prove that the current person cannot be inserted ahead of them."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "An existing equal-height person was placed at its own k when processed. No taller person arrives afterward, and subsequent equal-height people already processed were inserted at nondecreasing k without invalidating it. The current insertion is therefore after existing equal-height people, so their counts also do not increase. This explains why height sorting alone is insufficient: the secondary key is essential.",
+          "For input that cannot be reconstructed, Python insert silently appends when k exceeds list length instead of raising an error. Absence of exceptions is therefore not evidence of successful reconstruction. For general data, an independent valid_queue check is a necessary safeguard for both inputs and results."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "The example returns a snapshot after every insertion for observation and is unsuitable for large input. Copying each small record in the queue at every step adds O(n²) total copying, the same order as list insertion, but snapshot output itself also takes O(n²). Validate the final result by directly counting qualifying predecessors, independently of construction."
+        ]
+      }
+    ],
+    "code": "def insertion_trace(people):\n    queue, trace = [], []\n    for h, k in sorted(people, key=lambda p: (-p[0], p[1])):\n        queue.insert(k, [h, k])\n        trace.append([p.copy() for p in queue])\n    return trace\n\ndef valid_queue(queue):\n    return all(sum(prev[0] >= h for prev in queue[:i]) == k\n               for i, (h, k) in enumerate(queue))\n",
+    "time": "O(n²) construction and snapshots; O(n²) independent validation",
+    "space": "O(n) auxiliary space; O(n²) snapshot output",
+    "example": {
+      "input": "people=[[6,0],[5,0],[5,1]]",
+      "output": "Final queue: [[5,0],[5,1],[6,0]]",
+      "walkthrough": [
+        "Place the taller person, 6, first.",
+        "Insert [5,0] at the front and [5,1] after it; the 6’s count remains zero."
+      ]
+    },
+    "pitfalls": [
+      "An array index shifting right does not imply the constrained count increases.",
+      "Complete the proof by explaining the processing order for equal heights."
+    ],
+    "tests": [
+      {
+        "expression": "insertion_trace([[6,0],[5,0],[5,1]])[-1]",
+        "expected": [
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            6,
+            0
+          ]
+        ]
+      },
+      {
+        "expression": "valid_queue(insertion_trace([[6,0],[5,0],[5,1]])[-1])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "minimum-arrows",
+    "chapter": "贪心算法",
+    "title": "452. Minimum Number of Arrows to Burst Balloons",
+    "problem": "452",
+    "kind": "题解",
+    "summary": "Place an arrow at the earliest-ending balloon’s right endpoint to also cover later balloons overlapping it.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Each balloon occupies a closed interval [start,end]. An arrow bursts it if its horizontal coordinate lies inside that interval, and one arrow may burst multiple balloons. Find the fewest arrows covering all intervals. Closed intervals permit endpoint shots: [1,2] and [2,3] can both be burst by one arrow at 2."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Sort by ascending right endpoint. Shoot at the right endpoint of the earliest-ending uncovered balloon and store that position in shot. A later balloon with start≤shot is already covered. If start>shot, a new arrow is necessary; set shot to that balloon’s right endpoint. Sorting ensures later right endpoints are not smaller than shot."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Every solution needs an arrow covering the earliest-ending balloon. Move that arrow rightward to this balloon’s right endpoint. Later balloons it previously covered have right endpoints at least that large and left endpoints no greater than the original shot, so they remain covered. This exchange does not increase the arrow count. Repeat for the remaining uncovered balloons.",
+          "There is no need to choose an interval midpoint. Its right endpoint covers the earliest-ending interval while reaching as far right as possible to cover later ones, which is the sorted exchange argument. Sorting by starts and shooting at left endpoints may use an extra arrow for [1,10] and [2,3], losing optimality."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Initialize the shot using None or the first item, avoiding floating-point sentinels with large integer endpoints. Empty input returns zero. Add an arrow only for strict greater-than, not greater-than-or-equal: touching balloons can share an arrow. The sorted copy takes O(n) space, while scanning maintains only a position and count."
+        ]
+      }
+    ],
+    "code": "def solve(points):\n    if not points:\n        return 0\n    points = sorted(points, key=lambda p: p[1])\n    arrows, shot = 1, points[0][1]\n    for start, end in points[1:]:\n        if start > shot:\n            arrows += 1\n            shot = end\n    return arrows\n",
+    "time": "O(n log n)",
+    "space": "O(n) for sorting and the scan slice",
+    "example": {
+      "input": "points=[[10,16],[2,8],[1,6],[7,12]]",
+      "output": "2",
+      "walkthrough": [
+        "Shoot the first arrow at 6, covering [1,6] and [2,8].",
+        "[7,12] is still uncovered; shoot the second at 12, also covering [10,16]."
+      ]
+    },
+    "pitfalls": [
+      "Closed intervals touching at endpoints can share an arrow.",
+      "Do not sort by left endpoints and add an arrow for every different interval."
+    ],
+    "tests": [
+      {
+        "expression": "solve([[10,16],[2,8],[1,6],[7,12]])",
+        "expected": 2
+      },
+      {
+        "expression": "solve([[1,2],[2,3]])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "erase-overlap-intervals",
+    "chapter": "贪心算法",
+    "title": "435. Non-overlapping Intervals",
+    "problem": "435",
+    "kind": "题解",
+    "summary": "Maximize the number of retained intervals, then subtract it from the total.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Delete the fewest intervals so the rest are pairwise nonoverlapping. Touching endpoints do not count as overlap: [1,2] and [2,3] may both remain. Rewriting minimum deletions as maximum retention gives classic interval scheduling. Its objective differs from balloon bursting; interval-shaped input alone does not justify reusing counting logic."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Process by ascending right endpoint, retaining the first interval and then only intervals starting no earlier than the current end. end is the finish time of the last retained interval. Earlier finishing leaves more room afterward, making the earliest-finishing available interval the best next choice."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "If an optimal solution’s first interval is not the earliest-finishing one, replace it with that interval. The new finish is no later and therefore cannot conflict with subsequent intervals. The retained count is unchanged. Apply this exchange repeatedly to compatible remaining intervals. The greedy retained set thus also has maximum cardinality, and deletions equal n-kept.",
+          "For duplicate intervals of positive length, at most one can remain; the others must be deleted. With containment, favoring the shorter, earlier-ending inner interval may allow subsequent intervals to begin sooner. Empty input requires zero deletions. Initializing with None handles these boundaries without special cases."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Touching endpoints are compatible, so use start>=end. Initialize end=None for the first item rather than an integer that might conflict with the input range. This code returns the minimum count rather than specific deleted indices. To return the retained set, record intervals in the retain branch; the proof is unchanged."
+        ]
+      }
+    ],
+    "code": "def solve(intervals):\n    kept = 0\n    end = None\n    for start, finish in sorted(intervals, key=lambda p: p[1]):\n        if end is None or start >= end:\n            kept += 1\n            end = finish\n    return len(intervals) - kept\n",
+    "time": "O(n log n)",
+    "space": "O(n) for the sorted copy",
+    "example": {
+      "input": "intervals=[[1,2],[2,3],[3,4],[1,3]]",
+      "output": "1",
+      "walkthrough": [
+        "Retain [1,2], then [2,3].",
+        "Skip conflicting [1,3]; [3,4] fits next, leaving three retained intervals."
+      ]
+    },
+    "pitfalls": [
+      "Touching is compatible here, unlike the shared-point semantics of closed intervals.",
+      "Return the deletion count, not kept directly."
+    ],
+    "tests": [
+      {
+        "expression": "solve([[1,2],[2,3],[3,4],[1,3]])",
+        "expected": 1
+      },
+      {
+        "expression": "solve([[1,2],[1,2],[1,2]])",
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "partition-labels",
+    "chapter": "贪心算法",
+    "title": "763. Partition Labels",
+    "problem": "763",
+    "kind": "题解",
+    "summary": "A segment may close only after every character it contains has reached its final occurrence.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Partition a string into as many contiguous segments as possible so each character occurs in only one segment, and return segment lengths. Even distant occurrences of one character connect all intervening positions into the same segment. The goal is not evenly sized segments, but finishing each segment as early as its constraints allow."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "First record each character’s last position in last. While scanning a segment, maintain end=max(end,last[c]), its minimum required ending position to include every character seen so far. A newly encountered character may extend this boundary farther right. Cut only when the current i==end."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Cutting before end leaves some already-seen character appearing again at end or another future position up to end, violating the one-segment-per-character rule. At i==end, no character in the current segment appears later, so the cut is safe. Taking the earliest safe cut maximizes segment count without restricting later valid partitions.",
+          "For abac, the first a sets the boundary to index 2. Although b last occurs at 1, it must not shrink the boundary. Cut aba after the second a, leaving c alone. This small example checks both max and cut timing."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Store the segment’s starting index in start and calculate length as i-start+1. After a cut, set start=i+1. Characters need not be lowercase letters: a dictionary supports arbitrary string characters, with space determined by the distinct character count. Empty input naturally returns an empty list. Do not cut merely when one character reaches its own final position; check the whole segment’s maximum boundary."
+        ]
+      }
+    ],
+    "code": "def solve(s):\n    last = {c: i for i, c in enumerate(s)}\n    ans = []\n    start = end = 0\n    for i, c in enumerate(s):\n        end = max(end, last[c])\n        if i == end:\n            ans.append(i - start + 1)\n            start = i + 1\n    return ans\n",
+    "time": "O(n)",
+    "space": "O(σ) auxiliary space, where σ is the distinct character count, excluding output",
+    "example": {
+      "input": "s='ababcbacadefegdehijhklij'",
+      "output": "[9,7,8]",
+      "walkthrough": [
+        "The first segment contains a, b, and c; their final positions push its boundary to 8.",
+        "It can close only at index 8, giving length 9."
+      ]
+    },
+    "pitfalls": [
+      "Maintain the maximum final position among all characters in the segment.",
+      "Add one when calculating a closed interval’s length."
+    ],
+    "tests": [
+      {
+        "expression": "solve('ababcbacadefegdehijhklij')",
+        "expected": [
+          9,
+          7,
+          8
+        ]
+      },
+      {
+        "expression": "solve('eccbbbbdec')",
+        "expected": [
+          10
+        ]
+      }
+    ]
+  },
+  {
+    "id": "merge-intervals",
+    "chapter": "贪心算法",
+    "title": "56. Merge Intervals",
+    "problem": "56",
+    "kind": "题解",
+    "summary": "After sorting by left endpoint, decide only whether the next interval extends the current merged segment.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Given closed intervals, merge every overlap and return nonoverlapping intervals covering exactly the same set. For example, [1,3] and [3,5] share an endpoint and merge to [1,5]. This task retains all covered positions while reducing the number of interval representations, rather than selecting or deleting some intervals."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Scan by ascending left endpoint. The final segment in result is the rightmost merged segment so far. If the next start exceeds that segment’s right endpoint, there is a gap, so create a new segment. Otherwise they overlap or touch; set the right endpoint to max(previous right endpoint,end). Earlier completed segments never need modification again."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Sorting prevents future starts from moving left. If a gap separates the current interval from the last segment, no later interval with an even larger start can fill it, so the earlier segment is final. If they overlap, their union is still one interval from the smaller left endpoint to the larger right endpoint. Updating preserves equivalent coverage.",
+          "Sorting ensures increasing left endpoints, not increasing right endpoints. Thus [1,10] followed by [2,3] must retain 10. Replacing the right endpoint with the current end loses coverage from 4 through 10. Containment tests reveal this shortening error more readily than crossing overlaps alone."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "Create a new list for each merged segment instead of modifying input interval objects. Comparing only neighboring original intervals is insufficient: a long interval may contain multiple short ones. Always compare with the latest merged right endpoint. Empty input returns an empty list. Adjust conditions if semantics change to open intervals or prohibit merging touching intervals."
+        ]
+      }
+    ],
+    "code": "def solve(intervals):\n    ans = []\n    for start, end in sorted(intervals, key=lambda p: p[0]):\n        if not ans or start > ans[-1][1]:\n            ans.append([start, end])\n        else:\n            ans[-1][1] = max(ans[-1][1], end)\n    return ans\n",
+    "time": "O(n log n)",
+    "space": "O(n) for the sorted copy; at most O(n) output",
+    "example": {
+      "input": "intervals=[[1,3],[2,6],[8,10],[15,18]]",
+      "output": "[[1,6],[8,10],[15,18]]",
+      "walkthrough": [
+        "[2,6] overlaps [1,3], extending the current right endpoint to 6.",
+        "8 exceeds 6, leaving a gap, so start another segment."
+      ]
+    },
+    "pitfalls": [
+      "Update right endpoints with max so long intervals never shrink.",
+      "Closed intervals sharing an endpoint must merge here."
+    ],
+    "tests": [
+      {
+        "expression": "solve([[1,3],[2,6],[8,10],[15,18]])",
+        "expected": [
+          [
+            1,
+            6
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            15,
+            18
+          ]
+        ]
+      },
+      {
+        "expression": "solve([[1,4],[2,3]])",
+        "expected": [
+          [
+            1,
+            4
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "monotone-increasing-digits",
+    "chapter": "贪心算法",
+    "title": "738. Monotone Increasing Digits",
+    "problem": "738",
+    "kind": "题解",
+    "summary": "When adjacent digits descend, decrease the left digit and maximize the affected suffix with 9s.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "Find the largest integer no greater than nonnegative n whose decimal digits are nondecreasing from left to right. Equal digits are allowed, as in 1123. Trying each number below n is too slow for large inputs. Determine which higher digit must decrease and, once it does, how to maximize the lower digits afterward."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "Convert the number to a character list and inspect adjacent digits from right to left. If digits[i-1]>digits[i], the higher digit is too large: decrement it and record that the suffix from i onward must become all 9s. Right-to-left traversal handles cascading changes. For 332, decrementing its second digit to 2 makes the first 3 too large as well, requiring another step left."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "Once a higher digit changes, the result is strictly smaller than the original number, so all digits to its right can be maximized. Filling them with 9 gives the largest suffix and is compatible with preceding digits no greater than 9. If an earlier inversion appears, move the change point left. The final leftmost decremented digit incurs the smallest necessary loss in higher places, with the 9 suffix maximizing the rest.",
+          "For 120, the final 0 makes the middle 2 decrease to 1. The first two digits become 11, and filling the suffix with 9 gives 119; the first digit need not decrease. For 1110, decrements cascade to the leading digit, producing 999. Comparing these checks whether mark moves left throughout a cascade."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "mark stores the earliest position requiring 9s. Fill the suffix only after scanning, so early 9s do not mask cascading conflicts. Single-digit character comparisons agree with numeric comparisons; use int when decrementing. For example, 1000 becomes 0999, and the final int conversion removes the leading zero to yield 999."
+        ]
+      }
+    ],
+    "code": "def solve(n):\n    if n < 0:\n        raise ValueError(\"nonnegative integer required\")\n    digits = list(str(n))\n    mark = len(digits)\n    for i in range(len(digits) - 1, 0, -1):\n        if digits[i - 1] > digits[i]:\n            digits[i - 1] = str(int(digits[i - 1]) - 1)\n            mark = i\n    for i in range(mark, len(digits)):\n        digits[i] = \"9\"\n    return int(\"\".join(digits))\n",
+    "time": "O(d), where d is the decimal digit count, using the usual linear-cost integer-conversion model",
+    "space": "O(d)",
+    "example": {
+      "input": "n=332",
+      "output": "299",
+      "walkthrough": [
+        "On the right, 3>2: decrement the middle 3 to 2 and set mark=2.",
+        "On the left, 3>2 again: decrement it to 2, set mark=1, and fill the suffix with 9s."
+      ]
+    },
+    "pitfalls": [
+      "Check right to left to propagate inversions after a decrement.",
+      "Fill 9s only at the end, avoiding premature masking of conflicts."
+    ],
+    "tests": [
+      {
+        "expression": "solve(332)",
+        "expected": 299
+      },
+      {
+        "expression": "solve(1000)",
+        "expected": 999
+      },
+      {
+        "expression": "solve(1234)",
+        "expected": 1234
+      },
+      {
+        "expression": "solve(0)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "binary-tree-cameras",
+    "chapter": "贪心算法",
+    "title": "968. Binary Tree Cameras: Three States in Postorder",
+    "problem": "968",
+    "kind": "题解",
+    "summary": "Place a camera at a parent when a child is uncovered, positioning devices to cover more relationships.",
+    "sections": [
+      {
+        "heading": "Understanding the objective and boundaries",
+        "paragraphs": [
+          "A camera covers its own node, its parent, and its immediate children. Find the fewest cameras covering the entire binary tree. A tree has no cycles, allowing child subtrees to be processed first. Installing at bottom-level leaves is usually undesirable because a camera on a leaf’s parent can also cover siblings and its own parent. Use bottom-up state decisions."
+        ]
+      },
+      {
+        "heading": "Local choice and invariants",
+        "paragraphs": [
+          "The postorder function returns three states: 0 means the current node is uncovered; 1 means it has a camera; 2 means it is covered by a child’s camera but has no camera itself. A null node returns 2: it needs no device and must not force a leaf to install one. Increment the camera count whenever state 1 is created."
+        ]
+      },
+      {
+        "heading": "Why the choice is safe",
+        "paragraphs": [
+          "If either child returns 0, place a camera at the current node to cover it. This is no worse than putting the camera on that child and can additionally cover the other child and the current node’s parent. Otherwise, if either child has a camera, the current node is covered and returns 2. If both children are merely covered, nobody covers the current node; return 0 and leave it for its parent.",
+          "A three-node chain needs only one camera on the middle node, while an isolated root needs one camera of its own. The former checks the benefit of covering a child and the camera node’s parent; the latter checks root completion. Returning uncovered for null nodes incorrectly forces every leaf to install a camera, inflating the count."
+        ]
+      },
+      {
+        "heading": "Python implementation notes",
+        "paragraphs": [
+          "The root has no parent, so add a camera if its final state is 0. The code includes an independent TreeNode definition and a level-order construction helper. An empty tree returns zero. Postorder recursion depth is tree height h, reaching O(n) for a degenerate chain; do not simply write O(log n). States describe coverage relationships, not an array of minimum counts, so distinguish return states from the count."
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val, self.left, self.right = val, left, right\n\ndef build_tree(values):\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        if values[i] is not None:\n            node.left = TreeNode(values[i])\n            queue.append(node.left)\n        i += 1\n        if i < len(values):\n            if values[i] is not None:\n                node.right = TreeNode(values[i])\n                queue.append(node.right)\n            i += 1\n    return root\n\ndef solve(root):\n    cameras = 0\n    def dfs(node):\n        nonlocal cameras\n        if node is None:\n            return 2\n        left, right = dfs(node.left), dfs(node.right)\n        if left == 0 or right == 0:\n            cameras += 1\n            return 1\n        if left == 1 or right == 1:\n            return 2\n        return 0\n    if dfs(root) == 0:\n        cameras += 1\n    return cameras\n",
+    "time": "O(n); the tree-construction helper additionally takes O(n)",
+    "space": "O(h) solver recursion, where h is tree height; O(n) for the construction helper",
+    "example": {
+      "input": "Level-order tree [0,0,None,0,0]",
+      "output": "1",
+      "walkthrough": [
+        "Both leaves are uncovered, forcing their parent to install a camera.",
+        "The root is covered by its child’s camera and needs no extra device."
+      ]
+    },
+    "pitfalls": [
+      "Treat null nodes as needing no coverage, rather than uncovered.",
+      "Add a final camera if the root returns uncovered.",
+      "Evaluate the three states by checking for uncovered children first."
+    ],
+    "tests": [
+      {
+        "expression": "solve(build_tree([0,0,None,0,0]))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(build_tree([0]))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-local-profit",
+    "chapter": "贪心算法",
+    "title": "Checkpoint: Matching, Peaks and Valleys, and Positive Gains",
+    "problem": "",
+    "kind": "总结",
+    "summary": "When local gains decompose, identify choices that weaken the future and prove that removing them preserves optimality.",
+    "sections": [
+      {
+        "heading": "Identify the problem structure",
+        "paragraphs": [
+          "455 preserves larger cookies in resource matching; 376 keeps more extreme endpoints during one-direction changes; 53 discards a negative accumulated prefix; 122 excludes negative differences during holding periods. All reduce unfavorable choices, but compare different things: demand size, room for future reversals, contiguous segment sums, and adjacent trading gains. Derive each strategy from its own objective instead of memorizing “delete bad elements.”"
+        ]
+      },
+      {
+        "heading": "Compare local choices",
+        "paragraphs": [
+          "Maximum subarrays must be contiguous, so a negative number is not necessarily removable. While the prefix sum remains positive, a negative may be a necessary bridge to a later large positive. Unlimited stock trading allows selling before a drop, so every negative difference can be avoided. Applying both problems to the same numeric array shows how constraints change the removable unit; the answers should not be expected to match."
+        ]
+      },
+      {
+        "heading": "Proof and boundary checks",
+        "paragraphs": [
+          "Same-direction runs can be compressed in wiggle subsequences, but zero differences add no wiggle. Undersized resources can be skipped in cookie matching, but giving away large resources earlier is not inherently better. Test all-negative and all-equal arrays, decreasing prices, and wholly insufficient resources. Check that state retains the original nonempty or validity requirements and that the objective has not silently changed."
+        ]
+      },
+      {
+        "heading": "Implementation and practice",
+        "paragraphs": [
+          "The maximum-subarray implementation below uses an index loop without slicing, making auxiliary solver space truly constant. current is the best sum ending at the current position; best is the best over all processed endpoints. Write both values for every example item, especially at -3 and 4, to see why the prefix can be discarded. Verify all-negative input still chooses one element. Recovering the actual subarray also requires recording restart indices."
+        ]
+      }
+    ],
+    "code": "def max_subarray(nums):\n    if not nums:\n        raise ValueError(\"nonempty array required\")\n    current = best = nums[0]\n    for i in range(1, len(nums)):\n        current = max(nums[i], current + nums[i])\n        best = max(best, current)\n    return best\n",
+    "time": "O(n) for the example; matching additionally includes sorting",
+    "space": "O(1) for the example",
+    "example": {
+      "input": "nums=[-2,1,-3,4,-1,2]",
+      "output": "5",
+      "walkthrough": [
+        "After the first three items, best remains 1 and the current ending sum is -2.",
+        "Restart at 4, then append -1 and 2 to obtain 5."
+      ]
+    },
+    "pitfalls": [
+      "Prove choices safe for the current problem’s objective and constraints.",
+      "Examples can expose mistakes but cannot replace a correctness proof for arbitrary input."
+    ],
+    "tests": [
+      {
+        "expression": "max_subarray([-2,1,-3,4,-1,2])",
+        "expected": 5
+      },
+      {
+        "expression": "max_subarray([-3,-1])",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-coverage",
+    "chapter": "贪心算法",
+    "title": "Checkpoint: Reachability Boundaries, Layer Boundaries, and Failed Intervals",
+    "problem": "",
+    "kind": "总结",
+    "summary": "When intervals represent many candidates, distinguish boundaries representing ability from those representing cost.",
+    "sections": [
+      {
+        "heading": "Identify the problem structure",
+        "paragraphs": [
+          "In 55, far is the farthest coverage of all processed reachable positions, not a mandatory landing point. 45 additionally needs end as the boundary for a fixed jump count and far as the next layer’s possible boundary. Both compress continuous reachable sets, but only the latter increments cost when changing layers. A single variable for every boundary is confusing; first draw the index interval covered by each layer."
+        ]
+      },
+      {
+        "heading": "Compare local choices",
+        "paragraphs": [
+          "134 also eliminates a batch of starting candidates through a failed interval, but uses cumulative net gain rather than geometric distance. Prefix sums before the first failure are nonnegative; removing such a reserve cannot make an intermediate start succeed. Efficiency comes from a local conclusion applying to an entire candidate batch, rather than arbitrary loop skipping. Explain why the whole batch is equivalent or fails: this is the core of the complexity reduction."
+        ]
+      },
+      {
+        "heading": "Proof and boundary checks",
+        "paragraphs": [
+          "1005 compresses surplus operations by parity: negating the same item twice cancels, leaving only an odd-operation loss to consider. Both boundary and operation compression require discarded information to be irrelevant to future decisions. Transaction fees in stocks, backward jumps, or a limited fuel tank may make the original state insufficient. Reprove the compression: even a small-looking constraint change can invalidate it."
+        ]
+      },
+      {
+        "heading": "Implementation and practice",
+        "paragraphs": [
+          "The reachability scan below maintains only far and helps check reachability before updating boundaries. Test [0,100]: the powerful second item is unusable because index 1 is unreachable. Then compare minimum jumps by drawing coverage intervals for jump counts 0, 1, and 2 to understand when counts increase. Stop once the array’s end is covered; visiting every position is unnecessary."
+        ]
+      }
+    ],
+    "code": "def can_reach(nums):\n    if not nums:\n        return False\n    far = 0\n    for i, step in enumerate(nums):\n        if i > far:\n            return False\n        far = max(far, i + step)\n        if far >= len(nums) - 1:\n            return True\n    return False\n",
+    "time": "O(n) for the example",
+    "space": "O(1) for the example",
+    "example": {
+      "input": "nums=[0,100]",
+      "output": "False",
+      "walkthrough": [
+        "Initially only index 0 is reachable; its zero jump length does not extend the boundary.",
+        "Index 1 is outside coverage, so its large jump length cannot be used."
+      ]
+    },
+    "pitfalls": [
+      "Prove choices safe for the current problem’s objective and constraints.",
+      "Examples can expose mistakes but cannot replace a correctness proof for arbitrary input."
+    ],
+    "tests": [
+      {
+        "expression": "can_reach([0,100])",
+        "expected": false
+      },
+      {
+        "expression": "can_reach([2,0,0])",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-two-constraints",
+    "chapter": "贪心算法",
+    "title": "Checkpoint: Two-Sided Constraints and Resource Denominations",
+    "problem": "",
+    "kind": "总结",
+    "summary": "When a local choice affects two directions or resource types, separate the necessary constraints first.",
+    "sections": [
+      {
+        "heading": "Identify the problem structure",
+        "paragraphs": [
+          "135’s rating relationships come from both neighbors, and one pass satisfies only one side. Each direction supplies a necessary candy lower bound; their maximum satisfies both without exceeding minimum needs. In 406, height and preceding counts interact. Descending heights first fixes who counts, then insertion by k avoids blindly adjusting two dimensions simultaneously. Both solve one direction or dimension first and preserve that progress."
+        ]
+      },
+      {
+        "heading": "Compare local choices",
+        "paragraphs": [
+          "860’s change consists of resources with different denominations. A 5-unit bill serves two kinds of change requests; a 10 primarily serves 20 payments. Spending less flexible resources first preserves more flexible ones, which is why 10+5 beats three 5s. Tracking only total value loses feasibility information: enough money may still fail to make exact change. Even a constant-size state must cover all important resource types."
+        ]
+      },
+      {
+        "heading": "Proof and boundary checks",
+        "paragraphs": [
+          "Compare these strategies by asking whether the current action breaks completed conditions. Candy’s right scan uses max to preserve the left lower bound. A newly inserted shorter person leaves taller people’s counts unchanged. Preferred change preserves more 5-unit bills. Proof concerns future possibilities or already-satisfied relationships, rather than a universal notion of numeric size. When two actions are feasible, compare their effects on the future."
+        ]
+      },
+      {
+        "heading": "Implementation and practice",
+        "paragraphs": [
+          "The independent verifier below checks queue counts without depending on the construction’s sorting rule, making it useful for multiple manually reconstructed queues. Equal-height people’s relative positions affect their k values, whereas inserting a shorter person ahead of a taller one does not count toward the taller person’s k. Calculate each count manually before running the verifier to expose confusion between k and an array index. Its quadratic time suits teaching and debugging small inputs."
+        ]
+      }
+    ],
+    "code": "def valid_queue(queue):\n    for i, (height, count) in enumerate(queue):\n        actual = sum(queue[j][0] >= height for j in range(i))\n        if actual != count:\n            return False\n    return True\n",
+    "time": "O(n²) for the example; O(n) candy and change; O(n²) queue construction",
+    "space": "O(1) auxiliary space for the example",
+    "example": {
+      "input": "queue=[[5,0],[7,0],[5,2]]",
+      "output": "True",
+      "walkthrough": [
+        "No one precedes the first 5.",
+        "The third person, height 5, has a 5 and a 7 ahead; both are at least as tall."
+      ]
+    },
+    "pitfalls": [
+      "Prove choices safe for the current problem’s objective and constraints.",
+      "Examples can expose mistakes but cannot replace a correctness proof for arbitrary input."
+    ],
+    "tests": [
+      {
+        "expression": "valid_queue([[5,0],[7,0],[5,2]])",
+        "expected": true
+      },
+      {
+        "expression": "valid_queue([[7,1],[7,0]])",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "greedy-phase-intervals",
+    "chapter": "贪心算法",
+    "title": "Checkpoint: Distinguish Interval Objectives and Endpoint Rules",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Arrow shooting, selection, and merging share sorting tools but give boundaries and endpoint comparisons different meanings.",
+    "sections": [
+      {
+        "heading": "Identify the problem structure",
+        "paragraphs": [
+          "452 covers every closed interval with points: place arrows by ending time, and a start equal to the shot is still covered. 435 retains as many nonconflicting intervals as possible: earliest finishes leave future room, and touching intervals may coexist. 56 retains all coverage: sort by start, extend the current right endpoint, and merge touching intervals. Different objectives directly determine sorting and state."
+        ]
+      },
+      {
+        "heading": "Compare local choices",
+        "paragraphs": [
+          "All compare start with end, but 452 adds an arrow when start>end; 435 retains an interval when start>=end; 56 creates a merged segment when start>end. The extra equality is a problem-definition issue, not coding style. Before coding, work out [1,2] and [2,3] manually, then translate the result into a comparison, reducing boundary errors from memorized formulas."
+        ]
+      },
+      {
+        "heading": "Proof and boundary checks",
+        "paragraphs": [
+          "763 can be viewed as implicitly merging intervals between each character’s first and last positions. Characters encountered during scanning push the segment end farther right until every dependency closes. Explicit generation and sorting of character intervals is unnecessary because string traversal naturally advances by first involvement. This connection clarifies boundaries but does not replace the proof that characters never span segments, especially when new characters appear later within a segment."
+        ]
+      },
+      {
+        "heading": "Implementation and practice",
+        "paragraphs": [
+          "The merge template below shows why the right endpoint must retain its maximum. For [1,10], [2,3], and [4,5], the first segment contains both shorter ones. Do not separate the third just because the second ends at 3. Compare against the current merged segment, not the previous original record. Also test touching intervals to confirm equality semantics and preservation of complete coverage."
+        ]
+      }
+    ],
+    "code": "def merge(intervals):\n    result = []\n    for left, right in sorted(intervals):\n        if not result or left > result[-1][1]:\n            result.append([left, right])\n        else:\n            result[-1][1] = max(result[-1][1], right)\n    return result\n",
+    "time": "O(n log n) for the example",
+    "space": "O(n) for the example’s sorted copy, excluding output",
+    "example": {
+      "input": "intervals=[[1,10],[2,3],[4,5]]",
+      "output": "[[1,10]]",
+      "walkthrough": [
+        "The first segment covers through 10.",
+        "Both later intervals lie within the current segment, so its right endpoint remains 10."
+      ]
+    },
+    "pitfalls": [
+      "Prove choices safe for the current problem’s objective and constraints.",
+      "Examples can expose mistakes but cannot replace a correctness proof for arbitrary input."
+    ],
+    "tests": [
+      {
+        "expression": "merge([[1,10],[2,3],[4,5]])",
+        "expected": [
+          [
+            1,
+            10
+          ]
+        ]
+      },
+      {
+        "expression": "merge([[1,2],[2,3]])",
+        "expected": [
+          [
+            1,
+            3
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "greedy-summary",
+    "chapter": "贪心算法",
+    "title": "Greedy Algorithms Summary: Strategies, Proofs, and Counterexamples",
+    "problem": "",
+    "kind": "总结",
+    "summary": "Every greedy solution should justify its choice, sufficient state, and preservation of optimal answers.",
+    "sections": [
+      {
+        "heading": "Identify the problem structure",
+        "paragraphs": [
+          "First identify the objective and constraints: maximum satisfied count, maximum profit, minimum jumps, minimum interval deletions, minimum devices, and so on. Similar input does not imply the same strategy. Balloon arrows and interval scheduling both sort by endings but maintain a coverage point and a previous finish time, respectively. State the objective in one sentence to identify necessary information and avoid calling a merely feasible solution optimal."
+        ]
+      },
+      {
+        "heading": "Compare local choices",
+        "paragraphs": [
+          "Next propose a local choice and seek a proof. Cookies, earliest-finishing intervals, and change suit exchange arguments. Jumping suits reachable-prefix and layer-boundary invariants. Gas stations eliminate failed intervals. Candy uses necessary lower bounds. Tree cameras use coverage states and parent-child relationships. If only intuition is available and replacements or boundaries cannot be explained, retain the strategy as a conjecture and seek small counterexamples before writing complex code."
+        ]
+      },
+      {
+        "heading": "Proof and boundary checks",
+        "paragraphs": [
+          "738 discovers inversions from lower digits and propagates decreases toward higher digits, reflecting that higher places determine numeric order first. 968 handles uncovered nodes upward from subtrees, reflecting cameras’ local coverage structure. Greedy algorithms need not scan left to right or sort. Processing order must provide all information needed for a current decision; derive traversal direction and state definition together."
+        ]
+      },
+      {
+        "heading": "Implementation and practice",
+        "paragraphs": [
+          "Finally, test conjectures with small exhaustive searches or independent constraint checkers, focusing on equal values, all-negative numbers, touching boundaries, unreachability, and root-specific cases. The interval selector below returns a concrete set, making it possible to inspect why every exchange preserves optimal cardinality. Tests expose mistakes, but general correctness still requires reasoning for arbitrary input. Include sorting, list movement, and output copying in time analysis."
+        ]
+      }
+    ],
+    "code": "def earliest_finish(intervals):\n    chosen = []\n    end = None\n    for left, right in sorted(intervals, key=lambda p: p[1]):\n        if end is None or left >= end:\n            chosen.append([left, right])\n            end = right\n    return chosen\n",
+    "time": "O(n log n) for the example; analyze other greedy problems according to their own state and sorting",
+    "space": "O(n) for the example’s sorted copy, excluding output",
+    "example": {
+      "input": "intervals=[[1,4],[2,3],[3,5],[5,6]]",
+      "output": "[[2,3],[3,5],[5,6]]",
+      "walkthrough": [
+        "Choose earliest-finishing [2,3], which does not reduce later compatible intervals.",
+        "Append [3,5] and [5,6], retaining three intervals."
+      ]
+    },
+    "pitfalls": [
+      "Prove choices safe for the current problem’s objective and constraints.",
+      "Examples can expose mistakes but cannot replace a correctness proof for arbitrary input."
+    ],
+    "tests": [
+      {
+        "expression": "earliest_finish([[1,4],[2,3],[3,5],[5,6]])",
+        "expected": [
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ]
+      }
+    ]
+  }
+]

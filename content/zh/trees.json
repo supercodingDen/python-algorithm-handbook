@@ -1,0 +1,3215 @@
+[
+  {
+    "id": "tree-theory",
+    "chapter": "二叉树",
+    "title": "二叉树基础：结构、术语与递归契约",
+    "problem": "",
+    "kind": "理论",
+    "summary": "把每个节点视为一棵子树的入口，明确高度、深度和返回值后再写递归。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "二叉树的每个节点最多有两个孩子，左右位置有区别。空树也是合法输入；叶子是左右孩子都为空的节点。本章按节点数定义高度：空树高度为零，单节点树高度为一。节点深度从根的一开始计算。若资料按边数计数，数值会相差一，写代码前必须统一。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "节点对象保存值和两个引用，值相同不表示两个节点是同一个对象。链式存储适合普通稀疏树；堆常用数组存储，但不能把数组下标公式强行套到任意压缩层序输入上。树的规模用节点数 n 表示，形态用高度 h 和最大层宽 w 表示，这三个量决定了不同算法的空间。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "递归可以看作对子树签订契约：给定入口，返回约定的信息。示例函数同时返回节点总数和高度；空子树返回零，父节点把两侧计数相加再加一，把两侧高度取最大再加一。只要孩子的返回值正确，这两条合并规则就正确，因此可用结构归纳解释整个算法。",
+          "分析树形时应同时考虑两种极端：七节点链的高度为七、层宽为一；七节点满树的高度为三、最大层宽为四。前者更容易耗尽递归栈，后者让队列保留更多节点。节点数相同，并不意味着某一种遍历的内存表现相同。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 中 TreeNode 的实例是可变对象。把 root 赋给另一个变量只复制引用，不会复制整棵树。递归栈深度等于当前路径长度，极端链状树可能超过解释器递归限制；可以用显式栈重写。测试构造函数接受层序数组，None 是缺位标记，不是普通节点值。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return (0, 0)\n    left_count, left_height = solve(root.left)\n    right_count, right_height = solve(root.right)\n    return (left_count + right_count + 1,\n            max(left_height, right_height) + 1)\n",
+    "time": "O(n)，n 为节点数，每个节点合并一次。",
+    "space": "O(h)，h 为树高；返回的二元组大小为常数。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "节点数 4，高度 3",
+      "walkthrough": [
+        "节点 4 返回 (1,1)。",
+        "节点 2 返回 (2,2)，节点 3 返回 (1,1)。",
+        "根合并为 (4,3)。"
+      ]
+    },
+    "pitfalls": [
+      "层序数组的长度不等于非空节点数。",
+      "二叉树不一定是二叉搜索树。",
+      "普通二叉树的高度最坏为 n。"
+    ],
+    "tests": [
+      {
+        "expression": "list(solve(tree([1,2,3,4])))",
+        "expected": [
+          4,
+          3
+        ]
+      },
+      {
+        "expression": "list(solve(None))",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tree-preorder",
+    "chapter": "二叉树",
+    "title": "递归前序遍历",
+    "problem": "144",
+    "kind": "题解",
+    "summary": "通过固定处理当前节点的位置，得到根、左、右的访问顺序。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输入是任意二叉树，输出各节点值组成的列表。访问顺序为根、左、右；每个实际节点恰好出现一次，空指针不进入结果。相同值可以重复输出，因为遍历访问的是节点而不是去重后的数值。空树返回空列表，不必额外构造虚拟根节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归函数 visit 的契约是把整个当前子树的访问结果追加到同一个 answer。父节点先于孩子输出，因此适合记录从根展开的结构信息。处理当前节点时，两个子树尚未完成，不宜在此位置依赖孩子的统计结果。共享结果列表避免每层创建与拼接子列表，否则链状树上的反复复制可能把线性算法变成平方级别。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "从空树开始验证：函数直接结束，符合没有节点可访问的定义。对非空树，假设递归调用已经能正确遍历左、右子树，再把当前值放在规定位置，就得到该树的正确顺序。左右孩子的调用顺序不能颠倒，因为左右位置属于二叉树结构的一部分。",
+          "前序经常用于序列化，但若只输出节点值，就无法唯一恢复普通树；例如根 1 带左孩子 2 与根 1 带右孩子 2 都输出 [1,2]。若想保存结构，应同时记录空孩子标记。这个区别也解释了为什么构造题需要中序作为另一份结构信息。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "实现采用内层函数封装递归，使结果列表只在 solve 调用时创建一次。这样连续处理多棵树不会复用上一次的结果，也不需要全局变量。append 是原地修改列表，内层函数可以直接使用外层列表；若改为给 answer 重新赋值，则需要理解作用域规则。对于很深的树，应把递归过程转成显式栈。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer = []\n    def visit(node):\n        if node is None:\n            return\n        answer.append(node.val)\n        visit(node.left)\n        visit(node.right)\n    visit(root)\n    return answer\n",
+    "time": "O(n)，每个节点访问一次。",
+    "space": "O(h) 递归栈，另有 O(n) 输出列表。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "[1,2,4,3]",
+      "walkthrough": [
+        "从根 1 进入递归。",
+        "每棵子树内部也采用根、左、右。",
+        "最终输出 [1,2,4,3]。"
+      ]
+    },
+    "pitfalls": [
+      "处理值的位置决定前序、中序、后序。",
+      "空指针直接返回，不能读取其 val。",
+      "不要把结果列表放在会跨调用共享的默认参数中。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4]))",
+        "expected": [
+          1,
+          2,
+          4,
+          3
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-inorder",
+    "chapter": "二叉树",
+    "title": "递归中序遍历",
+    "problem": "94",
+    "kind": "题解",
+    "summary": "通过固定处理当前节点的位置，得到左、根、右的访问顺序。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输入是任意二叉树，输出各节点值组成的列表。访问顺序为左、根、右；每个实际节点恰好出现一次，空指针不进入结果。相同值可以重复输出，因为遍历访问的是节点而不是去重后的数值。空树返回空列表，不必额外构造虚拟根节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归函数 visit 的契约是把整个当前子树的访问结果追加到同一个 answer。当前节点夹在左右子树之间。普通二叉树的中序结果没有排序保证；只有满足搜索树约束时，中序才具有单调性。不能由遍历位置直接推断任意树的大小关系。共享结果列表避免每层创建与拼接子列表，否则链状树上的反复复制可能把线性算法变成平方级别。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "从空树开始验证：函数直接结束，符合没有节点可访问的定义。对非空树，假设递归调用已经能正确遍历左、右子树，再把当前值放在规定位置，就得到该树的正确顺序。左右孩子的调用顺序不能颠倒，因为左右位置属于二叉树结构的一部分。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "实现采用内层函数封装递归，使结果列表只在 solve 调用时创建一次。这样连续处理多棵树不会复用上一次的结果，也不需要全局变量。append 是原地修改列表，内层函数可以直接使用外层列表；若改为给 answer 重新赋值，则需要理解作用域规则。对于很深的树，应把递归过程转成显式栈。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer = []\n    def visit(node):\n        if node is None:\n            return\n        visit(node.left)\n        answer.append(node.val)\n        visit(node.right)\n    visit(root)\n    return answer\n",
+    "time": "O(n)，每个节点访问一次。",
+    "space": "O(h) 递归栈，另有 O(n) 输出列表。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "[4,2,1,3]",
+      "walkthrough": [
+        "从根 1 进入递归。",
+        "每棵子树内部也采用左、根、右。",
+        "最终输出 [4,2,1,3]。"
+      ]
+    },
+    "pitfalls": [
+      "处理值的位置决定前序、中序、后序。",
+      "空指针直接返回，不能读取其 val。",
+      "不要把结果列表放在会跨调用共享的默认参数中。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4]))",
+        "expected": [
+          4,
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-postorder",
+    "chapter": "二叉树",
+    "title": "递归后序遍历",
+    "problem": "145",
+    "kind": "题解",
+    "summary": "通过固定处理当前节点的位置，得到左、右、根的访问顺序。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输入是任意二叉树，输出各节点值组成的列表。访问顺序为左、右、根；每个实际节点恰好出现一次，空指针不进入结果。相同值可以重复输出，因为遍历访问的是节点而不是去重后的数值。空树返回空列表，不必额外构造虚拟根节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归函数 visit 的契约是把整个当前子树的访问结果追加到同一个 answer。孩子先于父节点输出，所以适合高度、平衡性和删除等需要先拿到子树信息的任务。后序指的是处理值的时间，不意味着函数最后才被调用。共享结果列表避免每层创建与拼接子列表，否则链状树上的反复复制可能把线性算法变成平方级别。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "从空树开始验证：函数直接结束，符合没有节点可访问的定义。对非空树，假设递归调用已经能正确遍历左、右子树，再把当前值放在规定位置，就得到该树的正确顺序。左右孩子的调用顺序不能颠倒，因为左右位置属于二叉树结构的一部分。",
+          "若把处理动作改成删除当前节点，后序能保证孩子先被处理；若改成求高度，则左右递归必须返回高度供根合并。当前列表模板只展示访问顺序，不会自动提供子树统计值，迁移时应先修改返回契约，而不是仅替换 append 中的表达式。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "实现采用内层函数封装递归，使结果列表只在 solve 调用时创建一次。这样连续处理多棵树不会复用上一次的结果，也不需要全局变量。append 是原地修改列表，内层函数可以直接使用外层列表；若改为给 answer 重新赋值，则需要理解作用域规则。对于很深的树，应把递归过程转成显式栈。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer = []\n    def visit(node):\n        if node is None:\n            return\n        visit(node.left)\n        visit(node.right)\n        answer.append(node.val)\n    visit(root)\n    return answer\n",
+    "time": "O(n)，每个节点访问一次。",
+    "space": "O(h) 递归栈，另有 O(n) 输出列表。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "[4,2,3,1]",
+      "walkthrough": [
+        "从根 1 进入递归。",
+        "每棵子树内部也采用左、右、根。",
+        "最终输出 [4,2,3,1]。"
+      ]
+    },
+    "pitfalls": [
+      "处理值的位置决定前序、中序、后序。",
+      "空指针直接返回，不能读取其 val。",
+      "不要把结果列表放在会跨调用共享的默认参数中。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4]))",
+        "expected": [
+          4,
+          2,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-iterative",
+    "chapter": "二叉树",
+    "title": "迭代遍历：显式栈模拟调用过程",
+    "problem": "",
+    "kind": "理论",
+    "summary": "前序安排弹出顺序，中序记录回访位置，后序用反转建立孩子先于父亲的顺序。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "递归和迭代访问的都是同一批节点，区别是未完成的工作保存在哪里。前序可直接把待访问节点压栈；中序必须保留沿左链向下时的祖先；后序还要保证左右子树在父节点之前输出。示例提供三个独立函数，可以对同一棵树交叉核验。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "栈先进后出，前序希望先访问左子树，所以应先压右孩子再压左孩子。中序维持这样的不变量：栈内节点的左侧正在访问或已经访问，但节点本身尚未输出。一路压入左孩子，弹出一个节点输出后，再进入它的右子树。每个节点只压入和弹出一次。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "后序可以先获得根、右、左的顺序，再整体反转为左、右、根。为了弹出右孩子在前，压栈时先放左孩子。这里的反转方案需要保存全部访问值；如果处理动作是删除节点或计算子树信息，不能仅靠最后反转数值列表，应使用标记法或显式状态。",
+          "可以用单节点和单侧链检验栈模板。左链 1→2→3 的前序是 [1,2,3]，中序与后序都是 [3,2,1]；右链的中序则与前序相同。两条链能暴露左右调度错误，但还需要分叉树区分后序的左右顺序，不能只靠链状案例判断实现正确。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 列表的 append 和 pop 适合作为栈。不要用 pop(0) 模拟栈，那会移动后续元素。中序外层循环必须写成 node 或 stack，因为当前指针为空时仍可能有祖先待处理。代码把结果收集与节点调度分开，便于对比三个模板中的变化。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef preorder(root):\n    answer, stack = [], [root] if root else []\n    while stack:\n        node = stack.pop()\n        answer.append(node.val)\n        if node.right:\n            stack.append(node.right)\n        if node.left:\n            stack.append(node.left)\n    return answer\n\ndef inorder(root):\n    answer, stack, node = [], [], root\n    while node is not None or stack:\n        while node is not None:\n            stack.append(node)\n            node = node.left\n        node = stack.pop()\n        answer.append(node.val)\n        node = node.right\n    return answer\n\ndef postorder(root):\n    answer, stack = [], [root] if root else []\n    while stack:\n        node = stack.pop()\n        answer.append(node.val)\n        if node.left:\n            stack.append(node.left)\n        if node.right:\n            stack.append(node.right)\n    return answer[::-1]\n",
+    "time": "三种遍历均为 O(n)。",
+    "space": "前序、中序 O(h) 辅助栈；反转后序 O(n) 临时结果，输出均为 O(n)。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "前序 [1,2,4,3]；中序 [4,2,1,3]；后序 [4,2,3,1]",
+      "walkthrough": [
+        "前序在根处先压 3 再压 2。",
+        "中序先沿 1→2→4 压栈。",
+        "后序先得 [1,3,2,4]，再反转。"
+      ]
+    },
+    "pitfalls": [
+      "压栈顺序与弹出顺序相反。",
+      "中序不能在压栈时直接输出。",
+      "后序反转数值不适合需要原地处理节点的任务。"
+    ],
+    "tests": [
+      {
+        "expression": "preorder(tree([1,2,3,4]))",
+        "expected": [
+          1,
+          2,
+          4,
+          3
+        ]
+      },
+      {
+        "expression": "inorder(tree([1,2,3,4]))",
+        "expected": [
+          4,
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "postorder(tree([1,2,3,4]))",
+        "expected": [
+          4,
+          2,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "inorder(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-marked",
+    "chapter": "二叉树",
+    "title": "统一迭代：用状态区分展开与处理",
+    "problem": "",
+    "kind": "理论",
+    "summary": "把节点展开和结果输出拆成两种栈帧，以相同框架实现三种遍历。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "普通迭代模板的差异来自处理当前节点的时机。统一模板给每个栈元素附加布尔状态：False 表示尚待展开子树，True 表示立即输出当前值。空树没有待展开任务，结果为空。示例用 order 参数选择 pre、in、post，非法参数会明确抛出异常。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "展开节点时，先在逻辑上列出想执行的动作顺序，再逆序压栈。前序动作是处理根、展开左、展开右；中序动作是展开左、处理根、展开右；后序动作是展开左、展开右、处理根。带 True 的同一节点不会再次展开，因此不会形成无限循环。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "每个节点产生一个处理帧和至多两个孩子的展开帧。栈顶始终是下一步应执行的动作，这正好模拟递归函数暂停与恢复。以中序为例，根的处理帧压在左子树任务下面，所以左子树全部完成后才处理根；右任务则在根处理之后执行。",
+          "以根 1 和左孩子 2 的后序为例，栈初始是根的展开任务；展开后根的处理任务留在底部，左子树任务先执行。左子树产生自己的处理任务并输出 2，随后才弹出根的处理任务输出 1。栈中可以同时存在同一节点的不同阶段，但展开只发生一次。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "元组中的布尔值比用 None 作为标记更直观，且不会与缺失孩子混淆。代码只为真实孩子安排任务，避免空任务占用栈。这个方法也可以把 True 阶段替换为统计子树结果的动作，但需要额外存储孩子的返回值。理解动作列表后再压栈，比背诵三套压栈顺序更可靠。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, order=\"in\"):\n    if order not in (\"pre\", \"in\", \"post\"):\n        raise ValueError(\"order must be pre, in or post\")\n    answer, stack = [], [(root, False)] if root else []\n    while stack:\n        node, ready = stack.pop()\n        if ready:\n            answer.append(node.val)\n            continue\n        left = [(node.left, False)] if node.left else []\n        right = [(node.right, False)] if node.right else []\n        current = [(node, True)]\n        actions = (current + left + right if order == \"pre\" else\n                   left + current + right if order == \"in\" else\n                   left + right + current)\n        stack.extend(reversed(actions))\n    return answer\n",
+    "time": "O(n)，每个节点展开一次、处理一次。",
+    "space": "O(h) 栈，另有 O(n) 输出。",
+    "example": {
+      "input": "[1,2,3]，order='in'",
+      "output": "[2,1,3]",
+      "walkthrough": [
+        "根展开成左任务、根处理、右任务。",
+        "逆序压栈后左任务先弹出。",
+        "左、根、右依次产生 2、1、3。"
+      ]
+    },
+    "pitfalls": [
+      "逻辑动作顺序不是直接压栈顺序。",
+      "ready=True 的节点不能再次展开。",
+      "后序的处理帧必须安排在两个孩子之后。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3]))",
+        "expected": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "solve(tree([1,2,3]), 'pre')",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "solve(tree([1,2,3]), 'post')",
+        "expected": [
+          2,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-level",
+    "chapter": "二叉树",
+    "title": "层序遍历与逐层统计",
+    "problem": "102",
+    "kind": "题解",
+    "summary": "在每层开始时冻结队列长度，让下一层的孩子与本层输出分开。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "层序遍历按距离根的远近访问节点，返回按层分组的二维列表。根独占第一层，同层节点按从左到右输出。空树返回空列表。与深度优先不同，层序天然携带横向边界，因此适合每层最右值、平均值、最大值和自底向上的层序结果。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "队列先进先出。每轮开始时，队列中恰好是当前层的全部节点；记录 size 后，仅弹出这 size 个节点，把孩子追加到队尾。即使队列长度不断变化，本轮的弹出次数仍然固定。这样孩子只会在下一轮处理，不会混入当前层。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "根入队建立第一层不变量。处理本层每个节点时先左后右加入孩子，因而下一层也按从左到右排好。完成固定次数后，本层无剩余节点，队列只含下一层节点，归纳得到所有分层结果。每个节点只入队、出队一次，不需要保存访问集合。",
+          "观察一棵根有两个孩子、左孩子有两个孙子、右孩子无孙子的树：第二轮开始 size=2，处理左孩子后队列暂时含右孩子和两个孙子，长度为三，但本轮仍只处理余下一个父层节点。这个场景最能说明动态队列长度不能替代冻结的层边界。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 应使用 collections.deque 的 popleft，不要对列表反复 pop(0)。107 可反转整个层列表；199 取每层最后一个值；637 取均值；515 取最大值，均在同一分层结果上完成。代码展示这些应用，但生产场景若只需统计，可直接在每层累积，避免保存全部二维结果。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        level = []\n        for _ in range(len(queue)):\n            node = queue.popleft()\n            level.append(node.val)\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n        answer.append(level)\n    return answer\n\ndef applications(root):\n    levels = solve(root)\n    return {\"bottom_up\": levels[::-1],\n            \"right_view\": [level[-1] for level in levels],\n            \"averages\": [sum(level) / len(level) for level in levels],\n            \"maxima\": [max(level) for level in levels]}\n",
+    "time": "O(n)；四种统计应用的总工作量也为 O(n)。",
+    "space": "O(w) 队列，w 为最大层宽；二维结果与应用输出合计 O(n)。",
+    "example": {
+      "input": "[3,9,20,None,None,15,7]",
+      "output": "[[3],[9,20],[15,7]]",
+      "walkthrough": [
+        "队列初始为 [3]，冻结长度 1。",
+        "输出 [3] 后队列为 [9,20]。",
+        "第二轮只弹两个节点，15 与 7 留到第三轮。"
+      ]
+    },
+    "pitfalls": [
+      "不要用 while queue 把全部层消耗成一层。",
+      "平均值用 /，不能用整数除法。",
+      "反转层列表不是反转每层的节点顺序。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": [
+          [
+            3
+          ],
+          [
+            9,
+            20
+          ],
+          [
+            15,
+            7
+          ]
+        ]
+      },
+      {
+        "expression": "applications(tree([3,9,20,None,None,15,7]))",
+        "expected": {
+          "bottom_up": [
+            [
+              15,
+              7
+            ],
+            [
+              9,
+              20
+            ],
+            [
+              3
+            ]
+          ],
+          "right_view": [
+            3,
+            20,
+            7
+          ],
+          "averages": [
+            3,
+            14.5,
+            11
+          ],
+          "maxima": [
+            3,
+            20,
+            15
+          ]
+        }
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-nary-level",
+    "chapter": "二叉树",
+    "title": "N 叉树层序遍历",
+    "problem": "429",
+    "kind": "题解",
+    "summary": "把固定左右孩子改成 children 列表，逐层边界的证明保持不变。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "N 叉树允许节点有任意多个孩子，孩子列表本身规定了从左到右的顺序。输入是根对象而不是二叉树的 TreeNode；空根仍返回空列表。不能用二叉树构造器解释 N 叉树的序列化数组，因为分组标记的含义不同。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "队列中保存的是节点，不是值。每层冻结节点数，然后依序输出并把各节点的 children 追加到队尾。任意节点的孩子都处于下一层，因此不需要在 children 中再次计算深度。每条父子边只负责一次入队。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "第一轮只有根；假定本轮队列按层内顺序排列，依序展开每个节点的孩子，就会先收集左边父节点的孩子，再收集右边父节点的孩子。这样下一层顺序正确。树中每个非根节点只有一个父节点，因此不会重复入队，也无须访问集合。",
+          "根若有五个孩子、仅最后一个孩子有孙子，第二轮仍需把五个孩子全部处理完才进入孙子层。children 为空的节点不会额外生成占位符，输出保留真实节点即可。若数据允许同一对象被多个父亲引用，就已不满足树的假设，需要额外考虑图的重复访问。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "示例定义独立的 Node 类，children 为 None 时在构造函数内部创建新列表。不要把默认参数写成 children=[]，否则多个节点可能共享同一可变列表。空间仍由最大层宽控制，孩子数量很大的浅树也可能使用线性队列空间。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\nclass Node:\n    def __init__(self, val, children=None):\n        self.val = val\n        self.children = [] if children is None else children\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        level = []\n        for _ in range(len(queue)):\n            node = queue.popleft()\n            level.append(node.val)\n            queue.extend(node.children)\n        answer.append(level)\n    return answer\n",
+    "time": "O(n)，n 为 N 叉树节点数。",
+    "space": "O(w) 队列，另有 O(n) 输出。",
+    "example": {
+      "input": "根 1 的孩子为 2、3；3 的孩子为 4",
+      "output": "[[1],[2,3],[4]]",
+      "walkthrough": [
+        "先输出根 1。",
+        "将孩子 2、3 按列表顺序入队。",
+        "节点 3 再把 4 加入第三层。"
+      ]
+    },
+    "pitfalls": [
+      "N 叉树的 children 不等价于二叉树左右孩子。",
+      "避免共享默认列表。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(Node(1,[Node(2),Node(3,[Node(4)])]))",
+        "expected": [
+          [
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4
+          ]
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-next",
+    "chapter": "二叉树",
+    "title": "填充同层 next 指针",
+    "problem": "117",
+    "kind": "题解",
+    "summary": "借助已经连接的当前层，用一个虚拟头节点把下一层串起来；方法也覆盖 116 的完美二叉树。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "要求为每个节点增加 next 指针，指向同层右侧最近的节点，层末尾指向 None。117 允许孩子缺失；116 的完美二叉树是它的特例。输出是原根对象，修改发生在节点本身。算法假定输入仍是一棵普通树，left、right 构成的结构不会改变。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "当前层已经有 next 链时，可以沿它遍历，无须队列。用 dummy 作为下一层链的虚拟头，tail 指向已连接的最后一个孩子；从左到右检查当前层节点的左、右孩子，每遇到一个真实孩子，就接到 tail 后面。下一层顺序由父节点顺序和左右顺序共同保证。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "先令根 next 为 None，建立第一层链。每轮从当前层头出发，将所有孩子串成下一层，最后把 tail.next 设为 None，清除可能的旧指针。dummy.next 就是下一轮起点；没有孩子时它为空，循环结束。每个节点在其父层被连接一次，在自己的层被扫描一次。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "不能直接假设 node.left.next 一定指向 node.right，因为普通树可能缺左孩子或右孩子，也可能需要跨越多个无孩子的父节点。虚拟头避免处理下一层首节点的特殊分支。每轮只保留几个引用和一个临时节点，因此辅助空间为常数，而不是宽度级别。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\nclass Node:\n    def __init__(self, val, left=None, right=None, next=None):\n        self.val, self.left, self.right, self.next = val, left, right, next\n\ndef solve(root):\n    if root is None:\n        return None\n    root.next = None\n    head = root\n    while head:\n        dummy = Node(0)\n        tail = dummy\n        node = head\n        while node:\n            for child in (node.left, node.right):\n                if child is not None:\n                    tail.next = child\n                    tail = child\n            node = node.next\n        tail.next = None\n        head = dummy.next\n    return root\n\ndef demo():\n    root = Node(1, Node(2, right=Node(5)), Node(3, right=Node(7)))\n    solve(root)\n    return [root.next is None, root.left.next.val,\n            root.left.right.next.val, root.right.right.next is None]\n",
+    "time": "O(n)，每个节点被扫描一次。",
+    "space": "O(1) 额外空间，不使用递归或队列。",
+    "example": {
+      "input": "[1,2,3,None,5,None,7]",
+      "output": "2.next=3；5.next=7；各层末尾 next=None",
+      "walkthrough": [
+        "根形成第一层链。",
+        "根的孩子连成 2→3。",
+        "沿 2→3 扫描，孩子连成 5→7。"
+      ]
+    },
+    "pitfalls": [
+      "连接的是同层节点，不是中序后继。",
+      "必须把新层末尾 next 清空。",
+      "完美树专用公式不能直接覆盖缺孩子情况。"
+    ],
+    "tests": [
+      {
+        "expression": "demo()",
+        "expected": [
+          true,
+          3,
+          7,
+          true
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "tree-invert",
+    "chapter": "二叉树",
+    "title": "翻转二叉树",
+    "problem": "226",
+    "kind": "题解",
+    "summary": "交换每个节点的左右孩子，使整棵树得到镜像结构。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "翻转要求改变节点连接，而不是只把遍历结果反转。每个节点原来的左子树将成为右子树，原来的右子树将成为左子树，并且子树内部也要镜像。空树返回 None，单节点树仍是同一个节点。示例采用原地修改，因此调用方原来的 root 也能观察到变化。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归契约是返回当前子树翻转后的根。根本身无需重新创建，交换两侧引用后，递归翻转交换后的两个孩子即可。这里可先交换再递归，也可先递归再交换；只要每个原孩子恰好处理一次，两种安排都会得到相同结构。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "假设两棵孩子子树的翻转已经正确，根处交换它们的左右位置就满足镜像定义。空子树自然保持为空，所以缺失孩子不会造成特殊困难。注意镜像不是按值排序，数值大小不参与决策；对搜索树翻转通常会破坏原来的搜索树方向约束。",
+          "可以利用翻转两次恢复原结构做额外核验，但只检验这一性质还不充分，因为完全不修改树也会满足。应同时检查一次翻转后的左右位置。例子中一个仅有左孩子的根，翻转后必须仅有右孩子，能清楚验证空引用也参与了交换。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 多目标赋值会先计算右侧两个引用，再完成赋值，因此可安全地写 left,right=right,left。若先把 left 覆盖成 right 再读取 left，就可能丢失原来的左子树。返回 root 是为了保持统一接口，递归调用返回值也可用于接回孩子。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return None\n    root.left, root.right = root.right, root.left\n    solve(root.left)\n    solve(root.right)\n    return root\n",
+    "time": "O(n)，每个节点交换一次。",
+    "space": "O(h) 递归栈，原地修改不另建树。",
+    "example": {
+      "input": "[4,2,7,1,3,6,9]",
+      "output": "[4,7,2,9,6,3,1]",
+      "walkthrough": [
+        "根交换 2、7。",
+        "节点 7 交换 6、9，节点 2 交换 1、3。",
+        "叶子不发生实质变化。"
+      ]
+    },
+    "pitfalls": [
+      "反转层序数组不能得到正确镜像。",
+      "连续赋值可能覆盖原子树引用。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([4,2,7,1,3,6,9])))",
+        "expected": [
+          4,
+          7,
+          2,
+          9,
+          6,
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "values(solve(None))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-symmetric",
+    "chapter": "二叉树",
+    "title": "对称二叉树",
+    "problem": "101",
+    "kind": "题解",
+    "summary": "成对比较外侧与内侧位置，而不是分别判断每棵子树的形状。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "对称表示整棵树关于根的垂直轴镜像相同，要求形状和对应节点值都匹配。根的左、右子树应互为镜像。空树视为对称；只有根的树也对称。两个方向上的遍历值恰好相同不一定足够，因为缺失节点的位置也属于结构信息。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "定义 mirror(a,b) 比较两个入口：两者都空返回真，仅一个空返回假；都非空时先比较值，再比较 a.left 与 b.right、a.right 与 b.left。配对方向是核心，两个左孩子之间的比较检查的是普通相等，而不是镜像。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "空节点分支覆盖所有终止情形。对非空配对，值相同保证根匹配，外侧子树镜像且内侧子树镜像保证其余结构匹配，因此三者同时成立恰好等价于当前两树互为镜像。递归从 root.left 与 root.right 开始，避免把根与自己重复比较。",
+          "最小反例是 [1,2,2,None,3,None,3]：两个值为 3 的节点都在各自父亲右侧，数值数量完全对应，却不是镜像。外侧配对时左边的空左孩子与右边的非空右孩子发生冲突。比较时保留空位置，比先过滤空节点再比较数值更可靠。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 的 and 会短路：数值不等时不再比较子树，外侧已经失败时也可省去内侧工作。虽然对称问题一次递归携带两个节点，最深嵌套仍由树高决定。无需把树复制或实际翻转后再比较，这会增加存储并可能改变原输入。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    def mirror(a, b):\n        if a is None or b is None:\n            return a is b\n        return (a.val == b.val and mirror(a.left, b.right)\n                and mirror(a.right, b.left))\n    return root is None or mirror(root.left, root.right)\n",
+    "time": "O(n)，最多检查全部节点。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[1,2,2,3,4,4,3]",
+      "output": "True",
+      "walkthrough": [
+        "比较两个 2。",
+        "外侧 3 与 3 相等。",
+        "内侧 4 与 4 相等，两组空孩子也对应。"
+      ]
+    },
+    "pitfalls": [
+      "比较方向必须交叉。",
+      "值一致但空位置不同仍不对称。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,2,3,4,4,3]))",
+        "expected": true
+      },
+      {
+        "expression": "solve(tree([1,2,2,None,3,None,3]))",
+        "expected": false
+      },
+      {
+        "expression": "solve(None)",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-max-depth",
+    "chapter": "二叉树",
+    "title": "二叉树最大深度",
+    "problem": "104",
+    "kind": "题解",
+    "summary": "把当前子树高度定义为左右高度的较大值加一。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "最大深度是根到最远叶子的路径节点数。空树为零，根没有孩子时为一。不要把深度与节点总数混淆：同样五个节点，链状树深度为五，分叉树可能只有三。返回值是整数，不需要保留到最深叶子的路径。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归时返回子树的高度，而不是从根累积的当前深度。左右子树各自给出相对高度，父节点使用 max(left,right)+1 合并。两个量名称相近：某节点的深度是自上而下的位置，该节点子树的高度是自下而上的统计；在根处两种思路得到相同最大值。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "任意从根到叶子的路径第一步只能进入左侧或右侧。最长路径必来自较高子树，所以取最大值充分且必要。空子树高度为零，使叶子自动得到 max(0,0)+1=1，不必再增加叶子分支。后序结构确保合并时孩子高度已经可用。",
+          "左右两侧高度相同并不表示左右结构相同；这里只需要路径长度，所以取最大值便足够。若题目改为返回最深路径，单个整数不再提供路线，需要额外保存路径或决定并列时选择哪一侧。不要让当前题目不需要的信息增加实现负担。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 可以直接在 return 中写两个递归调用，但仍要在访问孩子之前处理空根。对于链状树，递归栈同样退化为线性；如果输入高度很大，可用逐层 BFS 计数层数或显式栈记录节点深度。不要因为平均树高较小就把最坏空间写成对数。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return 0\n    return 1 + max(solve(root.left), solve(root.right))\n",
+    "time": "O(n)，每个节点计算一次。",
+    "space": "O(h)，最坏链状树为 O(n)。",
+    "example": {
+      "input": "[3,9,20,None,None,15,7]",
+      "output": "3",
+      "walkthrough": [
+        "叶子 9、15、7 高度都是 1。",
+        "节点 20 高度为 2。",
+        "根高度为 max(1,2)+1=3。"
+      ]
+    },
+    "pitfalls": [
+      "空树为零，不是一。",
+      "高度最坏不是 O(log n)。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": 3
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "tree-min-depth",
+    "chapter": "二叉树",
+    "title": "二叉树最小深度",
+    "problem": "111",
+    "kind": "题解",
+    "summary": "用广度优先搜索找到第一个真正的叶子，避开缺失子树的零深度陷阱。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "最小深度指根到最近叶子的路径节点数。叶子必须同时没有左、右孩子。若根只有右孩子，根不是叶子，不能把缺失左子树当成一条长度为零的有效路径。空树返回零；单节点返回一。这个定义决定了最小深度不能机械套用最大深度的公式。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "BFS 按深度递增访问节点，因此第一个遇到的叶子一定具有最小深度。队列里保存 node 与 depth，子节点深度是父节点深度加一。没有必要遍历所有叶子再取最小值，也没有必要保存路径，因为题目只要路径长度。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "当深度 d 的叶子被弹出时，所有小于 d 的节点均已处理；若它们中存在叶子，算法早已结束。因此不会遗漏更短路径。缺失孩子不会入队，它只影响叶子判定，不产生虚假的候选路径。这一证明依赖所有边的深度增量均为一。",
+          "例如根的左孩子就是叶子，而右侧延伸十层，最小深度仍为二。BFS 在第二层遇到左叶子即可结束，右侧深链无需全部访问。递归算法通常还会计算更多后代，因此这道题在存在浅叶子的宽深混合树上体现了广度优先的提前停止优势。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "使用 deque，入队时携带深度能免去分层计数，但仍需同时检查两个孩子为空。递归版本也可以：只有一侧存在就返回那一侧高度加一，两个孩子都存在才取最小值。示例用 BFS 表达提前停止，宽树的队列空间可能高于 DFS。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return 0\n    queue = deque([(root, 1)])\n    while queue:\n        node, depth = queue.popleft()\n        if node.left is None and node.right is None:\n            return depth\n        if node.left:\n            queue.append((node.left, depth + 1))\n        if node.right:\n            queue.append((node.right, depth + 1))\n",
+    "time": "O(n) 最坏；可能在首个浅层叶子处提前结束。",
+    "space": "O(w) 队列。",
+    "example": {
+      "input": "[1,None,2,None,3]",
+      "output": "3",
+      "walkthrough": [
+        "1 有右孩子，不是叶子。",
+        "2 也有右孩子。",
+        "3 在深度 3 首次满足叶子条件。"
+      ]
+    },
+    "pitfalls": [
+      "不能直接计算 1+min(左高度,右高度)。",
+      "只有一个孩子的节点不是叶子。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,None,2,None,3]))",
+        "expected": 3
+      },
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": 2
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "tree-count-complete",
+    "chapter": "二叉树",
+    "title": "完全二叉树节点个数",
+    "problem": "222",
+    "kind": "题解",
+    "summary": "利用最左与最右高度相等时的满树公式，跳过整片子树。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "题目保证输入为完全二叉树：除最后一层外全部填满，最后一层从左向右连续排列。满二叉树则每层都满，它是完全二叉树的特例。该保证不能省略；任意树的左右边界高度相等，并不能推出内部没有空洞。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "从当前根分别沿 left 和 right 走到底，得到按节点计数的高度 a、b。在完全树里若 a==b，该子树所有层均满，节点数为 2 的 a 次方减一，可以直接返回。若不等，则递归统计左右子树，加上当前根。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "完全树每层的不完整区域只会沿一条路径延伸，因此每次分裂至少有一侧很快通过满树公式结束。递归层数为 O(log n)，每层测边界高度最多 O(log n)，于是总时间为 O(log² n)。普通逐节点统计虽然也正确，却无法使用结构保证加速。",
+          "六节点完全树的右子树并未填满，不能对根直接使用七节点满树公式。边界测量会发现根两侧高度不同，于是分裂统计。满树子问题仍会被常数时间的幂公式替代，但测量边界本身并非常数工作，这正是平方对数复杂度而非单对数的来源。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码用 (1 << a)-1 计算整数幂，避免浮点数参与。空树两条边界高度都是零，公式也会返回零，但显式空树分支更容易读懂。测试必须用完全树；若把此模板用于普通稀疏树，会得到看似合理但错误的结果。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return 0\n    a = b = 0\n    node = root\n    while node:\n        a += 1\n        node = node.left\n    node = root\n    while node:\n        b += 1\n        node = node.right\n    if a == b:\n        return (1 << a) - 1\n    return 1 + solve(root.left) + solve(root.right)\n",
+    "time": "O(log² n)，仅在完全二叉树保证下成立。",
+    "space": "O(log n) 递归栈。",
+    "example": {
+      "input": "[1,2,3,4,5,6]",
+      "output": "6",
+      "walkthrough": [
+        "根左边界高度 3，右边界高度 2，需要分裂。",
+        "左子树是满树，直接得到 3。",
+        "右子树得到 2，连同根共 6。"
+      ]
+    },
+    "pitfalls": [
+      "左右边界相同的判定依赖完全树保证。",
+      "公式高度按节点数计数。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4,5,6]))",
+        "expected": 6
+      },
+      {
+        "expression": "solve(tree([1,2,3,4,5,6,7]))",
+        "expected": 7
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "tree-balanced",
+    "chapter": "二叉树",
+    "title": "平衡二叉树",
+    "problem": "110",
+    "kind": "题解",
+    "summary": "后序返回高度，发现不平衡时用负数哨兵把失败向根传播。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "高度平衡要求每一个节点的左右子树高度差都不超过一，而不是只看根。空树平衡。根左右高度相同也可能在更深处失衡，因此需要验证全部子树。目标是返回布尔值，但内部辅助函数需要同时提供高度和是否失败。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "约定 height 返回非负高度；若当前子树不平衡，就返回 -1。递归先获取左高度，若已失败便直接传播；右侧同理。两侧合法后检查高度差，差值超过一则返回 -1，否则返回较大高度加一。失败值与合法空树高度零不会冲突。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "这种后序合并每个节点只做一次高度计算。若在每个节点先独立求左右高度，再递归检查平衡，链状树会反复扫描相同子树，退化为 O(n²)。哨兵让信息随递归返回，不需要全局变量；只要某棵子树失败，整棵树必定失败。",
+          "还应准备根两侧高度相同、其中一侧内部却失衡的测试。当前节点的 abs 差值可能为零，但孩子返回的失败标志仍会让整棵树失败。合法高度全部非负，因此 -1 不会与实际高度混淆；若扩展统计内容，可改为二元组而不再依赖数值编码。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "顶层只检查返回值是否为 -1，不要把 height 的整数直接转成 bool，因为空树高度零仍应返回 True。代码中的提前返回属于正确的短路，不会漏掉可能改变最终结论的节点。深树仍消耗 O(h) 调用栈，不能把辅助空间说成常数。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    def height(node):\n        if node is None:\n            return 0\n        left = height(node.left)\n        if left == -1:\n            return -1\n        right = height(node.right)\n        if right == -1 or abs(left - right) > 1:\n            return -1\n        return max(left, right) + 1\n    return height(root) != -1\n",
+    "time": "O(n)，每个节点最多访问一次。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[1,2,2,3,3,None,None,4,4]",
+      "output": "False",
+      "walkthrough": [
+        "节点 3 的高度向上传递。",
+        "左侧子树高度达到 3，根右侧高度为 1。",
+        "根处差值 2，返回 -1。"
+      ]
+    },
+    "pitfalls": [
+      "必须验证所有节点而非仅根。",
+      "不要在每个节点重复计算整棵子树高度。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,2,3,3,None,None,4,4]))",
+        "expected": false
+      },
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": true
+      },
+      {
+        "expression": "solve(None)",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-paths",
+    "chapter": "二叉树",
+    "title": "二叉树的所有路径",
+    "problem": "257",
+    "kind": "题解",
+    "summary": "共享路径列表记录当前根到节点的路线，在叶子处生成独立结果，回退时撤销本层修改。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输出所有从根到叶子的路径，用箭头连接节点值。终点必须是叶子，不能在内部节点提前收集。空树没有路径，单节点树有一条只包含该值的路径。左右遍历顺序决定结果的枚举顺序，但路径集合的正确性不依赖具体顺序。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "进入节点时把它的值追加到 path，此时 path 恰好描述根到当前节点的路线。如果是叶子，将当前列表转换为字符串保存；否则递归访问两个孩子。离开节点时 pop 撤销本次追加，让父调用恢复自己进入孩子之前的状态。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "同一列表在递归分支间复用并不危险，关键是进入和退出严格配对。先走完左分支后，path 会恢复到父节点，再走右分支，不会带上左叶子的值。保存的是 join 产生的新字符串，因此后续 pop 不会改变已经收集的答案。",
+          "共享 path 的长度在每次访问叶子时恰好等于该路径深度。一个很长的公共前缀连着许多叶子时，这个前缀会在每条输出字符串里重复出现，输出规模自然可能远大于节点数。算法无法省去题目要求的重复文本，因此应把输出长度作为复杂度参数。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "节点值先转成字符串再 join，可兼容负数和多位数。把 path 本身直接放进结果会让所有答案共享同一列表，最终可能全部变空。路径输出的总长度可能达到平方级别，复杂度必须计入字符串构造，不能笼统地只写 O(n)。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer, path = [], []\n    def visit(node):\n        if node is None:\n            return\n        path.append(str(node.val))\n        if node.left is None and node.right is None:\n            answer.append(\"->\".join(path))\n        else:\n            visit(node.left)\n            visit(node.right)\n        path.pop()\n    visit(root)\n    return answer\n",
+    "time": "O(n+L)，L 为输出字符串总长度，包括节点数字字符。",
+    "space": "O(h) 路径和递归栈；输出占 O(L)。",
+    "example": {
+      "input": "[1,2,3,None,5]",
+      "output": "['1->2->5','1->3']",
+      "walkthrough": [
+        "进入 1、2、5 时路径逐步增长。",
+        "叶子 5 保存字符串后依次回退至 [1]。",
+        "进入 3 保存第二条路径。"
+      ]
+    },
+    "pitfalls": [
+      "只在叶子收集。",
+      "共享列表必须回退，收集列表时必须复制。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,None,5]))",
+        "expected": [
+          "1->2->5",
+          "1->3"
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-left-leaves",
+    "chapter": "二叉树",
+    "title": "左叶子之和",
+    "problem": "404",
+    "kind": "题解",
+    "summary": "左叶子同时需要位置与叶子身份，先判断左孩子，再递归搜索其余子树。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "左叶子是某个父节点的左孩子，且自身没有任何孩子。根即使没有孩子，也没有父节点，因此不是左叶子。不能仅按数值、层序下标或是否位于树的左半边判断。求和结果可以为负，空树与没有左叶子的树返回零。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "遍历每个父节点，检查它的 left 是否存在，并且 left.left、left.right 都为空。满足时将 left.val 计入当前贡献。随后分别处理左右子树，让它们寻找更深处的左叶子。父节点贡献只属于它的直接左孩子，不会重复统计后代。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "每个非根节点拥有唯一父节点，任何左叶子都会在其父节点被访问时计入一次。普通内部左孩子不计入，但递归进入它后仍会发现内部的左叶子。右叶子不会通过父节点的 left 检查，所以被自然排除；根没有被当作任何父节点的孩子检查。",
+          "只有根和一个左孩子时，若左孩子又有右孩子，它本身不是叶子；最深右孩子也不是左叶子，答案应为零。这个例子能同时排除两种误解：位于左子树的所有叶子都算左叶子，以及父节点的所有左孩子都应加入求和。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "判断条件应先确认 left 存在，利用 and 短路再读取孩子引用。也可以递归携带 is_left 标志，在叶子处决定是否贡献；两种方式都在表达位置信息。这里不使用节点值作为真假条件，值为零的叶子仍然是合法节点。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return 0\n    own = 0\n    left = root.left\n    if left is not None and left.left is None and left.right is None:\n        own = left.val\n    return own + solve(root.left) + solve(root.right)\n",
+    "time": "O(n)。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[3,9,20,None,None,15,7]",
+      "output": "24",
+      "walkthrough": [
+        "9 是根的左叶子，贡献 9。",
+        "15 是节点 20 的左叶子，贡献 15。",
+        "7 是右叶子，不计入。"
+      ]
+    },
+    "pitfalls": [
+      "根不是左叶子。",
+      "左孩子不一定是叶子。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": 24
+      },
+      {
+        "expression": "solve(TreeNode(5))",
+        "expected": 0
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "tree-bottom-left",
+    "chapter": "二叉树",
+    "title": "找树左下角的值",
+    "problem": "513",
+    "kind": "题解",
+    "summary": "逐层更新当前层首节点，最后留下最深层最左侧的值。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "目标是最深一层中的最左节点值，不一定是全树最左叶子的值。原题保证根非空；示例接口对空树抛出 ValueError，避免把某个合法整数当成无结果哨兵。同层按左到右排列，因此每层的第一个节点就是这一层最左侧节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "层序遍历每轮开始时，队列仅含当前层节点。先读取 queue[0].val 更新 answer，再按冻结长度弹出全部本层节点，先左后右加入下一层。随着层数增加不断覆盖答案，队列最终变空时保存的就是最深层首值。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "首层只有根，首值显然正确。若本层顺序正确，则按节点顺序、先左后右追加孩子可建立下一层顺序。没有下一层时本轮是最深层，因此最后一次更新满足题意。该算法不会因为较浅的左叶子早出现而错误结束。",
+          "设根左侧有深度二的叶子，右侧有深度三的左孩子。答案在根的右子树中，因为深度优先于横向位置。按层选择首项先确定最大深度，再确定该层最左；全树最早遇到的左叶子不满足这个优先顺序，不能被直接当成最终答案。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码不需要为每层构造数值列表，也不需要记录节点深度；只保存一个 answer 和队列。读首节点必须在清空本层之前进行。DFS 也能做：先左后右遍历，在首次进入更深层时更新答案，但必须正确维护最大深度与比较条件。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        raise ValueError(\"root must be nonempty\")\n    queue = deque([root])\n    answer = root.val\n    while queue:\n        answer = queue[0].val\n        for _ in range(len(queue)):\n            node = queue.popleft()\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n    return answer\n",
+    "time": "O(n)。",
+    "space": "O(w) 队列。",
+    "example": {
+      "input": "[1,2,3,4,None,5,6,None,None,7]",
+      "output": "7",
+      "walkthrough": [
+        "各层首值依次为 1、2、4、7。",
+        "最后一层只有 7。",
+        "返回最后记录的首值。"
+      ]
+    },
+    "pitfalls": [
+      "较浅的最左叶子不一定是答案。",
+      "空树行为应明确。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4,None,5,6,None,None,7]))",
+        "expected": 7
+      },
+      {
+        "expression": "solve(TreeNode(-1))",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "tree-path-sum",
+    "chapter": "二叉树",
+    "title": "路径总和",
+    "problem": "112",
+    "kind": "题解",
+    "summary": "向子树传递扣除当前值后的剩余目标，并只在叶子处判定是否归零。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "寻找一条从根到叶子的路径，使节点值之和等于目标。路径必须包含根并在叶子结束，不能在内部节点刚好凑到目标时提前成功。节点值可能为负，因此剩余目标为负不代表不可能完成。空树没有合法路径，即便目标为零也返回 False。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归契约是判断当前子树是否存在一条完整路径，其和等于 remaining。进入节点后扣除当前值；若当前节点是叶子，只需检查余额是否为零。若是内部节点，左子树或右子树中任一存在满足余额的路径即可，所以用 or 组合。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "从根到叶子的每次下降都扣除且只扣除一个节点值，叶子处 remaining 恰好等于原目标减去完整路径和。两侧递归枚举所有可能的下一步，因此既不会漏掉路径，也不会接受未到叶子的前缀。空孩子直接失败，保证缺失分支不是有效终点。",
+          "考虑根值 1、唯一孩子值 -1、目标零：根处余额为 -1，但走到负值叶子后仍可归零，算法应成功。这也说明剪枝必须有关于未访问值的可靠范围信息。只按当前路径和超过目标就停止，是把非负数组的经验错误地搬到一般树上。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "remaining 是整数，递归传入新值不需要手动回退，兄弟调用不会互相修改。or 会在找到左侧有效路径后停止右侧搜索，适合只问是否存在的任务。若要收集全部路径则不能用这个短路结构，应逐一探索两侧并保存当前路线。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, target):\n    if root is None:\n        return False\n    remaining = target - root.val\n    if root.left is None and root.right is None:\n        return remaining == 0\n    return solve(root.left, remaining) or solve(root.right, remaining)\n",
+    "time": "O(n) 最坏，找到答案时可能提前结束。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[5,4,8,11,None,13,4,7,2,None,None,None,1]，目标 22",
+      "output": "True",
+      "walkthrough": [
+        "5 后剩余 17。",
+        "4、11 后剩余 2。",
+        "叶子 2 后归零，路径 5→4→11→2 成功。"
+      ]
+    },
+    "pitfalls": [
+      "内部节点余额为零不能直接成功。",
+      "负数输入不支持按余额正负剪枝。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([5,4,8,11,None,13,4,7,2,None,None,None,1]),22)",
+        "expected": true
+      },
+      {
+        "expression": "solve(tree([1,2]),1)",
+        "expected": false
+      },
+      {
+        "expression": "solve(None,0)",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "tree-path-sum-all",
+    "chapter": "二叉树",
+    "title": "路径总和 II",
+    "problem": "113",
+    "kind": "题解",
+    "summary": "把存在性搜索改成完整枚举，叶子满足目标时复制当前路径。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "本题返回所有从根到叶子且和等于 target 的路径，每条路径是数值列表。与 112 只返回布尔值不同，找到第一条答案后仍要继续搜索。空树返回空列表。不同节点路线即使数值完全相同，也属于不同的树上路径，通常应按遍历结果各自保留。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "path 维护根到当前节点的数值序列，remaining 表示尚需凑出的和。进入节点时 append 并扣除值，叶子处同时检查余额和终点条件；满足时把 path.copy() 加入答案。离开节点时 pop，恢复兄弟分支进入前的路径。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "每条根叶路径都会被 DFS 恰好访问一次。余额逐层扣除保证判断的和正确，复制保证收集时的历史状态不会被后续回退改变。无论叶子是否成功，都必须撤销当前节点；在成功分支直接 return 而忘记 pop，会污染后面的答案。",
+          "当两个叶子的路径前缀相同，复制得到的答案也会包含相同前缀，但它们必须是独立列表。可在算法返回后修改第一条答案的一项，检查第二条不会同步改变，以验证输出所有权。空树与目标零仍没有路径，因为空路线不属于根叶路径。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码把叶子判断放在递归孩子之前，内部节点不会被收集。原地路径列表将临时空间控制在树高以内，但复制答案所花费的时间与总输出长度有关。负值仍不能用 remaining<0 剪枝；想优化时需要额外且可靠的子树界限，不能凭当前余额猜测。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, target):\n    answer, path = [], []\n    def visit(node, remaining):\n        if node is None:\n            return\n        path.append(node.val)\n        remaining -= node.val\n        if node.left is None and node.right is None:\n            if remaining == 0:\n                answer.append(path.copy())\n        else:\n            visit(node.left, remaining)\n            visit(node.right, remaining)\n        path.pop()\n    visit(root, target)\n    return answer\n",
+    "time": "O(n+L)，L 为所有输出路径的节点总数，最坏可达 O(n²)。",
+    "space": "O(h) 临时路径与递归栈，另有 O(L) 输出。",
+    "example": {
+      "input": "[5,4,8,11,None,13,4,7,2,None,None,5,1]，目标 22",
+      "output": "[[5,4,11,2],[5,8,4,5]]",
+      "walkthrough": [
+        "左侧叶子 2 满足余额，复制第一条路径。",
+        "回退到根，探索右子树。",
+        "右侧叶子 5 满足余额，复制第二条路径。"
+      ]
+    },
+    "pitfalls": [
+      "结果保存 path.copy()，不能保存共享 path。",
+      "枚举全部答案时不能短路停止。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([5,4,8,11,None,13,4,7,2,None,None,5,1]),22)",
+        "expected": [
+          [
+            5,
+            4,
+            11,
+            2
+          ],
+          [
+            5,
+            8,
+            4,
+            5
+          ]
+        ]
+      },
+      {
+        "expression": "solve(None,0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-build-in-post",
+    "chapter": "二叉树",
+    "title": "从中序与后序构造二叉树",
+    "problem": "106",
+    "kind": "题解",
+    "summary": "后序末尾定位根，中序根位置划分左右区间，使用索引避免复制数组。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "给定同一棵树的中序和后序序列，重建树结构。题目保证节点值互不重复且两份遍历有效；这一保证让值可以唯一映射到中序位置。仅有一种遍历通常不能确定树，空数组则表示空树。示例函数参数顺序为 inorder, postorder。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "中序序列总是左子树、根、右子树，因此知道根的下标后，区间 [lo,mid) 是左子树，(mid,hi] 是右子树。后序从末尾向前消费时，先读根，再读右子树，再读左子树，所以构造顺序必须先右后左。每次消费游标只移动一次。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "构造函数的契约是重建中序闭区间 lo..hi 对应的子树；lo>hi 返回空。取一个根值，用哈希表找到中序下标，将区间分裂成两段，再按照消费顺序递归接回孩子。有效输入保证根下标位于当前区间，两个区间覆盖剩余节点且互不重叠，因此每个节点恰好建立一次。",
+          "三节点树的中序为 [2,1,3]、后序为 [2,3,1]，反向消费先读 1，下一项是 3，属于右区间。若先递归左区间却消费 3，就会让根下标落在该区间之外。这不是简单的左右交换，而是游标与待构造区间已经失去对应关系。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "预先建立中序位置字典，避免每层线性搜索。只传索引边界，避免切片在退化树上反复复制。游标保存在闭包中，内部修改需要 nonlocal；字典只是读取，不需要该声明。若允许重复值或无效序列，需要重新定义歧义处理或校验策略，不能把此模板当作通用解析器。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(inorder, postorder):\n    index = {value: i for i, value in enumerate(inorder)}\n    cursor = len(postorder) - 1\n    def build(lo, hi):\n        nonlocal cursor\n        if lo > hi:\n            return None\n        value = postorder[cursor]\n        cursor -= 1\n        mid = index[value]\n        root = TreeNode(value)\n        root.right = build(mid + 1, hi)\n        root.left = build(lo, mid - 1)\n        return root\n    return build(0, len(inorder) - 1)\n",
+    "time": "O(n)，字典平均查询 O(1)，各节点构造一次。",
+    "space": "O(n) 索引字典与 O(h) 栈，另有 O(n) 新树。",
+    "example": {
+      "input": "中序 [9,3,15,20,7]；后序 [9,15,7,20,3]",
+      "output": "[3,9,20,None,None,15,7]",
+      "walkthrough": [
+        "先定位根 3，中序分成 [9] 与 [15,20,7]。",
+        "后序反向消费先构造右侧根 20。",
+        "中序区间递归分裂，接回根的两棵子树。"
+      ]
+    },
+    "pitfalls": [
+      "重复值使值到下标映射不再唯一。",
+      "消费顺序必须与遍历方向一致。",
+      "切片版本最坏会产生平方级复制。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve([9,3,15,20,7],[9,15,7,20,3]))",
+        "expected": [
+          3,
+          9,
+          20,
+          null,
+          null,
+          15,
+          7
+        ]
+      },
+      {
+        "expression": "values(solve([],[]))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-build-pre-in",
+    "chapter": "二叉树",
+    "title": "从前序与中序构造二叉树",
+    "problem": "105",
+    "kind": "题解",
+    "summary": "前序开头定位根，中序根位置划分左右区间，使用索引避免复制数组。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "给定同一棵树的前序和中序序列，重建树结构。题目保证节点值互不重复且两份遍历有效；这一保证让值可以唯一映射到中序位置。仅有一种遍历通常不能确定树，空数组则表示空树。示例函数参数顺序为 preorder, inorder。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "中序序列总是左子树、根、右子树，因此知道根的下标后，区间 [lo,mid) 是左子树，(mid,hi] 是右子树。前序从开头向后消费时，先读根，再读左子树，再读右子树，所以构造順序必须先左后右。每次消费游标只移动一次。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "构造函数的契约是重建中序闭区间 lo..hi 对应的子树；lo>hi 返回空。取一个根值，用哈希表找到中序下标，将区间分裂成两段，再按照消费顺序递归接回孩子。有效输入保证根下标位于当前区间，两个区间覆盖剩余节点且互不重叠，因此每个节点恰好建立一次。",
+          "三节点树的前序为 [1,2,3]、中序为 [2,1,3]，消费根 1 后下一项 2 属于左区间。先建立右侧会错误消费 2，所以不能随意交换两次递归的顺序。每个区间决定合法根的位置，遍历游标决定下一个根，两者必须同步推进。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "预先建立中序位置字典，避免每层线性搜索。只传索引边界，避免切片在退化树上反复复制。游标保存在闭包中，内部修改需要 nonlocal；字典只是读取，不需要该声明。若允许重复值或无效序列，需要重新定义歧义处理或校验策略，不能把此模板当作通用解析器。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(preorder, inorder):\n    index = {value: i for i, value in enumerate(inorder)}\n    cursor = 0\n    def build(lo, hi):\n        nonlocal cursor\n        if lo > hi:\n            return None\n        value = preorder[cursor]\n        cursor += 1\n        mid = index[value]\n        root = TreeNode(value)\n        root.left = build(lo, mid - 1)\n        root.right = build(mid + 1, hi)\n        return root\n    return build(0, len(inorder) - 1)\n",
+    "time": "O(n)，字典平均查询 O(1)，各节点构造一次。",
+    "space": "O(n) 索引字典与 O(h) 栈，另有 O(n) 新树。",
+    "example": {
+      "input": "前序 [3,9,20,15,7]；中序 [9,3,15,20,7]",
+      "output": "[3,9,20,None,None,15,7]",
+      "walkthrough": [
+        "先定位根 3，中序分成 [9] 与 [15,20,7]。",
+        "前序正向消费先构造左侧叶子 9。",
+        "中序区间递归分裂，接回根的两棵子树。"
+      ]
+    },
+    "pitfalls": [
+      "重复值使值到下标映射不再唯一。",
+      "消费顺序必须与遍历方向一致。",
+      "切片版本最坏会产生平方级复制。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve([3,9,20,15,7],[9,3,15,20,7]))",
+        "expected": [
+          3,
+          9,
+          20,
+          null,
+          null,
+          15,
+          7
+        ]
+      },
+      {
+        "expression": "values(solve([],[]))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-maximum",
+    "chapter": "二叉树",
+    "title": "最大二叉树",
+    "problem": "654",
+    "kind": "题解",
+    "summary": "用递减单调栈维护右侧骨架，把被新最大值压过的节点整体接成左子树。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "数组元素互不重复。最大二叉树规定区间最大值作为根，其左侧区间递归形成左子树，右侧区间形成右子树。直接每层扫描最大值容易在递增或递减数组上退化为平方级。单调栈利用从左到右处理顺序，在线建立同一结构。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "栈保存已经构造部分的右侧路径，值严格递减。新节点 node 到来时，弹出所有小于它的栈顶；最后一个弹出的子树根成为 node.left。若栈仍非空，栈顶比 node 大，它应把 node 接为新的右孩子。随后把 node 入栈，恢复递减骨架。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "被弹出的节点都在新值左侧且比新值小，所以应进入新节点的左子树。弹出顺序从较小右端向更大祖先移动，最后弹出的节点已经包含先前部分结构，因此只要把它接成左根，就不会丢失先前孩子。未弹出的栈顶是最近仍更大的左侧祖先，接右孩子保持数组的中序顺序。",
+          "递增数组 [1,2,3] 会得到根 3、左孩子 2、左孙子 1；递减数组则得到右链。两种输入既是扫描最大值递归的最坏情形，也是单调栈的良好核验样例。虽然一次新值可能弹出多个节点，总弹出次数仍不超过创建节点数。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "while 中反复赋值 node.left 是有意的，最终保留最后弹出的整棵子树。没有弹出时左孩子为空；弹完栈时新节点成为全局根。每个节点只入栈一次、出栈至多一次，因此虽然循环嵌套，时间仍是线性。最后 stack[0] 是根，空数组返回 None。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(nums):\n    stack = []\n    for value in nums:\n        node = TreeNode(value)\n        while stack and stack[-1].val < value:\n            node.left = stack.pop()\n        if stack:\n            stack[-1].right = node\n        stack.append(node)\n    return stack[0] if stack else None\n",
+    "time": "O(n)，每个节点入栈一次、出栈至多一次。",
+    "space": "O(n) 单调栈，另有 O(n) 输出树。",
+    "example": {
+      "input": "[3,2,1,6,0,5]",
+      "output": "[6,3,5,None,2,0,None,None,1]",
+      "walkthrough": [
+        "3、2、1 形成递减右链。",
+        "6 弹出整条骨架，把根 3 接为左孩子。",
+        "5 弹出 0，成为 6 的右孩子，并让 0 成为自己的左孩子。"
+      ]
+    },
+    "pitfalls": [
+      "最后弹出的节点才是左子树入口。",
+      "本题保证不同元素，重复值需要明确择根规则。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve([3,2,1,6,0,5]))",
+        "expected": [
+          6,
+          3,
+          5,
+          null,
+          2,
+          0,
+          null,
+          null,
+          1
+        ]
+      },
+      {
+        "expression": "values(solve([]))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-merge",
+    "chapter": "二叉树",
+    "title": "合并二叉树",
+    "problem": "617",
+    "kind": "题解",
+    "summary": "同时递归两个入口，重叠位置相加，单侧位置复制成新节点。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "两棵树在相同位置都有节点时，合并节点值为两值之和；只有一侧存在时，保留该侧结构与值。示例选择创建完全独立的新树，原输入保持可重复使用。若直接返回单侧现有子树，虽然值结构满足题目，却会让合并树和输入共享节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归参数携带两棵树的同一位置。两者都空返回空；否则为当前位置创建节点，空侧的值视为零。左右孩子分别由两侧对应孩子递归合并。只需在读取孩子前检查该侧入口，不需要把空树实际展开成零值节点。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "当前位置的合并值由两个输入位置唯一决定；递归对子位置保持同样配对，所以归纳得到整棵合并树。仅一侧有节点时仍递归克隆它的后代，这保证所有输出节点都是新对象。空值贡献零只用于求和，不能把存在的零值节点误判为空。",
+          "如果输入一棵单节点树和空树，结果值相同，但在本实现中结果根不应与输入根是同一个对象。仅比较层序值无法发现共享引用，应另做身份检查。独立输出让调用者能继续修改结果而不影响输入，代价是单侧位置也必须新建节点。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码展示安全读取空侧孩子的条件表达式。为了降低分支数，可以在一侧为空时调用专门的克隆函数；如果业务允许共享输入，则直接返回该侧可减少创建工作，但必须清楚说明后续修改的影响。复杂度按两树总节点规模计算，而不是只按重叠部分计算。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(a, b):\n    if a is None and b is None:\n        return None\n    root = TreeNode((a.val if a else 0) + (b.val if b else 0))\n    root.left = solve(a.left if a else None, b.left if b else None)\n    root.right = solve(a.right if a else None, b.right if b else None)\n    return root\n",
+    "time": "O(n₁+n₂)，n₁、n₂ 为两树节点数。",
+    "space": "O(max(h₁,h₂)) 栈，另有 O(n₁+n₂) 上界的新树。",
+    "example": {
+      "input": "[1,3,2,5] 与 [2,1,3,None,4,None,7]",
+      "output": "[3,4,5,5,4,None,7]",
+      "walkthrough": [
+        "根 1+2=3。",
+        "左根 3+1=4，右根 2+3=5。",
+        "单侧的 5、4、7 分别复制到对应位置。"
+      ]
+    },
+    "pitfalls": [
+      "是否共享单侧子树要明确。",
+      "节点值零不等于缺失节点。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([1,3,2,5]),tree([2,1,3,None,4,None,7])))",
+        "expected": [
+          3,
+          4,
+          5,
+          5,
+          4,
+          null,
+          7
+        ]
+      },
+      {
+        "expression": "values(solve(None,None))",
+        "expected": []
+      },
+      {
+        "expression": "(lambda a: solve(a,None) is not a)(TreeNode(1))",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-search",
+    "chapter": "二叉树",
+    "title": "二叉搜索树中的搜索",
+    "problem": "700",
+    "kind": "题解",
+    "summary": "利用整棵左、右子树的大小约束，每次只选择一个搜索方向。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "二叉搜索树要求任意节点的左子树所有值小于该节点，右子树所有值大于该节点。本节采用不重复值的严格定义。搜索给定值，找到后返回该节点对象，也就是以它为根的子树入口；不存在则返回 None。返回值不是只包含目标值的新节点。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "比较 target 与当前 val：相等就返回；更小只能进入左子树，更大只能进入右子树。每一步排除一整侧，依赖全局搜索树性质而非仅直接孩子的大小。若输入只是普通二叉树，单分支策略可能错过实际存在的节点。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "循环不变量是目标若存在，一定位于当前入口所代表的子树中。按大小选择方向不会丢失目标；当入口变为空时，候选范围为空，便可宣布失败。算法路径长度由树高控制，平衡树的查找较快，但退化链仍可能扫描所有节点。",
+          "查询值落在两节点之间时，最终通常到达一个空孩子，例如在 [4,2,7,1,3] 中查询 5，会走 4→7→空左侧。不存在目标并不需要扫描其他分支，因为它们已被祖先比较排除。实际性能仍由树形决定，普通搜索树并不自动保持平衡。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "迭代写法只使用一个移动指针，不产生递归栈。return root 返回的是原始引用，因此对返回节点的修改会作用到原树。测试使用 values 把返回子树转成层序数组，既验证找到的值，也验证返回了正确的结构入口。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, target):\n    while root is not None:\n        if root.val == target:\n            return root\n        root = root.left if target < root.val else root.right\n    return None\n",
+    "time": "O(h)，平衡树 O(log n)，退化树 O(n)。",
+    "space": "O(1)。",
+    "example": {
+      "input": "[4,2,7,1,3]，目标 2",
+      "output": "返回子树 [2,1,3]",
+      "walkthrough": [
+        "2 小于 4，进入左侧。",
+        "当前值等于 2，停止。",
+        "返回该节点的原始引用。"
+      ]
+    },
+    "pitfalls": [
+      "必须有搜索树保证。",
+      "返回的是节点，不是布尔值。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([4,2,7,1,3]),2))",
+        "expected": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "solve(tree([4,2,7,1,3]),5) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-validate",
+    "chapter": "二叉树",
+    "title": "验证二叉搜索树",
+    "problem": "98",
+    "kind": "题解",
+    "summary": "向下传递祖先确定的开区间，检查每个节点是否满足全部祖先约束。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "验证输入的普通二叉树是否为严格二叉搜索树，重复值不允许。只检查左孩子小于父亲、右孩子大于父亲不够，因为更深节点也受到祖先限制。空树合法。比如根 5 的右子树内部出现 3，即使 3 小于它的父亲 6，也违反了大于 5 的全局要求。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归函数携带 lower 与 upper，表示当前节点允许的严格开区间。根没有界限；进入左侧时上界收紧为当前值，进入右侧时下界收紧为当前值，其余祖先界限继续保留。任一值不严格处于区间内就立即失败。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "区间是沿根路径所有比较约束的交集。当前值合法并且两棵孩子递归合法，便保证左子树全部小于根、右子树全部大于根，同时满足每个内部节点的同类条件。空孩子不增加约束，返回真。这样局部递归检查表达了完整全局性质。",
+          "中序序列包含相等相邻值时，严格搜索树验证也应失败。边界方法会让重复祖先值碰到开区间端点，而不是仅在父子相等时失败。极大或极小整数仍可直接比较，None 表示无边界比固定最小最大整数更不容易漏掉范围之外的合法输入。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码用 None 表示没有边界，避免假设整数范围，也避免不必要的浮点哨兵。检查必须用 <= 与 >= 拒绝相等。中序严格递增是另一条等价验证路线，适合与最小差值、众数模板比较；区间法更直接表达祖先约束。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    def valid(node, lower, upper):\n        if node is None:\n            return True\n        if lower is not None and node.val <= lower:\n            return False\n        if upper is not None and node.val >= upper:\n            return False\n        return (valid(node.left, lower, node.val)\n                and valid(node.right, node.val, upper))\n    return valid(root, None, None)\n",
+    "time": "O(n)，最坏验证全部节点。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[5,1,6,None,None,3,7]",
+      "output": "False",
+      "walkthrough": [
+        "根 5 合法。",
+        "右侧 6 获得下界 5。",
+        "节点 3 继承下界 5，失败。"
+      ]
+    },
+    "pitfalls": [
+      "直接孩子合法不代表整棵树合法。",
+      "严格搜索树必须拒绝重复值。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([5,1,6,None,None,3,7]))",
+        "expected": false
+      },
+      {
+        "expression": "solve(tree([2,1,3]))",
+        "expected": true
+      },
+      {
+        "expression": "solve(tree([2,2,3]))",
+        "expected": false
+      },
+      {
+        "expression": "solve(None)",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-min-difference",
+    "chapter": "二叉树",
+    "title": "二叉搜索树的最小绝对差",
+    "problem": "530",
+    "kind": "题解",
+    "summary": "中序排序后只比较相邻值，无需检查所有节点对。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "题目保证搜索树中至少两个节点，要求不同节点值的最小绝对差。中序遍历按非降序或严格递增输出，取决于是否允许重复值；即便允许重复，算法也能得到零。示例对节点不足两个的输入抛出 ValueError，使接口返回的总是确定的有限差值。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "排序序列中，任意两个非相邻值之间还隔着一个或多个值，它们的差不会小于其中某个相邻差。因此最小值必由相邻元素产生。中序遍历只需保存 previous 与当前最小差，不必构造完整序列或排序所有值。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "显式栈沿左链下降，弹出节点时得到下一个有序值。若 previous 已存在，更新当前值减去 previous 的差，再把 previous 改成当前值。第一次访问没有前驱，必须跳过差值计算；后续每一对相邻值恰好检查一次。",
+          "只有两个节点时也应检查一次差值，例如根 0 带左孩子 -3，中序是 [-3,0]，答案为 3。若树允许重复节点值，中序相邻的重复值会得到零，不会破坏算法。这里返回的是数值差，若要返回对应节点对，还需要保存前驱对象引用。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "不要把 previous 初始设为零，因为节点可能为负数且零是合法值。用 None 区分未初始化，不受取值范围影响。答案也用 None，首次差值直接赋值。若移除搜索树保证，中序未必有序，当前减前一个可能为负，不能继续使用这一证明。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    stack, node = [], root\n    previous = best = None\n    while node is not None or stack:\n        while node:\n            stack.append(node)\n            node = node.left\n        node = stack.pop()\n        if previous is not None:\n            gap = node.val - previous\n            best = gap if best is None else min(best, gap)\n        previous = node.val\n        node = node.right\n    if best is None:\n        raise ValueError(\"at least two nodes are required\")\n    return best\n",
+    "time": "O(n)。",
+    "space": "O(h) 显式栈。",
+    "example": {
+      "input": "[4,2,6,1,3]",
+      "output": "1",
+      "walkthrough": [
+        "中序为 1、2、3、4、6。",
+        "相邻差为 1、1、1、2。",
+        "最小差是 1。"
+      ]
+    },
+    "pitfalls": [
+      "需要至少两个节点。",
+      "前驱初始化不能占用某个合法数值。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([4,2,6,1,3]))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(tree([0,-3,8]))",
+        "expected": 3
+      }
+    ]
+  },
+  {
+    "id": "tree-modes",
+    "chapter": "二叉树",
+    "title": "二叉搜索树中的众数",
+    "problem": "501",
+    "kind": "题解",
+    "summary": "中序让相同值连续出现，用游程计数更新最大频率与并列答案。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "搜索树允许重复值，左子树值不大于根，右子树值不小于根。众数是出现次数最多的值，可能有多个。空树返回空列表。普通二叉树可用频率字典统计，但搜索树的有序中序序列让相同值聚成连续一段，可免去按不同值建表。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "维护 previous、当前连续次数 count、全局最高次数 best 和答案列表。若当前值等于 previous，count 加一；否则开始新段，count 设为一。当 count 超过 best，旧答案全部失效，应替换为当前值；等于 best 时追加当前值。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "虽然每段未结束也在比较计数，逻辑仍正确：当前段每增长一次便可能刷新最高次数，刷新时替换列表会移除之前的临时候选。如果只是并列最高，则追加一次；同一段继续增长后会转为刷新，不会留下重复答案。每个值最终按完整频率决定是否在列表中。",
+          "用 [1,1,2,2] 这样的有序访问序列手算：第一个 1 建立频率一，第二个 1 刷新到二；第一个 2 未达到二，第二个 2 才追加并列众数。这个过程说明不能在换值时就提前把新值加入答案，也不必等整段结束才更新最大频率。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "初始化 best=0，previous=None，因此第一个实际值正确开启第一段。节点值采用整数，None 不与合法值冲突。迭代中序只用 O(h) 栈；输出可能包含所有不同值，不能把答案空间也宣称为常数。若必须进一步降低栈空间，可研究 Morris，但要承担临时改指针的复杂性。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer, stack, node = [], [], root\n    previous = None\n    count = best = 0\n    while node is not None or stack:\n        while node:\n            stack.append(node)\n            node = node.left\n        node = stack.pop()\n        count = count + 1 if node.val == previous else 1\n        previous = node.val\n        if count > best:\n            best = count\n            answer = [node.val]\n        elif count == best:\n            answer.append(node.val)\n        node = node.right\n    return answer\n",
+    "time": "O(n)。",
+    "space": "O(h) 栈，另有 O(k) 输出，k 为众数个数。",
+    "example": {
+      "input": "[1,None,2,2]",
+      "output": "[2]",
+      "walkthrough": [
+        "中序 1、2、2。",
+        "1 与首个 2 暂时都频率为 1。",
+        "第二个 2 把最高频率改为 2，答案替换为 [2]。"
+      ]
+    },
+    "pitfalls": [
+      "超过最大频率必须清空旧候选。",
+      "这道题的重复值规则不同于 98 的严格验证。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,None,2,2]))",
+        "expected": [
+          2
+        ]
+      },
+      {
+        "expression": "solve(tree([2,1,3]))",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-lca",
+    "chapter": "二叉树",
+    "title": "二叉树的最近公共祖先",
+    "problem": "236",
+    "kind": "题解",
+    "summary": "后序向上报告目标出现的位置，左右同时命中时当前节点就是分叉点。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "给定普通二叉树与两个实际节点 p、q，寻找同时覆盖它们的最低祖先。节点可以是自己的祖先，所以 p 是 q 的祖先时答案就是 p。按原题假定两节点均在树中且不同；比较的是节点身份，不是值，即便示例构造的值恰好不同，也不能据此改变接口。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归遇到空入口返回 None，遇到 p 或 q 返回该节点。分别搜索左右子树：两侧都返回非空，说明两个目标分居两侧，当前节点为公共祖先；只有一侧非空则把那侧结果向上传递。返回值既可能是单个目标，也可能是已经找到的公共祖先。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "当两个目标分居左右，任何当前节点的严格后代都无法同时覆盖两侧，因此当前节点最低。若一目标为另一目标的祖先，遇到前者就返回，它已覆盖另一目标所在子树。该提前返回依赖两目标都存在的保证；若可能缺失，需要另做存在性检查或返回目标计数。",
+          "当一个递归结果已经是公共祖先，它从这一侧向上返回时，另一侧必然没有目标，否则两目标位置会与此前判断矛盾。在两目标存在的前提下，这让一个节点引用足以代表多种状态。若任一目标缺失，单个目标引用会被误当最终答案，因此契约非常重要。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码用 is 表达对象身份，不以 node.val 比较。测试直接从构造的树获取 p、q 引用。函数没有利用搜索树大小性质，所以适用于任意结构。退化树会形成长递归路径；若环境不适合递归，可先建父指针映射，再沿祖先链求交集，代价是更多空间。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, p, q):\n    if root is None or root is p or root is q:\n        return root\n    left = solve(root.left, p, q)\n    right = solve(root.right, p, q)\n    if left is not None and right is not None:\n        return root\n    return left if left is not None else right\n\ndef demo():\n    root = tree([3,5,1,6,2,0,8,None,None,7,4])\n    return [solve(root, root.left, root.right).val,\n            solve(root, root.left, root.left.right.right).val]\n",
+    "time": "O(n)，最坏扫描整棵树。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[3,5,1,6,2,0,8,None,None,7,4]，p=5，q=4",
+      "output": "5",
+      "walkthrough": [
+        "遇到节点 5 时直接返回该引用。",
+        "根右侧没有目标，返回 None。",
+        "根向上传递左结果 5。"
+      ]
+    },
+    "pitfalls": [
+      "接口假定两目标都存在。",
+      "重复值时尤其要比较身份而非数值。"
+    ],
+    "tests": [
+      {
+        "expression": "demo()",
+        "expected": [
+          3,
+          5
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tree-bst-lca",
+    "chapter": "二叉树",
+    "title": "二叉搜索树的最近公共祖先",
+    "problem": "235",
+    "kind": "题解",
+    "summary": "当两目标值落在当前值的同一侧时继续下降，否则当前节点是最低分叉点。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输入严格搜索树，p、q 为树内真实节点，求最近公共祖先。与普通树不同，可以根据大小关系一次排除一侧。题目保证值唯一，因此值比较足以选择路线；最终返回原节点对象。目标节点本身也可以作为公共祖先。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "若 p、q 都小于当前值，二者均在左子树，当前节点不是最低，应向左。二者都大于当前值则向右。否则二者分居两侧，或某一个等于当前值，此时当前节点就是答案。三种情况覆盖了全部大小关系。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "循环不变量是当前子树同时包含两目标。向同侧下降仍保持该不变量；一旦分叉，任何后代只位于其中一侧，不能同时覆盖目标，因此当前位置最低。若一目标等于当前值，任何严格后代都不可能作为该节点的祖先，所以同样可停止。",
+          "目标节点值为 2 与 8、当前根为 6 时，二者分居根两側，立即返回 6，无需真的下降到目标。若当前值为 10，则两者同在左侧，应继续下降。给目标排序只是简化比较；对象身份仍由返回的原始 root 保持，不会创建替代节点。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "迭代只保留 root 指针，比通用后序算法更节省空间。可以先取两值的最小值与最大值，让比较更简洁，但不能用目标顺序假设 p 必定更小。代码在无效输入下可能返回 None，但这不构成完整的缺失目标验证，正确性说明仍基于原题保证。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, p, q):\n    low, high = sorted((p.val, q.val))\n    while root is not None:\n        if root.val > high:\n            root = root.left\n        elif root.val < low:\n            root = root.right\n        else:\n            return root\n    return None\n\ndef demo():\n    root = tree([6,2,8,0,4,7,9,None,None,3,5])\n    return [solve(root, root.left, root.right).val,\n            solve(root, root.left, root.left.right).val]\n",
+    "time": "O(h)。",
+    "space": "O(1)。",
+    "example": {
+      "input": "搜索树 [6,2,8,0,4,7,9,None,None,3,5]，目标 2 与 4",
+      "output": "2",
+      "walkthrough": [
+        "根 6 大于两目标，向左。",
+        "当前值 2 等于较小目标。",
+        "返回节点 2。"
+      ]
+    },
+    "pitfalls": [
+      "需要搜索树全局大小性质。",
+      "原题保证两个目标存在，不能当作存在性验证器。"
+    ],
+    "tests": [
+      {
+        "expression": "demo()",
+        "expected": [
+          6,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tree-insert",
+    "chapter": "二叉树",
+    "title": "二叉搜索树中的插入操作",
+    "problem": "701",
+    "kind": "题解",
+    "summary": "沿比较路线找到空位置，返回子树入口并接回修改后的孩子。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "在严格搜索树中插入一个新值，保持原有节点关系和大小约束。原题保证新值未出现；示例扩展为重复值时保留原树。空树插入后返回新节点，该返回值必须由调用者接住，否则新的根不会被保存在外部变量中。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归契约是返回插入后的当前子树根。空入口创建节点；更小值递归插入左侧，更大值递归插入右侧，然后把递归结果重新赋给对应孩子。当前根本身仍保留，因此最后返回 root。这个返回与接回结构也将用于删除和修剪。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "比较路径上的每个祖先都限制了新值范围。沿正确方向走到空位置时，新节点自动满足全部祖先约束；未经过的其他子树不变。每层接回返回根，保证空孩子创建的新节点不会丢失，整棵树只在一个叶子位置增加节点。",
+          "连续按 [1,2,3,4] 插入普通搜索树会形成右链，说明此操作只保持排序性质，并不保证平衡。若应用要求长期查询性能，需要采用具有旋转或重平衡机制的树。当前算法在已有高度 h 的树中增加一个节点，最多访问一条根到空位置的路径。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "不要只写 solve(root.left,value) 而忽略返回值，空入口返回的新节点必须成为父亲的新孩子。原地修改意味着已有树对象会变化；返回 root 不是复制。若要支持重复值，需要决定放左、放右或维护计数，本示例明确采用不增加重复节点的策略。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, value):\n    if root is None:\n        return TreeNode(value)\n    if value < root.val:\n        root.left = solve(root.left, value)\n    elif value > root.val:\n        root.right = solve(root.right, value)\n    return root\n",
+    "time": "O(h)。",
+    "space": "O(h) 递归栈，新增一个节点。",
+    "example": {
+      "input": "[4,2,7,1,3]，插入 5",
+      "output": "[4,2,7,1,3,5]",
+      "walkthrough": [
+        "5 大于 4，向右。",
+        "5 小于 7，向左。",
+        "空入口创建 5，并接为 7 的左孩子。"
+      ]
+    },
+    "pitfalls": [
+      "调用者应接住可能的新根。",
+      "空孩子递归返回值必须接回。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([4,2,7,1,3]),5))",
+        "expected": [
+          4,
+          2,
+          7,
+          1,
+          3,
+          5
+        ]
+      },
+      {
+        "expression": "values(solve(None,2))",
+        "expected": [
+          2
+        ]
+      },
+      {
+        "expression": "values(solve(tree([2,1,3]),2))",
+        "expected": [
+          2,
+          1,
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tree-delete",
+    "chapter": "二叉树",
+    "title": "删除二叉搜索树中的节点",
+    "problem": "450",
+    "kind": "题解",
+    "summary": "按零、一个、两个孩子分类；两孩子时以中序后继替换值，再删除后继节点。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "删除严格搜索树中给定值并返回新根，值不存在时保持结构。删除根或只有一个孩子的节点会改变子树入口，因此所有递归返回值都要接回。题目只要求结果满足搜索树性质，不要求固定一种重组形状。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "先按大小找到目标。无左孩子时返回右孩子，无右孩子时返回左孩子，这同时覆盖叶子情况。两侧都有孩子时，找右子树的最小节点，也就是中序后继；把后继值复制到目标位置，再到右子树删除那个后继，确保值只出现一次。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "右子树最小值比原节点左侧所有值都大，且不大于右侧其他值，所以替换后仍满足左右大小关系。后继没有左孩子，其删除最终归入零或一个孩子情况。原结构只在搜索路径及后继路径发生改变，其他子树仍然保持原约束。",
+          "删除只有右孩子的根时直接返回右孩子，新树的根对象因此发生变化；删除有两孩子的根则常保留原根对象，只改变其值。两种情形在数值层面都正确，但对象身份不同。若外部持有节点引用，必须理解删除接口并不保证引用仍代表原来的值。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "这里复制的是数值，不是把后继节点引用直接赋给 root，后者会丢失目标原来的孩子连接。代码中的 root.right=solve(...) 必不可少，否则后继可能仍然留在树内。该实现会改变节点存储的值，如果业务把节点身份与不可变记录绑定，需要选择移动节点的另一种删除策略。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, key):\n    if root is None:\n        return None\n    if key < root.val:\n        root.left = solve(root.left, key)\n    elif key > root.val:\n        root.right = solve(root.right, key)\n    else:\n        if root.left is None:\n            return root.right\n        if root.right is None:\n            return root.left\n        successor = root.right\n        while successor.left:\n            successor = successor.left\n        root.val = successor.val\n        root.right = solve(root.right, successor.val)\n    return root\n",
+    "time": "O(h)，定位目标与后继路径总长为树高级别。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[5,3,6,2,4,None,7]，删除 3",
+      "output": "[5,4,6,2,None,None,7]",
+      "walkthrough": [
+        "目标 3 有两个孩子。",
+        "右侧最小节点为 4，以 4 替换 3 的值。",
+        "删除原来的叶子 4，保留左侧 2。"
+      ]
+    },
+    "pitfalls": [
+      "替换值后仍要删除原后继。",
+      "删根时可能返回另一个节点，必须接住返回值。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([5,3,6,2,4,None,7]),3))",
+        "expected": [
+          5,
+          4,
+          6,
+          2,
+          null,
+          null,
+          7
+        ]
+      },
+      {
+        "expression": "values(solve(tree([2,1,3]),2))",
+        "expected": [
+          3,
+          1
+        ]
+      },
+      {
+        "expression": "values(solve(tree([2,1,3]),9))",
+        "expected": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "values(solve(TreeNode(1),1))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-trim",
+    "chapter": "二叉树",
+    "title": "修剪二叉搜索树",
+    "problem": "669",
+    "kind": "题解",
+    "summary": "节点越界时利用搜索树顺序排除整侧，只递归保留可能落在闭区间内的部分。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "保留值位于闭区间 [low,high] 的节点，移除其余节点，并维持保留节点的相对结构关系。边界值应被保留。与只删除某个值不同，一次修剪可能改变多处子树入口或整个根。题目保证 low 不大于 high，树满足严格搜索树约束。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "若根小于 low，左子树所有值更小，连同根都必然被排除，只需返回修剪后的右子树。若根大于 high，右侧都过大，只需保留修剪后的左侧。根在范围内时保留它，再分别修剪两个孩子并接回。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "越界时排除整侧依赖全局大小关系，因此不会丢失合法节点。保留当前节点时，所有合法后代仍通过各自子树返回入口接回，不会因删除中间节点而消失。各层操作只移除无效节点或提升原后代为入口，不改变保留节点的值。",
+          "例如根值 0 过小、右孩子 2 合法，算法返回 2 作为新入口，而不是返回空树；它还能继续在 2 内修剪后代。越界节点仍可能拥有合法的一侧，因此不能只见到越界就删除整棵子树。只有被大小关系证明全部越界的一侧才能直接丢弃。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "代码使用严格的 <low 和 >high 排除判断，不能写成 <= 或 >=。返回值可能直接是很深的后代，因此调用者应写 root=solve(root,low,high)。被移除节点在 Python 中是否立即释放由引用与垃圾回收决定，算法描述中的删除是断开输出树中的连接。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root, low, high):\n    if root is None:\n        return None\n    if root.val < low:\n        return solve(root.right, low, high)\n    if root.val > high:\n        return solve(root.left, low, high)\n    root.left = solve(root.left, low, high)\n    root.right = solve(root.right, low, high)\n    return root\n",
+    "time": "O(n) 最坏，按搜索树约束可能跳过大量节点。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[3,0,4,None,2,None,None,1]，区间 [1,3]",
+      "output": "[3,2,None,1]",
+      "walkthrough": [
+        "根 3 在范围内，保留。",
+        "节点 0 过小，跳到其右侧 2。",
+        "4 过大被排除，2 的左孩子 1 保留。"
+      ]
+    },
+    "pitfalls": [
+      "区间两端都包含。",
+      "不能用普通树直接套用整侧剪枝。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([3,0,4,None,2,None,None,1]),1,3))",
+        "expected": [
+          3,
+          2,
+          null,
+          1
+        ]
+      },
+      {
+        "expression": "values(solve(tree([2,1,3]),4,5))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-sorted-array",
+    "chapter": "二叉树",
+    "title": "将有序数组转换为二叉搜索树",
+    "problem": "108",
+    "kind": "题解",
+    "summary": "每段取中点做根，让左右节点数量接近，从而递归得到平衡搜索树。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输入严格递增数组，构造高度平衡搜索树。不同中点选择可能得到不同但都合法的结果，测试示例固定使用闭区间的下中点。空数组返回 None。不能把数组直接按层序建立节点，因为有序顺序对应的是搜索树的中序，而非层序。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "中点左侧全都小于中点，右侧全都大于中点，因此可分别作为左右子树。用 lo、hi 表示当前数组区间，mid=(lo+hi)//2 作为根。左右区间长度最多相差一，递归继续取中点，将这种均衡保持到叶子。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "对每个区间，中点保证搜索树大小关系，而两个近似等长子区间递归构造的高度差最多一，因而满足平衡要求。每个数组位置恰好当一次根，不遗漏不重复。下中点与上中点只是合法结构的选择，不会改变中序结果。",
+          "偶数长度区间没有唯一中点，例如 [1,2] 用下中点构造根 1 和右孩子 2，用上中点则构造根 2 和左孩子 1。两者高度均衡且中序相同，自动测试不应把另一种选择误判为错误。当前示例固定下中点，方便稳定展示具体层序结果。因此应把中序一致与高度平衡作为主要正确性条件。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "传索引而非切片可避免复制数组，并把辅助空间控制在平衡树高。新树本身占线性空间，但通常单独列为输出。不能把循环递增插入当作本题的平衡构造，因为严格递增输入会把普通插入树变成长链。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(nums):\n    def build(lo, hi):\n        if lo > hi:\n            return None\n        mid = (lo + hi) // 2\n        return TreeNode(nums[mid], build(lo, mid - 1), build(mid + 1, hi))\n    return build(0, len(nums) - 1)\n",
+    "time": "O(n)。",
+    "space": "O(log n) 递归栈，另有 O(n) 新树。",
+    "example": {
+      "input": "[-10,-3,0,5,9]",
+      "output": "[0,-10,5,None,-3,None,9]",
+      "walkthrough": [
+        "取中点 0 做根。",
+        "左区间取 -10，右区间取 5。",
+        "余下 -3 与 9 分别成为右孩子。"
+      ]
+    },
+    "pitfalls": [
+      "合法输出结构不唯一。",
+      "重复值输入需要先明确搜索树重复规则。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve([-10,-3,0,5,9]))",
+        "expected": [
+          0,
+          -10,
+          5,
+          null,
+          -3,
+          null,
+          9
+        ]
+      },
+      {
+        "expression": "values(solve([]))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-greater",
+    "chapter": "二叉树",
+    "title": "把二叉搜索树转换为累加树",
+    "problem": "538",
+    "kind": "题解",
+    "summary": "按右、根、左的降序访问顺序累加，使每个节点获得所有不小于自身的值之和。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "原题输入严格搜索树，要求每个节点新值等于原树中大于或等于该节点原值的节点值之和。修改节点值但不改变左右连接。计算必须依据原值，不能把已经累加的新值再次当作原始贡献加入。输出的值顺序通常不再满足原搜索树排序方向。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "反向中序先访问右子树，再处理根，再访问左子树，因此访问值从大到小排列。维护 running，表示已经访问的所有原值之和；处理当前节点时先加上当前原值，再将 running 写入节点。此刻已访问集合正好包含所有大于当前值的节点。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "最大值最先访问，只累加自己。假设先前节点更新正确，running 仍保存各原值相加的总和，当前值尚未被修改，因此加法不会重复计算旧前缀。写入之后不再把这个节点用于其他加法，继续左侧时仍以其原值更新 running，归纳成立。",
+          "包含负数时仍可使用同样的降序累加，例如原值为 [-3,-1,2]，按 2、-1、-3 访问，新的值分别为 2、1、-2。累计和并不一定随访问增长，正确性依赖已经访问的集合包含所有更大值，而不是依赖总和单调增加。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "迭代反向中序与普通中序模板完全对应，只需交换左右方向。代码中的先加后赋值顺序不能颠倒。题目采用不同值，若允许重复，逐节点累加会让相等值得到不同结果，需要按相同值分组后统一更新，不能直接沿用此实现。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    running = 0\n    stack, node = [], root\n    while node is not None or stack:\n        while node:\n            stack.append(node)\n            node = node.right\n        node = stack.pop()\n        running += node.val\n        node.val = running\n        node = node.left\n    return root\n",
+    "time": "O(n)。",
+    "space": "O(h) 显式栈，原地修改。",
+    "example": {
+      "input": "[4,1,6,0,2,5,7,None,None,None,3,None,None,None,8]",
+      "output": "[30,36,21,36,35,26,15,None,None,None,33,None,None,None,8]",
+      "walkthrough": [
+        "按 8、7、6、5、4、3、2、1、0 访问。",
+        "到 4 时累计为 8+7+6+5+4=30。",
+        "到 0 时累计为全树和 36。"
+      ]
+    },
+    "pitfalls": [
+      "加的是当前原值，不能重复累计更新后的值。",
+      "重复值需要另行分组处理。"
+    ],
+    "tests": [
+      {
+        "expression": "values(solve(tree([4,1,6,0,2,5,7,None,None,None,3,None,None,None,8])))",
+        "expected": [
+          30,
+          36,
+          21,
+          36,
+          35,
+          26,
+          15,
+          null,
+          null,
+          null,
+          33,
+          null,
+          null,
+          null,
+          8
+        ]
+      },
+      {
+        "expression": "values(solve(None))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-bottom-level",
+    "chapter": "二叉树",
+    "title": "二叉树的层序遍历 II",
+    "problem": "107",
+    "kind": "题解",
+    "summary": "先按正常层序收集，再反转层的顺序，保留每层内部从左到右的排列。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "返回从最深层到根的二维列表，同一层仍从左到右排列。要求改变的是层之间的顺序，而不是每层的节点顺序。空树返回空列表。比如普通层序 [[1],[2,3]] 的答案是 [[2,3],[1]]，不是 [[3,2],[1]]。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "BFS 先按自然方向处理，得到完整分层结果，然后整体 reverse。虽然名称是自底向上，不必真的从叶子开始寻找父节点，因为普通节点通常没有父引用，反向扩展反而需要额外索引。已知层边界后，反转层列表足以表达输出要求。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "正常层序保证每个节点被放在正确层，并在该层按左右顺序排列。整体反转只移动内层列表的位置，不修改其内容，因此不会破坏横向顺序。最深层恰好从最后移到第一，根层从第一移到最后，满足层间逆序。",
+          "链状树的每层仅一节点，但层数可达到 n，这时头插每层所产生的外层列表移动尤其明显。尾部追加后一次反转仍保持线性。反转完成的输出列表是层的重排，节点值没有重新计算，也没有更改树中的任何孩子引用。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "示例直接 answer.reverse()，它原地反转外层列表，避免生成第二份外层列表。若用每轮 insert(0,level)，层数为 h 时移动开销可达 O(h²)，在链状树上不再线性。用 deque.appendleft 也可避免该问题，但最后仍要转换成题目要求的列表。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        level = []\n        for _ in range(len(queue)):\n            node = queue.popleft()\n            level.append(node.val)\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n        answer.append(level)\n    answer.reverse()\n    return answer\n",
+    "time": "O(n)，反转外层最多 O(h)，不会超过 O(n)。",
+    "space": "O(w) 队列，另有 O(n) 输出。",
+    "example": {
+      "input": "[3,9,20,None,None,15,7]",
+      "output": "[[15,7],[9,20],[3]]",
+      "walkthrough": [
+        "先得到根到叶的三层。",
+        "只反转外层列表。",
+        "第三层成为答案第一项。"
+      ]
+    },
+    "pitfalls": [
+      "不能反转每层内部。",
+      "列表头部插入在深树上可能平方级。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": [
+          [
+            15,
+            7
+          ],
+          [
+            9,
+            20
+          ],
+          [
+            3
+          ]
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-right-view",
+    "chapter": "二叉树",
+    "title": "二叉树的右视图",
+    "problem": "199",
+    "kind": "题解",
+    "summary": "取每层最后被访问的节点；右视图可包含位于左子树的深层节点。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "想象从树右侧观察，返回每个深度能看到的最右节点值。最右指该层横向位置，而不是一路沿 right 指针得到的链。若右子树提前结束，左子树更深处的节点仍能出现在视图里。空树返回空列表。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "采用左到右的 BFS，每轮固定 size，最后一个弹出的节点就是当前层最右节点。只在索引等于 size-1 时把值加入 answer，避免建立完整层值列表。每层仍须处理其他节点，因为它们可能拥有下一层最右的后代。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "根层结论显然成立。孩子按父节点层序并先左后右加入，下一层保持从左到右。于是本轮最后节点确实是最右位置，即便它来自根的左子树。对每层各取一次，结果数量等于树高，按从上到下排列。",
+          "若根的右孩子为叶子，左孩子有一个更深的右孩子，该孙子也会出现在视图中。横向可见性按每个深度单独比较，与祖先是否出现在上层视图无关。返回每层最后节点正好体现这一独立性，所以不能只沿上一层可见节点的孩子继续搜索。每层单独做选择，是右视图定义的直接实现。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "不能遇到 right 为空就结束，否则会遗漏更深左侧节点。DFS 也可先右后左，在首次到达某个新深度时记值；这属于同一层优先顺序的另一表达。当前 BFS 代码用枚举索引判断末项，节点值为零或负数也照常记录。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        size = len(queue)\n        for i in range(size):\n            node = queue.popleft()\n            if i == size - 1:\n                answer.append(node.val)\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n    return answer\n",
+    "time": "O(n)。",
+    "space": "O(w) 队列，另有 O(h) 输出。",
+    "example": {
+      "input": "[1,2,3,4]",
+      "output": "[1,3,4]",
+      "walkthrough": [
+        "第一层最后为 1。",
+        "第二层最后为 3。",
+        "第三层只剩左侧节点 4，它也可见。"
+      ]
+    },
+    "pitfalls": [
+      "右视图不是右孩子链。",
+      "不能跳过本层其他节点的孩子。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4]))",
+        "expected": [
+          1,
+          3,
+          4
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-level-average",
+    "chapter": "二叉树",
+    "title": "二叉树的层平均值",
+    "problem": "637",
+    "kind": "题解",
+    "summary": "用每层总和除以冻结的节点数，只保存统计量而非完整层列表。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "输出每一层所有节点值的算术平均数，按根到最深层排列。单节点层的平均数等于该节点值，结果仍以浮点形式给出。空树返回空列表。同层节点数量可能差异很大，不能把全树总和简单除以层数代替分层统计。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "BFS 每层开始记录 size，把本轮弹出值加入 total；本轮结束后计算 total/size。新孩子虽已进入队列，却不会计入当前层，因为只弹出固定次数。total 在每层重置，不累计前一层的值，也不受孩子入队顺序影响。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "size 是当前层真实节点数，total 是同一组节点的值之和，所以商恰好满足平均数定义。空孩子不入队，因此不会作为零值参与分母。每个非空层的 size 至少一，不存在除零；空树在进入循环前单独返回。",
+          "负值层例如 [-3,-4] 的平均数是 -3.5，整数除法会得到 -4，既丢失小数又体现向下取整的差异。把每层总和除以该层数量，也保证平均值处于该层最小与最大值之间，可用这一数学性质辅助检查分母或层边界是否出错。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "Python 的 / 执行真实除法，// 会把非整数均值取整，产生错误。整数 total 可以任意精度累加，但转换后的浮点结果仍具有通常的舍入误差，判题通常允许误差范围。若业务需要精确有理数，可返回分子分母或 Fraction，而不是修改算法边界。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        size, total = len(queue), 0\n        for _ in range(size):\n            node = queue.popleft()\n            total += node.val\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n        answer.append(total / size)\n    return answer\n",
+    "time": "O(n)。",
+    "space": "O(w) 队列，另有 O(h) 输出。",
+    "example": {
+      "input": "[3,9,20,None,None,15,7]",
+      "output": "[3.0,14.5,11.0]",
+      "walkthrough": [
+        "第一层总和 3，节点数 1。",
+        "第二层总和 29，节点数 2。",
+        "第三层总和 22，节点数 2。"
+      ]
+    },
+    "pitfalls": [
+      "使用 /，不能使用 //。",
+      "缺失孩子不参与分母。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([3,9,20,None,None,15,7]))",
+        "expected": [
+          3,
+          14.5,
+          11
+        ]
+      },
+      {
+        "expression": "solve(tree([-2,-3,-4]))",
+        "expected": [
+          -2,
+          -3.5
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-level-max",
+    "chapter": "二叉树",
+    "title": "在每个树行中找最大值",
+    "problem": "515",
+    "kind": "题解",
+    "summary": "每层独立维护最大值，初始状态不占用任何合法整数。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "对每个深度返回该层最大节点值。节点值可能全为负数，因此初始最大值不能固定为零。空树无任何行，返回空列表。行是层的同义词，不是某条根到叶子路径；不同父节点的同层孩子都参与同一次最大值比较。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "按层 BFS，开始一轮时把 best 设为 None，遇到首个节点直接赋值，之后使用 max 更新。这样无需假设输入数值下界。每轮固定弹出当前层节点数量，再把这一轮 best 加入答案，下一轮重新清空 best。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "本轮已经处理 k 个节点时，best 等于这 k 个节点的最大值。初始为空，首节点建立不变量，每次 max 保持不变量；处理 size 个节点后便得到整层最大值。孩子留到下一层，不会让父层最大值受到下一层更大数值影响。",
+          "一层值为 [-8,-6] 时结果必须是 -6，而不是默认的零。另一层含零时 best=0 已经是合法统计状态，不能因其真假值为假而再次当作未初始化。使用 is None 把状态与数值分离，是写整数统计代码时可以反复应用的习惯。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "条件 best is None 明确区分尚未初始化，不用 if not best，因为零是合法最大值。采用负无穷哨兵也可行，但 None 对不受范围限制的整数更直接。无需保存当前层所有值，因此除了队列，只需要常数个临时变量。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        best = None\n        for _ in range(len(queue)):\n            node = queue.popleft()\n            best = node.val if best is None else max(best, node.val)\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n        answer.append(best)\n    return answer\n",
+    "time": "O(n)。",
+    "space": "O(w) 队列，另有 O(h) 输出。",
+    "example": {
+      "input": "[1,3,2,5,3,None,9]",
+      "output": "[1,3,9]",
+      "walkthrough": [
+        "根层最大为 1。",
+        "第二层比较 3 与 2。",
+        "第三层比较 5、3、9，得到 9。"
+      ]
+    },
+    "pitfalls": [
+      "初始最大值不能写成零。",
+      "当前层统计量必须每轮重置。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,3,2,5,3,None,9]))",
+        "expected": [
+          1,
+          3,
+          9
+        ]
+      },
+      {
+        "expression": "solve(tree([-5,-8,-6]))",
+        "expected": [
+          -5,
+          -6
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-perfect-next",
+    "chapter": "二叉树",
+    "title": "填充完美二叉树的 next 指针",
+    "problem": "116",
+    "kind": "题解",
+    "summary": "利用每个内部节点恰有两个孩子的保证，连接兄弟与跨父节点的相邻孩子。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "完美二叉树每个内部节点都有两个孩子，所有叶子深度相同。要求连接同层右邻节点，并将层末 next 设为空。这里使用完美树专用常数空间算法，与 117 的通用虚拟链方法不同；若节点可能缺孩子，此算法不适用。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "当前层已经通过 next 串联时，可以直接遍历这一层。对每个父节点，left.next 指向 right；right.next 指向当前父节点 next 的 left，若无下一父节点则为空。这样同一父亲的兄弟与不同父亲的相邻孩子都被连接。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "根的 next 设为空建立第一层。假设父层 next 正确，逐父节点连接两个孩子后，下一层恰好按左到右组成完整链。完美结构确保 next.left 一定存在，也确保只要层首有左孩子，本层所有节点都有孩子。随后 head=head.left 进入下一层。",
+          "四个叶子 4、5、6、7 中，5 与 6 的父亲不同，连接这一对最能检验跨父逻辑。若只设置 left.next=right，得到的会是两段 4→5 与 6→7，而不是完整同层链。两父节点已经通过 next 相连，是连接跨父孩子的必要前提。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "实现只使用 head 与 node 两个扫描引用，不建立队列，也不用递归。叶子层无需连接孩子，前一轮已把其 next 设置正确。运行前清空根 next，可以覆盖原先存在的无效根指针；后续层指针由上层逐一覆盖。不可把这种存在性推断搬到普通树。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\nclass Node:\n    def __init__(self, val, left=None, right=None, next=None):\n        self.val, self.left, self.right, self.next = val, left, right, next\n\ndef solve(root):\n    if root is None:\n        return None\n    root.next = None\n    head = root\n    while head.left is not None:\n        node = head\n        while node:\n            node.left.next = node.right\n            node.right.next = node.next.left if node.next else None\n            node = node.next\n        head = head.left\n    return root\n\ndef demo():\n    root = Node(1, Node(2,Node(4),Node(5)), Node(3,Node(6),Node(7)))\n    solve(root)\n    return [root.left.next.val, root.left.right.next.val,\n            root.right.right.next is None]\n",
+    "time": "O(n)。",
+    "space": "O(1) 额外空间。",
+    "example": {
+      "input": "完美树 [1,2,3,4,5,6,7]",
+      "output": "2→3；4→5→6→7；每层末尾为空",
+      "walkthrough": [
+        "根连接 2→3。",
+        "节点 2 连接 4→5，并跨父亲连接 5→6。",
+        "节点 3 连接 6→7，7.next=None。"
+      ]
+    },
+    "pitfalls": [
+      "只适用于完美二叉树。",
+      "跨父亲连接使用 node.next.left。"
+    ],
+    "tests": [
+      {
+        "expression": "demo()",
+        "expected": [
+          3,
+          6,
+          true
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "tree-nary-depth",
+    "chapter": "二叉树",
+    "title": "N 叉树的最大深度",
+    "problem": "559",
+    "kind": "题解",
+    "summary": "将二叉树的两侧最大值推广为所有孩子高度的最大值。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "N 叉树每个节点的 children 是按顺序保存的孩子列表，节点可能没有孩子，也可能有许多孩子。最大深度按根到最远叶子的节点数计算：空树零，叶子一。不要把孩子数量当成深度，拥有上百个叶子孩子的根仍然只有两层。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "辅助思想仍是返回子树高度。对所有孩子递归取高度，选择最大值，再加上当前节点的一。没有孩子时最大子高度应为零；Python 的 max 可以用 default=0 处理空迭代器，避免单独为叶子增加分支。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "任意根叶路径在根之后必进入某个孩子，最长路径长度由最高孩子子树决定。递归对每个孩子计算正确高度后，取最大值便覆盖全部路线。节点孩子数量不同不影响证明，只是把二叉树的固定两项比较扩展成有限集合比较。",
+          "当根没有孩子，生成器为空，max 的 default 返回零，随后加一得到叶子高度一。根若有很多孩子，递归逐个完成它们的高度而不是同时保留所有递归分支。每个生成器所在的递归层仍占固定状态，因此最长调用链决定辅助空间。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "示例独立定义 Node，与二叉树 TreeNode 的左右字段无关。生成器表达式逐个递归计算子高度，不必构建孩子高度列表；总体每条边遍历一次。调用栈依赖最长路径 h，当前节点孩子很多也不会同时递归所有孩子，所以宽度不直接决定栈深。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\nclass Node:\n    def __init__(self, val, children=None):\n        self.val = val\n        self.children = [] if children is None else children\n\ndef solve(root):\n    if root is None:\n        return 0\n    return 1 + max((solve(child) for child in root.children), default=0)\n",
+    "time": "O(n)，n 为 N 叉树节点数。",
+    "space": "O(h) 递归栈；不保存全部子高度列表。",
+    "example": {
+      "input": "1 的孩子为 2、3；3 的孩子为 4",
+      "output": "3",
+      "walkthrough": [
+        "叶子 2、4 高度为一。",
+        "3 的最大孩子高度为一，自身高度二。",
+        "根最大孩子高度二，因此返回三。"
+      ]
+    },
+    "pitfalls": [
+      "max 的空序列必须有默认值。",
+      "children 数量不是节点深度。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(Node(1,[Node(2),Node(3,[Node(4)])]))",
+        "expected": 3
+      },
+      {
+        "expression": "solve(Node(1))",
+        "expected": 1
+      },
+      {
+        "expression": "solve(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "tree-recap-traversal",
+    "chapter": "二叉树",
+    "title": "遍历阶段总结：处理时机与待办状态",
+    "problem": "",
+    "kind": "总结",
+    "summary": "先决定当前节点何时处理，再决定用递归栈、标记栈还是逐层队列表达这一时机。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "遍历类任务首先区分结果的组织方式：线性访问序列、按深度分组，还是对子树聚合信息。前序把父节点放在孩子前，中序把根放在左右之间，后序把父节点放在孩子后。层序以深度为主键，不属于三种深度优先顺序的简单改写。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "递归调用栈隐式记录暂停点，显式栈需要自己保存节点与阶段。前序只需安排左右待办，中序沿左链保存祖先，后序可使用标记状态。反转根右左的值列表只能得到后序输出序列，不能自动完成需要孩子结果的实时处理。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "选择模板应跟随依赖关系：父亲给孩子传区间或余额时常用自上而下的 DFS；父亲需要孩子高度、平衡性或目标报告时用后序；需要同层统计或同层连接时用 BFS 或已有 next 链。统一标记模板能帮助理解顺序，但具体题目仍可选择更简洁的专用实现。",
+          "调试访问顺序时，可以只看某个节点周围的三类事件：进入时孩子尚未处理，between 时左侧已完成，leave 时两侧都完成。如果动作读取右子树结果却放在 between，就算最终访问列表看起来合理，也存在依赖时机错误，应移动到 leave 阶段。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "下面用事件 trace 同时记录进入、两次返回间和退出三个位置。相同递归结构中筛选 enter、between、leave 事件，就得到三种遍历。空树不产生事件；每个非空节点恰好产生三条。这比只看最终输出更能解释递归何时暂停、何时恢复，也能用于调试处理时机错误。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    events = []\n    def visit(node):\n        if node is None:\n            return\n        events.append((\"enter\", node.val))\n        visit(node.left)\n        events.append((\"between\", node.val))\n        visit(node.right)\n        events.append((\"leave\", node.val))\n    visit(root)\n    return events\n",
+    "time": "O(n)，每节点三个事件。",
+    "space": "O(h) 栈，另有 O(n) 事件输出。",
+    "example": {
+      "input": "[1,2,3]",
+      "output": "enter 对应 [1,2,3]；between 对应 [2,1,3]；leave 对应 [2,3,1]",
+      "walkthrough": [
+        "根进入时先记录 enter。",
+        "左子树退出后记录根的 between。",
+        "右子树退出后记录根的 leave。"
+      ]
+    },
+    "pitfalls": [
+      "不要把函数被调用与节点被处理视为同一事件。",
+      "标记栈的压入顺序必须逆转逻辑执行顺序。",
+      "层序必须冻结本层边界。"
+    ],
+    "tests": [
+      {
+        "expression": "[v for event,v in solve(tree([1,2,3])) if event=='between']",
+        "expected": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-recap-depth",
+    "chapter": "二叉树",
+    "title": "深度阶段总结：最大、最小、平衡与完全树",
+    "problem": "",
+    "kind": "总结",
+    "summary": "高度合并要尊重有效路径，平衡验证要涵盖每个节点，结构加速要先验证题目保证。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "最大深度关注最长根叶路径，最小深度关注最近的真实叶子，平衡性关注每一个节点的高度差。三者都使用高度或深度，却不是替换 max 为 min 就能互相转换。空子树可作为最大高度的零值，却不是最小根叶路径的合法路线。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "后序高度适合自下而上合并，BFS 层数适合由上而下识别最近叶子。平衡性需要在返回高度时附带失败信息，避免重复计算。可以返回高度与布尔值的二元组，也可以用 -1 哨兵；前者更显式，后者更简练。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "完全树计数属于结构加速而非普通高度公式：边界高度相等能推断满树，是因为最后一层从左到右连续。不能把这个推断用于任意树。复杂度要区分 h 与 n：普通树最坏 h=n，而完全树高度是对数量级；BFS 队列则由宽度 w 决定。",
+          "合并多项统计不代表必须访问已经无法改变结论的部分。只判断平衡时哨兵可立即短路；同时要求准确最大深度时则不能在不平衡后停止。返回契约决定允许哪些优化，比套用某一个现成模板更关键，测试也应覆盖每个返回分量的语义。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "下面一次后序同时计算最大高度、最小叶子距离和平衡性。最小值在缺孩子时选择存在的那一侧，两侧都空时返回一；平衡性同时检查左右返回标志和当前高度差。把几个统计放在同一返回契约里，能清楚展示它们共享遍历但拥有不同合并规则。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    def stats(node):\n        if node is None:\n            return (0, 0, True)\n        lh, lm, lb = stats(node.left)\n        rh, rm, rb = stats(node.right)\n        height = max(lh, rh) + 1\n        if node.left is None:\n            minimum = rm + 1\n        elif node.right is None:\n            minimum = lm + 1\n        else:\n            minimum = min(lm, rm) + 1\n        balanced = lb and rb and abs(lh - rh) <= 1\n        return (height, minimum, balanced)\n    return stats(root)\n",
+    "time": "O(n)，各节点合并常数项统计。",
+    "space": "O(h) 递归栈。",
+    "example": {
+      "input": "[1,None,2,None,3]",
+      "output": "(3,3,False)",
+      "walkthrough": [
+        "叶子 3 的最大和最小距离均为 1。",
+        "只有右孩子的节点选择右侧最小值加一。",
+        "根左右高度差为 2，因此不平衡。"
+      ]
+    },
+    "pitfalls": [
+      "缺失孩子不能形成最小路径。",
+      "只看根高度差不足以判断全树平衡。",
+      "O(log n) 高度需要结构保证。"
+    ],
+    "tests": [
+      {
+        "expression": "list(solve(tree([1,None,2,None,3])))",
+        "expected": [
+          3,
+          3,
+          false
+        ]
+      },
+      {
+        "expression": "list(solve(None))",
+        "expected": [
+          0,
+          0,
+          true
+        ]
+      },
+      {
+        "expression": "list(solve(tree([1,2,3])))",
+        "expected": [
+          2,
+          2,
+          true
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tree-recap-path-build",
+    "chapter": "二叉树",
+    "title": "路径与构造阶段总结：传入状态、输出所有权与区间边界",
+    "problem": "",
+    "kind": "总结",
+    "summary": "路径搜索维护当前路线，树构造维护未消费区间，两者都依赖清楚的进入与返回契约。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "路径类题目常把祖先积累的信息传给孩子：当前路线、剩余目标、当前深度。树构造则把当前区间传给递归，并接回新建子树根。它们都在下降时限定子问题范围，但返回内容不同：搜索可能返回布尔值或收集答案，构造必须返回节点入口。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "共享路径列表需要 append 与 pop 配对，因为兄弟调用复用同一可变对象；整数余额按值计算则不需要撤销。收集答案时要复制列表或生成字符串，避免后续回退改写历史。构造中的游标通常必须持续前进或后退，恰恰不能在兄弟分支之间恢复。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "前序配中序时先建立左子树，后序反向消费配中序时先建立右子树。区间边界与消费顺序配合，决定下一项属于哪棵子树。最大二叉树可以用区间最大值递归理解，再用递减单调栈减少重复扫描。这里不能把所有递归一概称为回溯：树构造并不尝试并撤销候选。",
+          "保存路径时可选择不可变元组作为结果，但每次构造仍然与路径长度成正比。另一方面，树构造的输出是节点引用，父亲接回的是新子树而非路径副本。理解对象所有权与返回含义，能避免把搜索的回退习惯错误搬到构造游标或节点连接上。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "下面模板返回所有根叶路径和每条路径的总和，用 path.copy() 固定输出所有权。这个组合适合核验 112 与 113：对目标筛选 sums 可得到存在性和全部路径。实现仍只保存一条临时路线，不复制每个递归前缀；复制成本仅发生在真正输出叶子路径时。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    answer, path = [], []\n    def visit(node, total):\n        if node is None:\n            return\n        path.append(node.val)\n        total += node.val\n        if node.left is None and node.right is None:\n            answer.append({\"path\": path.copy(), \"sum\": total})\n        else:\n            visit(node.left, total)\n            visit(node.right, total)\n        path.pop()\n    visit(root, 0)\n    return answer\n",
+    "time": "O(n+L)，L 为输出路径节点总数。",
+    "space": "O(h) 临时状态，另有 O(L) 输出。",
+    "example": {
+      "input": "[1,2,3,None,5]",
+      "output": "路径 [1,2,5] 和为 8；路径 [1,3] 和为 4",
+      "walkthrough": [
+        "左侧路径在叶子 5 处复制。",
+        "退出左侧后共享 path 恢复为 [1]。",
+        "右侧路径独立收集，之前答案不变。"
+      ]
+    },
+    "pitfalls": [
+      "可变路径要回退，消费游标通常不能回退。",
+      "只在叶子收集根叶路径。",
+      "切片与列表拼接可能隐藏额外复制成本。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,None,5]))",
+        "expected": [
+          {
+            "path": [
+              1,
+              2,
+              5
+            ],
+            "sum": 8
+          },
+          {
+            "path": [
+              1,
+              3
+            ],
+            "sum": 4
+          }
+        ]
+      },
+      {
+        "expression": "solve(None)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "tree-recap-bst",
+    "chapter": "二叉树",
+    "title": "搜索树验证阶段总结：区间约束与中序单调性",
+    "problem": "",
+    "kind": "总结",
+    "summary": "用全局区间验证结构，用中序顺序处理相邻差、连续频率和累计值，先统一重复值规则。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "搜索树性质作用于整个子树，不仅是直接孩子。验证有两条等价路线：向下传递祖先限定的区间，或中序检查整体严格递增。严格递增对应不允许重复值；若题目允许重复，非降序并不总能表达指定的只许放左或只许放右规则，需要区间额外携带边界是否包含。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "查找与最近公共祖先只沿一条路线，时间依赖 h。最小差值与众数要扫描整个中序，时间依赖 n。最小差值关注相邻差，众数关注相同值的连续次数；累加树采用反向中序，把已处理的更大值总和传给当前节点。它们共享有序性，但状态更新不同。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "插入、删除和修剪要返回变化后的子树入口并由父亲接回，验证只读不改树。累加树虽然也只改值，更新后通常失去原搜索树顺序，不能继续对新值使用原查找逻辑。比较前应明确算法处理的是原值还是变换后的值。",
+          "若检查的是允许重复且只许重复放右侧的树，仅验证中序非降序会漏掉左侧重复值。因此验证工具应忠实于具体定义，不宜把严格比较随意改成非严格比较后宣称通用。区间法可以通过端点是否允许相等来表达这类更精细的方向约束。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "下面中序验证模板只保留前驱，当前值必须严格大于前驱。previous=None 表示尚未访问第一个节点，不能拿零占位。失败时立即返回；成功意味着任意左子树值先于根且更小，任意右子树值后于根且更大，因此得到完整的严格搜索树条件。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    previous = None\n    stack, node = [], root\n    while node is not None or stack:\n        while node:\n            stack.append(node)\n            node = node.left\n        node = stack.pop()\n        if previous is not None and node.val <= previous:\n            return False\n        previous = node.val\n        node = node.right\n    return True\n",
+    "time": "O(n)。",
+    "space": "O(h) 栈。",
+    "example": {
+      "input": "[5,1,6,None,None,3,7]",
+      "output": "False",
+      "walkthrough": [
+        "中序前缀为 1、5、3。",
+        "3 不大于前驱 5。",
+        "全局顺序下降，证明该树不是严格搜索树。"
+      ]
+    },
+    "pitfalls": [
+      "重复值规则必须逐题确认。",
+      "不得以局部父子比较替代全局约束。",
+      "变换后的累加树不能继续按原搜索树性质查询。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([5,1,6,None,None,3,7]))",
+        "expected": false
+      },
+      {
+        "expression": "solve(tree([2,1,3]))",
+        "expected": true
+      },
+      {
+        "expression": "solve(None)",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "tree-recap",
+    "chapter": "二叉树",
+    "title": "二叉树总复习：由信息流选择算法",
+    "problem": "",
+    "kind": "总结",
+    "summary": "确定输入保证、返回契约与信息依赖，再选择遍历顺序和状态容器。",
+    "sections": [
+      {
+        "heading": "问题含义与边界",
+        "paragraphs": [
+          "面对树题，先问三个问题：输入是否有搜索树、完全树或完美树保证，空树如何处理，输出是数值统计、路径集合还是修改后的根。保证决定可用剪枝，输出决定返回类型。节点值相同与节点身份相同要分开；最近公共祖先和节点连接通常操作真实引用。"
+        ]
+      },
+      {
+        "heading": "核心思路与不变量",
+        "paragraphs": [
+          "自上而下的信息有目标余额、合法区间、当前路线；自下而上的信息有高度、平衡标志、目标出现报告。横向信息有每层统计和 next 连接。前两类分别适合带参数 DFS 与后序合并，横向任务适合 BFS 或沿现有同层链扫描；中序的特殊力量来自搜索树有序性。"
+        ]
+      },
+      {
+        "heading": "推导步骤与正确性",
+        "paragraphs": [
+          "空间评估须拆开递归或显式栈 O(h)、队列 O(w)、临时路径 O(h) 和输出规模。输出所有路径可能超过线性；重建和合并创建新节点，需要列出输出树空间。时间不只数节点，还要检查切片、字符串拼接、重复求高度和头部插入是否导致隐藏的平方开销。",
+          "复习时可以尝试给每个递归辅助函数写一句契约，例如返回当前子树高度、返回修剪后的入口、判断当前区间是否容纳所有后代。若一句话说不清返回值，应先调整设计再写代码。清楚的契约也让空树分支和父节点合并规则更容易逐项验证。"
+        ]
+      },
+      {
+        "heading": "Python 实现与迁移",
+        "paragraphs": [
+          "下面按层统计树的节点数、高度与最大层宽，作为统一诊断模板。它能说明同样 n 的树为何具有不同空间表现：链状树宽度一但高度大，宽树则相反。学习完成后，可以用这些统计设计测试：空树、单节点、长链、负值、缺孩子、极宽层和具有深层祖先约束冲突的搜索树反例。"
+        ]
+      }
+    ],
+    "code": "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef tree(values):\n    \"\"\"按层序构造测试树；None 表示缺失孩子。\"\"\"\n    if not values or values[0] is None:\n        return None\n    root = TreeNode(values[0])\n    queue = deque([root])\n    i = 1\n    while queue and i < len(values):\n        node = queue.popleft()\n        for side in (\"left\", \"right\"):\n            if i >= len(values):\n                break\n            value = values[i]\n            i += 1\n            if value is not None:\n                child = TreeNode(value)\n                setattr(node, side, child)\n                queue.append(child)\n    return root\n\ndef values(root):\n    \"\"\"返回去掉末尾空位的层序数组，便于核验结构。\"\"\"\n    if root is None:\n        return []\n    answer, queue = [], deque([root])\n    while queue:\n        node = queue.popleft()\n        if node is None:\n            answer.append(None)\n        else:\n            answer.append(node.val)\n            queue.append(node.left)\n            queue.append(node.right)\n    while answer and answer[-1] is None:\n        answer.pop()\n    return answer\n\ndef solve(root):\n    if root is None:\n        return {\"nodes\": 0, \"height\": 0, \"width\": 0}\n    queue = deque([root])\n    nodes = height = width = 0\n    while queue:\n        size = len(queue)\n        height += 1\n        width = max(width, size)\n        nodes += size\n        for _ in range(size):\n            node = queue.popleft()\n            if node.left:\n                queue.append(node.left)\n            if node.right:\n                queue.append(node.right)\n    return {\"nodes\": nodes, \"height\": height, \"width\": width}\n",
+    "time": "O(n)。",
+    "space": "O(w) 队列；统计输出大小 O(1)。",
+    "example": {
+      "input": "[1,2,3,4,5,6,7]",
+      "output": "节点数 7，高度 3，最大层宽 4",
+      "walkthrough": [
+        "各层大小为 1、2、4。",
+        "累计节点数，逐层增加高度。",
+        "最大层大小给出宽度 4。"
+      ]
+    },
+    "pitfalls": [
+      "不要把所有二叉树都当成搜索树或平衡树。",
+      "返回修改后的入口后，调用者要保存新根。",
+      "复杂度须包括输出和隐式复制。"
+    ],
+    "tests": [
+      {
+        "expression": "solve(tree([1,2,3,4,5,6,7]))",
+        "expected": {
+          "nodes": 7,
+          "height": 3,
+          "width": 4
+        }
+      },
+      {
+        "expression": "solve(None)",
+        "expected": {
+          "nodes": 0,
+          "height": 0,
+          "width": 0
+        }
+      }
+    ]
+  }
+]

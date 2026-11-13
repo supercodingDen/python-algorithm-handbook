@@ -1,0 +1,1964 @@
+[
+  {
+    "id": "array-theory",
+    "chapter": "数组",
+    "title": "数组：下标、连续区间与原地修改",
+    "problem": "",
+    "kind": "理论",
+    "summary": "用下标定位元素，用区间不变量解释遍历与原地写入。",
+    "sections": [
+      {
+        "heading": "数组的语义",
+        "paragraphs": [
+          "Python 的 list 是可变的引用序列。a[i] 能按下标定位元素，但删除 a[i] 会让后面的元素整体左移；因此按位置读取和在中间删除具有不同代价。算法题中的“数组”通常让我们关心下标，而不要求研究底层内存。"
+        ]
+      },
+      {
+        "heading": "区间如何表达",
+        "paragraphs": [
+          "本章统一区分闭区间 [left,right] 和左闭右开区间 [left,right)。后者长度直接是 right-left，空区间用两个相等端点表示，适合切片和前缀和。选择一种表示后，循环条件、边界更新和求和公式必须一起匹配。"
+        ]
+      },
+      {
+        "heading": "读指针与写指针",
+        "paragraphs": [
+          "遍历时避免边读边删除。让 read 负责检查原始元素，write 标记结果下一处位置；在每轮结束后，a[:write] 恰好是已经读过的部分对应的合法结果。这条不变量可以证明过滤正确，也解释为什么 write 不会超过 read。"
+        ]
+      },
+      {
+        "heading": "Python 的实现代价",
+        "paragraphs": [
+          "切片会创建新列表，a[:]、a[l:r] 都要计入额外空间。下面的压缩模板只覆盖已有位置，返回有效长度。列表末尾可能还留有旧值，调用者应当只读取有效前缀；若必须缩短列表，再单独删除尾部。"
+        ]
+      }
+    ],
+    "code": "def compact_even(a):\n    write = 0\n    for read in range(len(a)):\n        if a[read] % 2 == 0:\n            a[write] = a[read]\n            write += 1\n    return write\n",
+    "time": "遍历 n 个元素，O(n)。",
+    "space": "原地修改，O(1)；展示结果时的切片另占 O(k)。",
+    "example": {
+      "input": "[3,2,4,5]",
+      "output": "有效长度 2，有效前缀 [2,4]",
+      "walkthrough": [
+        "3 被跳过，write 保持 0。",
+        "2、4 依次写到位置 0、1。",
+        "尾部不属于结果。"
+      ]
+    },
+    "pitfalls": [
+      "不要用剩余列表长度判断有效结果长度。",
+      "for 中反复 remove 会导致漏读且可能退化为平方时间。"
+    ],
+    "tests": [
+      {
+        "expression": "compact_even([3,2,4,5])",
+        "expected": 2
+      },
+      {
+        "expression": "compact_even([])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "array-binary-search",
+    "chapter": "数组",
+    "title": "704. 二分查找",
+    "problem": "704",
+    "kind": "题解",
+    "summary": "在有序数组的半开区间中保留可能包含目标的部分。",
+    "sections": [
+      {
+        "heading": "题意与必要前提",
+        "paragraphs": [
+          "给定按升序排列的整数数组和 target，找到目标时返回下标，否则返回 -1。经典题目元素互异；若允许重复，下面程序返回某个匹配位置，并不承诺第一个。二分依赖有序性，不能直接应用于任意数组，也不能把排序后的位置当作原位置。"
+        ]
+      },
+      {
+        "heading": "候选区间不变量",
+        "paragraphs": [
+          "维护左闭右开的候选区间 [left,right)。循环开始时，如果目标存在且尚未返回，其位置一定在这个区间中。mid 比目标小时，mid 及其左侧都不可能是答案，于是 left=mid+1；mid 比目标大时，保留 mid 左侧并设置 right=mid。"
+        ]
+      },
+      {
+        "heading": "为什么不会漏掉答案",
+        "paragraphs": [
+          "初始区间覆盖所有下标。每次比较都借助有序关系排除一块已证明不含目标的区域，其余区域完整保留。命中时直接返回；区间长度每次严格减小，最终 left==right 表示候选为空，所以可以返回 -1。这里不需要额外检查端点，也适用于空数组。"
+        ]
+      },
+      {
+        "heading": "Python 实现细节",
+        "paragraphs": [
+          "使用 (left+right)//2 取得中点，Python 整数没有固定字长溢出问题。right 初始为 len(nums)，但它从来不作为读取下标。不要把 right=mid 改成 mid-1：那属于另一种闭区间写法，混用会遗漏元素。二分的价值来自每次缩减约一半候选，而非单纯使用两个变量。"
+        ]
+      }
+    ],
+    "code": "def binary_search(nums, target):\n    left, right = 0, len(nums)\n    while left < right:\n        mid = (left + right) // 2\n        if nums[mid] == target:\n            return mid\n        if nums[mid] < target:\n            left = mid + 1\n        else:\n            right = mid\n    return -1\n",
+    "time": "n 为数组长度，O(log(n+1))。",
+    "space": "O(1)。",
+    "example": {
+      "input": "nums=[-1,0,3,5,9,12], target=9",
+      "output": "4",
+      "walkthrough": [
+        "[0,6) 的 mid=3，5<9，保留 [4,6)。",
+        "mid=5，12>9，保留 [4,5)。",
+        "mid=4 命中 9。"
+      ]
+    },
+    "pitfalls": [
+      "数组必须满足升序前提。",
+      "不要混用闭区间与半开区间更新规则。",
+      "重复元素需要另写边界二分才能找最左位置。"
+    ],
+    "tests": [
+      {
+        "expression": "binary_search([-1,0,3,5,9,12],9)",
+        "expected": 4
+      },
+      {
+        "expression": "binary_search([],4)",
+        "expected": -1
+      },
+      {
+        "expression": "binary_search([1],0)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "array-remove-element",
+    "chapter": "数组",
+    "title": "27. 移除元素",
+    "problem": "27",
+    "kind": "题解",
+    "summary": "稳定地把保留元素写入前缀，返回前缀长度。",
+    "sections": [
+      {
+        "heading": "结果是长度加前缀",
+        "paragraphs": [
+          "题目要求原地移除所有等于 val 的元素，返回有效长度 k。返回后 nums[:k] 是保留结果，k 之后的值没有要求。这不同于必须让 Python 列表真的缩短，也不同于返回一个新数组。下面还额外保持保留元素的相对次序。"
+        ]
+      },
+      {
+        "heading": "两个指针承担不同职责",
+        "paragraphs": [
+          "read 指向正在审查的元素，write 指向下一个保留位置。读取到 val 时只前进 read；读取到其他值时，将其覆盖写到 nums[write]，再增加 write。因为每次最多写一个元素，write 始终不大于 read，覆盖不会破坏尚未处理的内容。"
+        ]
+      },
+      {
+        "heading": "正确性来自前缀",
+        "paragraphs": [
+          "处理前 r 个原元素后，nums[:write] 恰好包含其中所有不等于 val 的元素，且顺序一致。初始空前缀显然满足；遇到删除值不改变结果，遇到保留值追加到前缀末尾，所以不变量一直成立。遍历结束时，它覆盖全部输入并且 write 正是所需长度。"
+        ]
+      },
+      {
+        "heading": "Python 中的原地操作",
+        "paragraphs": [
+          "用下标赋值即可完成覆盖，没有切片复制。不要在 for 遍历中调用 remove：列表长度和下标同时变化容易跳过相邻的待删值；而每次删除还可能搬移很多元素。示例中的包装函数只为方便展示有效前缀，包装产生的切片不属于核心算法的空间开销。",
+          "若题目允许打乱顺序，也可用尾元素覆盖待删位置，但需要重新检查被换来的值。本文选择稳定压缩，让正确性与输出顺序更容易核对。"
+        ]
+      }
+    ],
+    "code": "def remove_element(nums, val):\n    write = 0\n    for read in range(len(nums)):\n        if nums[read] != val:\n            nums[write] = nums[read]\n            write += 1\n    return write\n\ndef retained(nums, val):\n    k = remove_element(nums, val)\n    return nums[:k]\n",
+    "time": "O(n)。",
+    "space": "核心算法 O(1)；retained 展示函数 O(k)。",
+    "example": {
+      "input": "nums=[3,2,2,3], val=3",
+      "output": "k=2，前缀 [2,2]",
+      "walkthrough": [
+        "第一个 3 被跳过。",
+        "两个 2 分别覆盖位置 0、1。",
+        "最后一个 3 被跳过，write=2。"
+      ]
+    },
+    "pitfalls": [
+      "有效结果只到 k，不要求清空尾部。",
+      "直接构造列表推导式不是原地算法。"
+    ],
+    "tests": [
+      {
+        "expression": "retained([3,2,2,3],3)",
+        "expected": [
+          2,
+          2
+        ]
+      },
+      {
+        "expression": "remove_element([1,1],1)",
+        "expected": 0
+      },
+      {
+        "expression": "retained([],2)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "array-sorted-squares",
+    "chapter": "数组",
+    "title": "977. 有序数组的平方",
+    "problem": "977",
+    "kind": "题解",
+    "summary": "平方的最大值位于当前区间两端，从结果尾部向前填。",
+    "sections": [
+      {
+        "heading": "平方改变了顺序",
+        "paragraphs": [
+          "输入 nums 已按非降序排列，要求输出每个元素的平方并仍按非降序排列。负数平方后可能比正数更大，因此不能直接逐个平方就宣称结果有序。例如 [-4,-1,0,3] 平方得到 [16,1,0,9]。直接排序可行，但没有利用输入已有的顺序。"
+        ]
+      },
+      {
+        "heading": "两端为何足够",
+        "paragraphs": [
+          "在一个有序区间内，绝对值最大者必定在左端或右端：负数方向越靠左越远离零，正数方向越靠右越远离零。比较两端的平方，较大的就是当前剩余元素的最大平方。把它填到结果尚未使用的最后一个位置，再缩短对应一侧。"
+        ]
+      },
+      {
+        "heading": "从后向前建立有序结果",
+        "paragraphs": [
+          "循环中 out[pos+1:] 已包含全部处理过的最大平方，而且顺序正确。新选出的值是未处理部分的最大值，不大于已经放好的后缀首元素；写在 pos 后仍保持整体非降序。每轮恰好消耗一个输入，n 轮后所有输出位置都有值，不需要额外的合并阶段。"
+        ]
+      },
+      {
+        "heading": "实现与边界",
+        "paragraphs": [
+          "先分配长度为 n 的结果列表，left=0、right=n-1，pos 从 n-1 降到 0。即使两端平方相同，选择任一端也正确。空数组使循环自动不执行。输入不被修改；所需输出空间是 O(n)，如果按排除输出的口径分析，辅助变量只有常数个。",
+          "例如输入全是负数 [-5,-3,-1] 时，最大平方总从左端取；输入全是非负数时，最大平方总从右端取。这两个极端也由同一循环处理。"
+        ]
+      }
+    ],
+    "code": "def sorted_squares(nums):\n    out = [0] * len(nums)\n    left, right = 0, len(nums) - 1\n    for pos in range(len(nums) - 1, -1, -1):\n        a, b = nums[left] ** 2, nums[right] ** 2\n        if a > b:\n            out[pos] = a\n            left += 1\n        else:\n            out[pos] = b\n            right -= 1\n    return out\n",
+    "time": "O(n)，每个输入只消耗一次。",
+    "space": "结果 O(n)，除结果外辅助空间 O(1)。",
+    "example": {
+      "input": "[-4,-1,0,3,10]",
+      "output": "[0,1,9,16,100]",
+      "walkthrough": [
+        "100 放到末尾，移走右端 10。",
+        "比较 16 与 9，16 放到倒数第二位。",
+        "继续选 9、1、0，逆向填满。"
+      ]
+    },
+    "pitfalls": [
+      "必须从结果尾部填最大值。",
+      "全部负数也要正确处理。",
+      "输出空间与额外辅助空间口径应说明。"
+    ],
+    "tests": [
+      {
+        "expression": "sorted_squares([-4,-1,0,3,10])",
+        "expected": [
+          0,
+          1,
+          9,
+          16,
+          100
+        ]
+      },
+      {
+        "expression": "sorted_squares([])",
+        "expected": []
+      },
+      {
+        "expression": "sorted_squares([-3,-2])",
+        "expected": [
+          4,
+          9
+        ]
+      }
+    ]
+  },
+  {
+    "id": "array-min-subarray",
+    "chapter": "数组",
+    "title": "209. 长度最小的子数组",
+    "problem": "209",
+    "kind": "题解",
+    "summary": "正数保证窗口和单调变化，每次满足条件就尽量收缩。",
+    "sections": [
+      {
+        "heading": "题意强调连续与正数",
+        "paragraphs": [
+          "给定正整数数组 nums 和正整数 target，求总和至少 target 的连续子数组最短长度，不存在时返回 0。连续意味着不能跳着选元素。正数前提决定了滑动窗口可行：加进右端元素会增大和，移走左端元素会减小和。若允许负数，这两条性质消失，需要其他方法。"
+        ]
+      },
+      {
+        "heading": "扩张寻找可行窗口",
+        "paragraphs": [
+          "维护闭区间 [left,right] 及其和 total。右端每次加入一个新元素；当 total 小于 target 时，当前窗口不可行，继续右移才有机会达到目标。一旦达到目标，先记录长度，再反复移走左端，直到窗口重新不可行。这里必须使用 while，因为一次收缩可能仍然满足要求。"
+        ]
+      },
+      {
+        "heading": "为什么只需这些窗口",
+        "paragraphs": [
+          "固定右端时，收缩阶段会访问所有仍满足阈值的候选并记录其中最短者。被移走的起点已经有了以当前右端结尾的可行答案；以后右端更大，从同一个起点得到的长度只会更长，因此无需再考虑它。左右边界都只前进，虽有嵌套循环，总移动次数仍然是线性的。"
+        ]
+      },
+      {
+        "heading": "Python 与无解情况",
+        "paragraphs": [
+          "把 best 初始化为 n+1，表示还没有找到答案；结束后若未更新则返回 0。窗口和用一个整数持续更新，不反复 sum(nums[left:right+1])，否则求和及切片会重复扫描。输入前提应明确写在说明中，不能把这段代码作为处理任意整数的通用模板。"
+        ]
+      }
+    ],
+    "code": "def min_subarray_len(target, nums):\n    left = total = 0\n    best = len(nums) + 1\n    for right, value in enumerate(nums):\n        total += value\n        while total >= target:\n            best = min(best, right - left + 1)\n            total -= nums[left]\n            left += 1\n    return 0 if best == len(nums) + 1 else best\n",
+    "time": "O(n)，左右指针各移动最多 n 次。",
+    "space": "O(1)。",
+    "example": {
+      "input": "target=7, nums=[2,3,1,2,4,3]",
+      "output": "2",
+      "walkthrough": [
+        "右端到 2 时窗口 [2,3,1,2] 和为 8，记录 4 并收缩。",
+        "右端到 4 时出现长度 3 的可行窗口。",
+        "最后窗口 [4,3] 满足和为 7，得到长度 2。"
+      ]
+    },
+    "pitfalls": [
+      "含负数时此算法不成立。",
+      "收缩用 while 而不是 if。",
+      "题目要求连续子数组，不能排序。"
+    ],
+    "tests": [
+      {
+        "expression": "min_subarray_len(7,[2,3,1,2,4,3])",
+        "expected": 2
+      },
+      {
+        "expression": "min_subarray_len(10,[1,2])",
+        "expected": 0
+      },
+      {
+        "expression": "min_subarray_len(1,[1])",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": "array-prefix-sum",
+    "chapter": "数组",
+    "title": "前缀和：多次查询区间总和",
+    "problem": "",
+    "kind": "题解",
+    "summary": "预先保存左侧累计和，把每次区间查询化为两次读取。",
+    "sections": [
+      {
+        "heading": "问题与约定",
+        "paragraphs": [
+          "给定一个静态整数数组，反复查询下标从 left 到 right 的元素和，两个端点都包含。数组可以有负数，因为前缀和依赖加法抵消，并不需要单调性。若只有一次查询，直接求和也很合理；当查询数量大且数组不变时，预处理能明显减少重复计算。"
+        ]
+      },
+      {
+        "heading": "多放一个零",
+        "paragraphs": [
+          "定义 prefix[i] 是原数组前 i 个元素的总和，因此 prefix[0]=0，prefix[i+1]=prefix[i]+nums[i]。闭区间 [left,right] 的和等于 prefix[right+1]-prefix[left]：前者包含截至 right 的全部元素，后者扣掉 left 前的部分。这个额外的零让 left=0 无需特殊分支。"
+        ]
+      },
+      {
+        "heading": "从定义证明查询公式",
+        "paragraphs": [
+          "把累计和拆为两个相邻部分：prefix[right+1] 等于 prefix[left] 加上 nums[left] 到 nums[right]。移项即可得到公式，负数也一样成立。构建时每一轮在正确的前 i 项和后追加 nums[i]，于是整个 prefix 都符合定义；查询只读取已算好的两个值。"
+        ]
+      },
+      {
+        "heading": "接口与可变性",
+        "paragraphs": [
+          "下面函数返回前缀列表，查询函数校验 0<=left<=right<n，越界会显式报错而不是利用 Python 的负下标悄悄得到错误结果。原数组更新后旧 prefix 不会自动更新；如果要频繁修改和查询，应考虑树状数组等结构。不要在每次查询时重新构建前缀，那会失去预处理的价值。"
+        ]
+      }
+    ],
+    "code": "def build_prefix(nums):\n    prefix = [0]\n    for value in nums:\n        prefix.append(prefix[-1] + value)\n    return prefix\n\ndef interval_sum(prefix, left, right):\n    if not (0 <= left <= right < len(prefix) - 1):\n        raise ValueError(\"invalid interval\")\n    return prefix[right + 1] - prefix[left]\n",
+    "time": "构建 O(n)，每次查询 O(1)，q 次查询总 O(n+q)。",
+    "space": "前缀数组 O(n)。",
+    "example": {
+      "input": "nums=[2,-1,3,5], 查询 [1,3]",
+      "output": "7",
+      "walkthrough": [
+        "构建 [0,2,1,4,9]。",
+        "prefix[4] 表示前四项和 9。",
+        "减去 prefix[1]=2，得到 7。"
+      ]
+    },
+    "pitfalls": [
+      "闭区间右端要使用 right+1。",
+      "数组修改后必须更新对应的数据结构。",
+      "Python 负下标不会自动提醒逻辑错误。"
+    ],
+    "tests": [
+      {
+        "expression": "interval_sum(build_prefix([2,-1,3,5]),1,3)",
+        "expected": 7
+      },
+      {
+        "expression": "interval_sum(build_prefix([4]),0,0)",
+        "expected": 4
+      }
+    ]
+  },
+  {
+    "id": "array-land-partition",
+    "chapter": "数组",
+    "title": "开发商购买土地：一刀划分的最小差",
+    "problem": "",
+    "kind": "题解",
+    "summary": "把二维网格的水平或垂直切割转成行和与列和的前缀扫描。",
+    "sections": [
+      {
+        "heading": "划分规则决定模型",
+        "paragraphs": [
+          "设非负整数网格表示每块土地的价值，必须沿整条行间或列间边界切一刀，把网格分成两个非空矩形，目标是两边总价值差最小。只能选择 m-1 条水平界线或 n-1 条垂直界线，不能任意挑块，也不能同时横竖切。单个格子无法合法划分，下面返回 None。"
+        ]
+      },
+      {
+        "heading": "二维信息压成两个方向",
+        "paragraphs": [
+          "先计算每行总和 row_sums 和每列总和 col_sums，再得到总价值 total。若横向切在第 k 行之后，上方价值就是前 k 行的累计和 part，下方是 total-part，两边差为 abs(total-2*part)。竖向划分用列和做同样运算，因此无需对每一条界线重新扫描整个网格。"
+        ]
+      },
+      {
+        "heading": "枚举完整且不重复",
+        "paragraphs": [
+          "水平划分由它上方包含多少行唯一确定，依次累加前 m-1 行恰好覆盖所有合法水平切法。列方向同理。最后一行或列不能纳入前侧，否则后侧为空。对全部候选差值取最小值就是全局最优，无需凭局部价值大小猜测切割位置。"
+        ]
+      },
+      {
+        "heading": "实现中的输入检查",
+        "paragraphs": [
+          "示例把空网格、参差不齐的行视为无效输入并抛出异常；一行多列只能尝试竖切，一列多行只能横切。累计量使用整数，避免不必要的浮点平均与精度问题。非负前提符合土地价值语境，但求差和完整枚举本身对于任意整数权值也成立。",
+          "小规模验证可以直接逐一求两侧格子总和，与压缩结果比较。特别测试全零网格，所有合法切法差都为零，但单格仍然没有合法界线。"
+        ]
+      }
+    ],
+    "code": "def min_land_difference(grid):\n    if not grid or not grid[0]:\n        raise ValueError(\"grid must be nonempty\")\n    rows, cols = len(grid), len(grid[0])\n    if any(len(row) != cols for row in grid):\n        raise ValueError(\"ragged grid\")\n    row_sums = [sum(row) for row in grid]\n    col_sums = [sum(grid[r][c] for r in range(rows)) for c in range(cols)]\n    total = sum(row_sums)\n    best = None\n    for sums in (row_sums, col_sums):\n        part = 0\n        for i in range(len(sums) - 1):\n            part += sums[i]\n            diff = abs(total - 2 * part)\n            best = diff if best is None else min(best, diff)\n    return best\n",
+    "time": "m 行 n 列，O(mn+m+n)，非空网格可简写 O(mn)。",
+    "space": "行和、列和占 O(m+n)。",
+    "example": {
+      "input": "[[1,2,3],[4,5,6]]",
+      "output": "3",
+      "walkthrough": [
+        "总值 21；横切得到 6 与 15，差 9。",
+        "第一列后竖切得到 5 与 16，差 11。",
+        "第二列后竖切得到 12 与 9，差 3。"
+      ]
+    },
+    "pitfalls": [
+      "不能沿最后一行或最后一列后切。",
+      "题目限定一条完整直线，不能按单格任意分组。",
+      "1×1 的无合法切法需要明确约定。"
+    ],
+    "tests": [
+      {
+        "expression": "min_land_difference([[1,2,3],[4,5,6]])",
+        "expected": 3
+      },
+      {
+        "expression": "min_land_difference([[2,5]])",
+        "expected": 3
+      },
+      {
+        "expression": "min_land_difference([[7]])",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": "array-spiral-matrix",
+    "chapter": "数组",
+    "title": "59. 螺旋矩阵 II",
+    "problem": "59",
+    "kind": "题解",
+    "summary": "用四条边界描述尚未填充的矩形，逐层顺时针写入。",
+    "sections": [
+      {
+        "heading": "目标与遍历顺序",
+        "paragraphs": [
+          "给定正整数 n，生成 n×n 矩阵，从左上角开始按右、下、左、上的方向顺时针填写 1 到 n²。为了便于模板复用，代码也允许 n=0 返回空矩阵，负数则报错。问题重点不是数值计算，而是边界变化后是否出现重复写入和越界。"
+        ]
+      },
+      {
+        "heading": "剩余区域是一个矩形",
+        "paragraphs": [
+          "维护 top、bottom、left、right 四个闭区间边界，它们围住全部尚未写入的格子。先写上边并 top+=1，再写右边并 right-=1。接着仅当 top<=bottom 时写下边，最后仅当 left<=right 时写左边。每条边写完就从候选矩形剥离，后续方向使用新的边界。"
+        ]
+      },
+      {
+        "heading": "避免中心行列被重写",
+        "paragraphs": [
+          "当剩余区域只是一行时，上边已把它全部写完，top 会超过 bottom，所以下边必须跳过；只剩一列的情况也相同。每个被写格子都位于当前边缘，写完后这条边被移出剩余区域，因此不会再次访问。外层条件保证非空矩形才进入下一轮，覆盖且仅覆盖 n² 个位置。"
+        ]
+      },
+      {
+        "heading": "Python 矩阵的独立行",
+        "paragraphs": [
+          "必须用 [[0]*n for _ in range(n)] 创建矩阵，而不是 [[0]*n]*n；后者多行共享同一个列表，写一个格子会同时改变其他行。range 的终点不包含在内，倒序边需要用 left-1 或 top-1 作为停止值。小规模 n=1、n=2 最适合检查中心与方向边界。"
+        ]
+      }
+    ],
+    "code": "def generate_matrix(n):\n    if n < 0:\n        raise ValueError(\"n must be nonnegative\")\n    out = [[0] * n for _ in range(n)]\n    top, bottom, left, right = 0, n - 1, 0, n - 1\n    value = 1\n    while top <= bottom and left <= right:\n        for c in range(left, right + 1):\n            out[top][c] = value\n            value += 1\n        top += 1\n        for r in range(top, bottom + 1):\n            out[r][right] = value\n            value += 1\n        right -= 1\n        if top <= bottom:\n            for c in range(right, left - 1, -1):\n                out[bottom][c] = value\n                value += 1\n            bottom -= 1\n        if left <= right:\n            for r in range(bottom, top - 1, -1):\n                out[r][left] = value\n                value += 1\n            left += 1\n    return out\n",
+    "time": "写入 n² 个格子，O(n²)。",
+    "space": "输出 O(n²)，除输出外 O(1)。",
+    "example": {
+      "input": "n=3",
+      "output": "[[1,2,3],[8,9,4],[7,6,5]]",
+      "walkthrough": [
+        "上边填 1、2、3，右边填 4、5。",
+        "下边填 6、7，左边填 8。",
+        "剩余中心填 9。"
+      ]
+    },
+    "pitfalls": [
+      "重复引用的二维列表会导致同行互相影响。",
+      "退化成一行或一列时仍需条件判断。",
+      "倒序 range 的终点不包含在内。"
+    ],
+    "tests": [
+      {
+        "expression": "generate_matrix(3)",
+        "expected": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            8,
+            9,
+            4
+          ],
+          [
+            7,
+            6,
+            5
+          ]
+        ]
+      },
+      {
+        "expression": "generate_matrix(1)",
+        "expected": [
+          [
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "generate_matrix(0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "array-recap",
+    "chapter": "数组",
+    "title": "数组小结：让前提决定工具",
+    "problem": "",
+    "kind": "总结",
+    "summary": "先识别顺序、正数、查询次数和原地限制，再选择对应的不变量。",
+    "sections": [
+      {
+        "heading": "顺序提供什么信息",
+        "paragraphs": [
+          "二分用升序关系排除一半候选；有序平方用端点的绝对值比较选出最大者。两个算法都读取有序输入，却有不同的不变量。遇到数组题先明确顺序能推出哪些元素不可能是答案，而不是看到有序就一律套二分。"
+        ]
+      },
+      {
+        "heading": "连续区间的两条路线",
+        "paragraphs": [
+          "正数最短窗口依赖扩张增和、收缩减和的单调性；前缀和依赖加法抵消，可以处理负数。滑动窗口适合维护逐步改变的候选区间，前缀和适合静态数组上的大量已知区间查询。不能把两者的使用前提互相替代。"
+        ]
+      },
+      {
+        "heading": "原地与新输出",
+        "paragraphs": [
+          "移除元素通过读写指针压缩前缀，旧尾部不参与答案；平方和矩阵生成天然需要新输出。分析空间时区分结果容器与额外辅助结构，并说明所采用的口径。Python 切片、排序复制、列表推导式都可能增加内存。"
+        ]
+      },
+      {
+        "heading": "边界检查的顺序",
+        "paragraphs": [
+          "先测空输入和单元素，再测所有元素被移除、全负平方、无解窗口及矩阵中心。下面用一个半开区间模板计算固定区间和，强调边界表示必须与操作匹配。边界用文字写清后，代码中的加一减一才有依据。"
+        ]
+      }
+    ],
+    "code": "def half_open_sum(nums, left, right):\n    if not 0 <= left <= right <= len(nums):\n        raise ValueError(\"invalid interval\")\n    total = 0\n    for i in range(left, right):\n        total += nums[i]\n    return total\n",
+    "time": "长度为 k 的查询区间，O(k)。",
+    "space": "O(1)。",
+    "example": {
+      "input": "nums=[1,2,3], 区间 [1,3)",
+      "output": "5",
+      "walkthrough": [
+        "左端 1 被包含。",
+        "右端 3 不被读取。",
+        "累加位置 1、2 的元素。"
+      ]
+    },
+    "pitfalls": [
+      "区间写法必须贯穿循环、公式和更新。",
+      "题目前提不满足时不要照搬模板。"
+    ],
+    "tests": [
+      {
+        "expression": "half_open_sum([1,2,3],1,3)",
+        "expected": 5
+      }
+    ]
+  },
+  {
+    "id": "linked-theory",
+    "chapter": "链表",
+    "title": "链表：节点身份与连接关系",
+    "problem": "",
+    "kind": "理论",
+    "summary": "链表操作改变的是 next 关系，值相等不代表节点相同。",
+    "sections": [
+      {
+        "heading": "结构和访问代价",
+        "paragraphs": [
+          "单链表节点保存一个值和指向下一节点的 next；头指针指向第一个节点，空链表用 None 表示。链表不像数组能按下标直接定位，第 k 个节点必须从头走 k 步。已知前驱节点时，插入或移除一个节点只需要修改常数条连接。"
+        ]
+      },
+      {
+        "heading": "值、引用和身份",
+        "paragraphs": [
+          "两个 ListNode(3) 可以存储相同值，但它们是两个独立对象。交点与环检测关心节点身份，应该用 is 判断，而不是比较 val。变量赋值只是让另一个名字引用同一节点，不会复制整条链表；修改 next 会被所有引用该节点的地方看到。"
+        ]
+      },
+      {
+        "heading": "虚拟头节点",
+        "paragraphs": [
+          "dummy.next 指向真实头节点，把删除头部与删除中间节点统一成“修改前驱的 next”。虚拟头不属于答案，最终返回 dummy.next。它降低边界分支数量，却不能免除空指针检查；访问 node.next 前仍需确认 node 存在。"
+        ]
+      },
+      {
+        "heading": "先保存再断开",
+        "paragraphs": [
+          "修改 cur.next 前先保存 nxt=cur.next，否则可能失去未处理部分的入口。画出修改前后的箭头，区分当前节点、前驱、后继，有助于避免环或断链。下面示例在非空链表头前插入节点，保留原有头部并返回新的入口。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef prepend(head, value):\n    return ListNode(value, head)\n",
+    "time": "建表和转列表 O(n)，prepend O(1)。",
+    "space": "建表 O(n)；prepend 增加一个节点 O(1)，转列表 O(n)。",
+    "example": {
+      "input": "head=[2,3], 插入 1",
+      "output": "[1,2,3]",
+      "walkthrough": [
+        "新节点值为 1。",
+        "新节点 next 指向原 head。",
+        "返回新节点作为头。"
+      ]
+    },
+    "pitfalls": [
+      "节点相等值不意味着节点身份相同。",
+      "链表按下标查找不是常数时间。"
+    ],
+    "tests": [
+      {
+        "expression": "list_values(prepend(build_list([2,3]),1))",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "id": "linked-remove-elements",
+    "chapter": "链表",
+    "title": "203. 移除链表元素",
+    "problem": "203",
+    "kind": "题解",
+    "summary": "保持前驱指向已保留前缀的末尾，连续删除也不会漏掉。",
+    "sections": [
+      {
+        "heading": "删除对象与返回入口",
+        "paragraphs": [
+          "给定单链表 head 与整数 val，移除所有值等于 val 的节点并返回新头。节点可能出现在头部、尾部或连续成段；整个链表也可能被删空。算法通过重新连接保留节点完成移除，不需要改变节点值，也不需要申请一条结果链表。"
+        ]
+      },
+      {
+        "heading": "统一头部和中间位置",
+        "paragraphs": [
+          "创建 dummy 并让 dummy.next=head，prev 初始指向 dummy。只要 prev.next 存在，就检查这个后继。如果它应删除，把 prev.next 指向后继的后继；否则将 prev 前进到这个保留节点。删除后不前进 prev，才能继续检查紧接着的另一个待删节点。"
+        ]
+      },
+      {
+        "heading": "前驱不变量",
+        "paragraphs": [
+          "每轮开始时，dummy 到 prev 的链路只包含已确认保留的节点，prev.next 是第一处尚未处理的位置。删除操作绕过不合法节点但保持前缀末尾不变；保留操作把合法节点加入前缀。每次都使未处理节点数减少一，因此终止时所有保留节点按原顺序串在一起。"
+        ]
+      },
+      {
+        "heading": "Python 引用说明",
+        "paragraphs": [
+          "被绕过的节点会失去结果链表的引用，但是否立即释放由其他引用与内存管理决定，不需要显式 del。代码只改变 next，返回 dummy.next，而不是 dummy。空输入无需特别分支，循环不会执行。测试时把结果转成列表便于断言，但转换空间不属于移除过程。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef remove_nodes(head, val):\n    dummy = ListNode(next=head)\n    prev = dummy\n    while prev.next is not None:\n        if prev.next.val == val:\n            prev.next = prev.next.next\n        else:\n            prev = prev.next\n    return dummy.next\n",
+    "time": "O(n)。",
+    "space": "核心 O(1)，仅一个虚拟节点；测试转换 O(n)。",
+    "example": {
+      "input": "[1,2,6,3,6], val=6",
+      "output": "[1,2,3]",
+      "walkthrough": [
+        "保留 1、2，prev 到 2。",
+        "绕过第一个 6，prev 仍在 2。",
+        "保留 3 后再绕过末尾 6。"
+      ]
+    },
+    "pitfalls": [
+      "删除后不能立即前进 prev。",
+      "返回 dummy.next，避免把虚拟节点当答案。"
+    ],
+    "tests": [
+      {
+        "expression": "list_values(remove_nodes(build_list([1,2,6,3,6]),6))",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "expression": "list_values(remove_nodes(build_list([7,7]),7))",
+        "expected": []
+      },
+      {
+        "expression": "remove_nodes(None,1) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-design",
+    "chapter": "链表",
+    "title": "707. 设计链表",
+    "problem": "707",
+    "kind": "题解",
+    "summary": "用虚拟头和长度把按下标查询、插入、删除的边界统一起来。",
+    "sections": [
+      {
+        "heading": "需要实现的接口",
+        "paragraphs": [
+          "实现 get、addAtHead、addAtTail、addAtIndex 和 deleteAtIndex。get 越界返回 -1；删除越界不操作；插入 index 等于长度时允许尾插，大于长度时忽略，负 index 按头插处理。必须先落实这些接口语义，不能依赖 Python 负下标行为。"
+        ]
+      },
+      {
+        "heading": "定位前驱才好修改",
+        "paragraphs": [
+          "使用虚拟头 dummy 和 size。对插入或删除位置 index，从 dummy 前进 index 次就得到该位置的前驱。插入时新节点指向旧后继，再把前驱接到新节点；删除时前驱直接跨过后继。查询则从 dummy.next 前进 index 次访问真实节点。"
+        ]
+      },
+      {
+        "heading": "长度与连接共同维护",
+        "paragraphs": [
+          "size 表示真实节点数量，每次成功插入加一、成功删除减一，失败操作不改长度。新增节点连接旧后继后才能接入主链，否则可能丢失剩余节点。所有合法位置都能由 dummy 到达对应前驱，包括 index=0；因此头节点更换无需写独立的指针逻辑。"
+        ]
+      },
+      {
+        "heading": "复杂度与取舍",
+        "paragraphs": [
+          "本实现是最简单链表，没有缓存尾节点，尾插通过遍历到前驱完成。它的接口清晰，但尾插不是常数时间；加入尾指针可优化尾插，却会使删除尾节点后的维护更复杂。题目要求功能正确而非所有操作 O(1)。测试序列要混合插入和删除，以验证 size 与链接一致。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\nclass MyLinkedList:\n    def __init__(self):\n        self.dummy = ListNode()\n        self.size = 0\n\n    def get(self, index):\n        if not 0 <= index < self.size:\n            return -1\n        cur = self.dummy.next\n        for _ in range(index):\n            cur = cur.next\n        return cur.val\n\n    def addAtHead(self, val):\n        self.addAtIndex(0, val)\n\n    def addAtTail(self, val):\n        self.addAtIndex(self.size, val)\n\n    def addAtIndex(self, index, val):\n        if index > self.size:\n            return\n        index = max(0, index)\n        prev = self.dummy\n        for _ in range(index):\n            prev = prev.next\n        prev.next = ListNode(val, prev.next)\n        self.size += 1\n\n    def deleteAtIndex(self, index):\n        if not 0 <= index < self.size:\n            return\n        prev = self.dummy\n        for _ in range(index):\n            prev = prev.next\n        prev.next = prev.next.next\n        self.size -= 1\n\ndef design_demo():\n    linked = MyLinkedList()\n    linked.addAtHead(1)\n    linked.addAtTail(3)\n    linked.addAtIndex(1, 2)\n    first = linked.get(1)\n    linked.deleteAtIndex(1)\n    return [first, linked.get(1), linked.size]\n",
+    "time": "get、按位置插入和删除最坏 O(n)，头插 O(1)，本实现尾插 O(n)。",
+    "space": "存储 n 个节点 O(n)，每次操作额外 O(1)。",
+    "example": {
+      "input": "头插1，尾插3，在位置1插入2，删除位置1",
+      "output": "查询依次得到2、3，长度2",
+      "walkthrough": [
+        "插入后链表为 [1,2,3]。",
+        "get(1) 返回 2。",
+        "删除后为 [1,3]，size=2。"
+      ]
+    },
+    "pitfalls": [
+      "插入允许 index==size，删除不允许。",
+      "忽略非法操作时不能更新 size。",
+      "本实现未维护尾指针，尾插要遍历。"
+    ],
+    "tests": [
+      {
+        "expression": "design_demo()",
+        "expected": [
+          2,
+          3,
+          2
+        ]
+      },
+      {
+        "expression": "MyLinkedList().get(0)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "linked-reverse",
+    "chapter": "链表",
+    "title": "206. 反转链表",
+    "problem": "206",
+    "kind": "题解",
+    "summary": "把已处理前缀反转，保存后继后再改当前箭头。",
+    "sections": [
+      {
+        "heading": "反转的是链接",
+        "paragraphs": [
+          "输入单链表，要求将节点顺序反转并返回新头。节点值不应交换或重建，原节点本身按相反次序连接。空链表返回 None，单节点链表仍是自身。迭代算法把每条 next 指针改一次，适合较长链表，也避免 Python 递归深度限制。"
+        ]
+      },
+      {
+        "heading": "两个区域的入口",
+        "paragraphs": [
+          "prev 指向已经反转好的部分，cur 指向尚未处理部分。初始 prev=None、cur=head。每轮先保存 nxt=cur.next，再使 cur.next=prev，随后 prev=cur、cur=nxt。保存 nxt 是关键：修改箭头后，cur.next 已经不再通向原剩余链表。"
+        ]
+      },
+      {
+        "heading": "反转不变量与终止",
+        "paragraphs": [
+          "处理 k 个节点后，prev 链正好是原前 k 个节点的逆序，cur 仍是原第 k+1 个节点。把 cur 接到 prev 前面便得到更长的反转前缀，而 nxt 保持其余节点入口。每轮消耗一个节点，cur 变 None 时全部节点都进入 prev 链，prev 就是最终头。"
+        ]
+      },
+      {
+        "heading": "返回值与别名",
+        "paragraphs": [
+          "函数会修改输入节点，调用后原 head 变成新链表的尾节点，其 next 为 None。调用者必须接收返回值，继续使用旧 head 无法遍历整个结果。如果外部还保存某个中间节点的引用，它看到的后继也随之改变。转换成列表仅用于展示，不是反转所需的额外结构。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef reverse_list(head):\n    prev, cur = None, head\n    while cur is not None:\n        nxt = cur.next\n        cur.next = prev\n        prev, cur = cur, nxt\n    return prev\n",
+    "time": "O(n)。",
+    "space": "O(1)；若用递归版本会产生 O(n) 调用栈。",
+    "example": {
+      "input": "[1,2,3]",
+      "output": "[3,2,1]",
+      "walkthrough": [
+        "1 指向 None，保存的后继是 2。",
+        "2 指向 1，后继保留为 3。",
+        "3 指向 2，返回 3。"
+      ]
+    },
+    "pitfalls": [
+      "先保存旧 next，再覆盖 next。",
+      "必须接收新的头节点。",
+      "此模板假设输入无环。"
+    ],
+    "tests": [
+      {
+        "expression": "list_values(reverse_list(build_list([1,2,3])))",
+        "expected": [
+          3,
+          2,
+          1
+        ]
+      },
+      {
+        "expression": "reverse_list(None) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-swap-pairs",
+    "chapter": "链表",
+    "title": "24. 两两交换链表中的节点",
+    "problem": "24",
+    "kind": "题解",
+    "summary": "在每一对节点的前驱处重新连接三条边，保留未处理后缀。",
+    "sections": [
+      {
+        "heading": "成对交换的范围",
+        "paragraphs": [
+          "把链表第 1、2 个节点交换，第 3、4 个节点交换，依此类推，奇数长度时最后一个节点保持原位置。题意要求交换节点而不是只交换 val，节点身份应跟着移动。虚拟头为第一对提供统一前驱，避免头指针单独处理。"
+        ]
+      },
+      {
+        "heading": "画清一对的四个位置",
+        "paragraphs": [
+          "设 prev 是当前对的前驱，first=prev.next，second=first.next，after=second.next。目标连接是 prev→second→first→after。先保存 first 和 second，然后 first.next=second.next 保留剩余入口，second.next=first 完成倒转，再 prev.next=second 接回前缀。"
+        ]
+      },
+      {
+        "heading": "推进到新的前驱",
+        "paragraphs": [
+          "交换后 first 成为这对的末尾，它应作为下一对的前驱，所以 prev=first。循环要求 prev.next 与 prev.next.next 都存在，确保有完整一对；剩一个节点时自动退出。已处理前缀的每对都已正确交换，未处理后缀保持原序，连接处也完整。"
+        ]
+      },
+      {
+        "heading": "Python 的更新顺序",
+        "paragraphs": [
+          "不要写完 prev.next 后继续用 prev.next 来代表原 first，因为该引用已经变成 second。显式保存局部变量能让重连顺序更容易审核。算法只分配一个 dummy，复用全部原节点。调试可给重复值节点附上外部身份标签，以区分真正换节点与仅换值的错误实现。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef swap_pairs(head):\n    dummy = ListNode(next=head)\n    prev = dummy\n    while prev.next is not None and prev.next.next is not None:\n        first = prev.next\n        second = first.next\n        first.next = second.next\n        second.next = first\n        prev.next = second\n        prev = first\n    return dummy.next\n",
+    "time": "O(n)。",
+    "space": "O(1)。",
+    "example": {
+      "input": "[1,2,3,4,5]",
+      "output": "[2,1,4,3,5]",
+      "walkthrough": [
+        "先把 1、2 改为 2→1。",
+        "前驱移动到 1，交换 3、4。",
+        "最后的 5 无搭档，保持原位。"
+      ]
+    },
+    "pitfalls": [
+      "交换节点而非交换值。",
+      "下一轮前驱是原 first。",
+      "链表不足两个节点时直接结束。"
+    ],
+    "tests": [
+      {
+        "expression": "list_values(swap_pairs(build_list([1,2,3,4,5])))",
+        "expected": [
+          2,
+          1,
+          4,
+          3,
+          5
+        ]
+      },
+      {
+        "expression": "list_values(swap_pairs(build_list([1])))",
+        "expected": [
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "id": "linked-remove-nth",
+    "chapter": "链表",
+    "title": "19. 删除链表的倒数第 N 个节点",
+    "problem": "19",
+    "kind": "题解",
+    "summary": "让快指针提前 n 步，使慢指针最终停在待删节点的前驱。",
+    "sections": [
+      {
+        "heading": "倒数下标的含义",
+        "paragraphs": [
+          "输入无环单链表与 n，删除倒数第 n 个节点。经典题目保证 1<=n<=长度；下面额外验证非法 n 并报错，避免误删。倒数第一个是尾节点，n 等于长度时删除头节点。希望只用一次从前往后的遍历完成定位，不需要先把节点存入数组。"
+        ]
+      },
+      {
+        "heading": "从虚拟头拉开间距",
+        "paragraphs": [
+          "fast、slow 都从 dummy 开始。先让 fast 走 n 步；此时两者之间相隔 n 条链接。随后当 fast.next 存在时，两者同步前进。fast 停到最后一个真实节点时，slow 便停在待删节点之前，统一执行 slow.next=slow.next.next。"
+        ]
+      },
+      {
+        "heading": "间距证明定位",
+        "paragraphs": [
+          "链表长度为 L，预先移动后 fast 在从 dummy 数起的位置 n，slow 在 0。同步阶段一共走 L-n 步，于是 slow 最终处于 L-n，待删节点处于 L-n+1，刚好是倒数第 n 个。dummy 的位置 0 让删除头部时 slow 仍有一个合法前驱。"
+        ]
+      },
+      {
+        "heading": "检查与变体一致性",
+        "paragraphs": [
+          "这里循环检查 fast.next，而不是 fast，因为采用的是先走 n 步的版本。如果改成先走 n+1 步，终止条件也必须改；两种规则混用会删除相邻的错误节点。fast 前进时检查是否为 None，能够发现 n 超过长度。验证阶段虽与同步阶段分开写，总行进次数仍然是线性。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef remove_nth_from_end(head, n):\n    if n < 1:\n        raise ValueError(\"n must be positive\")\n    dummy = ListNode(next=head)\n    fast = slow = dummy\n    for _ in range(n):\n        fast = fast.next\n        if fast is None:\n            raise ValueError(\"n exceeds length\")\n    while fast.next is not None:\n        fast = fast.next\n        slow = slow.next\n    slow.next = slow.next.next\n    return dummy.next\n",
+    "time": "O(L)，L 为链表长度。",
+    "space": "O(1)。",
+    "example": {
+      "input": "[1,2,3,4,5], n=2",
+      "output": "[1,2,3,5]",
+      "walkthrough": [
+        "fast 从 dummy 提前走到 2。",
+        "同步前进到 fast=5、slow=3。",
+        "slow 跳过节点 4。"
+      ]
+    },
+    "pitfalls": [
+      "提前 n 步对应检查 fast.next。",
+      "n 等于长度时必须能删除头。",
+      "非法 n 要明确处理，避免空引用访问。"
+    ],
+    "tests": [
+      {
+        "expression": "list_values(remove_nth_from_end(build_list([1,2,3,4,5]),2))",
+        "expected": [
+          1,
+          2,
+          3,
+          5
+        ]
+      },
+      {
+        "expression": "list_values(remove_nth_from_end(build_list([1]),1))",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "linked-intersection",
+    "chapter": "链表",
+    "title": "160. 相交链表",
+    "problem": "160",
+    "kind": "题解",
+    "summary": "两指针走完不同前缀后交换起点，把总路径长度对齐。",
+    "sections": [
+      {
+        "heading": "相交指节点共享",
+        "paragraphs": [
+          "两条无环单链表可能从某个节点起共享同一段后缀，要求返回第一个共同节点，没有交点返回 None。值相等不算相交。例如两条分别创建的 [1,2] 没有交点，即使所有值都相同。测试必须把同一个节点对象接到两个不同前缀后才能构造真实相交。"
+        ]
+      },
+      {
+        "heading": "交换起点的路线",
+        "paragraphs": [
+          "指针 a 从 head_a 出发，b 从 head_b 出发，每次各走一步。若某个指针为 None，下一轮将它放到另一条链表的头。a 走 A 再走 B，b 走 B 再走 A，总路程相同；不同前缀带来的长度差会在交换起点后抵消。"
+        ]
+      },
+      {
+        "heading": "为什么首个相遇是交点",
+        "paragraphs": [
+          "设两条独立前缀长度分别为 x、y，共享后缀长度 z。交换后两者经过 x+z+y 与 y+z+x 的相同路程到达共同后缀入口，此时相遇。若初始前缀长度相同，也可能在第一趟就相遇。没有共享后缀时，两者最终同时达到 None，因此循环同样终止。"
+        ]
+      },
+      {
+        "heading": "身份比较与前提",
+        "paragraphs": [
+          "用 while a is not b 比较对象身份，不能使用节点值，也不要为了简化逻辑把链表反转或切断。算法依赖无环结构；若输入有环，交换起点无法保证终止，需要先按环的情形分析。Python 中 None 也是同一个对象，空链表与无交点可以自然合并处理。",
+          "相交之后无法再次分开，因为一个单链表节点只有一个 next。这个结构事实保证公共部分是一条完整后缀，也是路径对齐推导的重要前提。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef intersection_node(head_a, head_b):\n    a, b = head_a, head_b\n    while a is not b:\n        a = head_b if a is None else a.next\n        b = head_a if b is None else b.next\n    return a\n\ndef intersection_demo():\n    shared = build_list([8, 9])\n    a = ListNode(1, shared)\n    b = ListNode(2, ListNode(3, shared))\n    return intersection_node(a, b) is shared\n",
+    "time": "O(m+n)，m、n 是两条链表长度。",
+    "space": "O(1)。",
+    "example": {
+      "input": "A=1→共享8→9，B=2→3→共享8→9",
+      "output": "返回共享节点8",
+      "walkthrough": [
+        "两条前缀长度不同，首次到入口时间不同。",
+        "走到末尾后换到另一条起点。",
+        "总路程对齐后同时到达共享 8。"
+      ]
+    },
+    "pitfalls": [
+      "必须用身份比较，不能按 val 判断。",
+      "两条无环链表相交后共享整个后缀。",
+      "不要用两个独立的同值节点伪造交点测试。"
+    ],
+    "tests": [
+      {
+        "expression": "intersection_demo()",
+        "expected": true
+      },
+      {
+        "expression": "intersection_node(build_list([1]),build_list([1])) is None",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "linked-cycle-entry",
+    "chapter": "链表",
+    "title": "142. 环形链表 II",
+    "problem": "142",
+    "kind": "题解",
+    "summary": "先让快慢指针在环内相遇，再用等速指针寻找环入口。",
+    "sections": [
+      {
+        "heading": "返回入口而非相遇点",
+        "paragraphs": [
+          "链表的最后一段可能通过 next 指回之前的节点，形成环。要求返回从头进入环的第一个节点，无环返回 None，且不能修改链表。环内快慢指针第一次相遇的节点通常不是入口，所以检测到相遇只是第一阶段。链表转列表的常规工具在有环输入上会无限循环。"
+        ]
+      },
+      {
+        "heading": "第一阶段的追赶",
+        "paragraphs": [
+          "slow 每次走一步，fast 每次走两步。循环先检查 fast 和 fast.next，避免无环情况下访问空引用。在环内每轮相对距离缩短一格，经过至多一个环长便会相遇。若 fast 走到 None，说明没有环，可立即返回 None。相遇检查放在移动后，避免两指针初始同头被误判。"
+        ]
+      },
+      {
+        "heading": "第二阶段的距离关系",
+        "paragraphs": [
+          "设头到入口距离为 a，慢指针从入口到相遇点走了 b，环长为 c。相遇时快慢路程差是整圈，所以 a+b 是 c 的倍数。于是 a 与 -b 对 c 同余。从头出发走 a 步到入口；从相遇点走 a 步，也沿环走到入口。因此一个指针回头部，另一个留在相遇点，等速走直到相等。"
+        ]
+      },
+      {
+        "heading": "实现与小环",
+        "paragraphs": [
+          "两阶段都用 is 比较节点身份。单节点自环中第一轮立即相遇，重置指针后也立即得到头部；空链表和普通单节点则退出返回 None。不应通过 value 设置访问标记，因为值可能重复且要求不修改输入。哈希集合也能做，但会增加 O(n) 空间，此处仅保存常数个指针。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef cycle_entry(head):\n    slow = fast = head\n    while fast is not None and fast.next is not None:\n        slow = slow.next\n        fast = fast.next.next\n        if slow is fast:\n            finder = head\n            while finder is not slow:\n                finder = finder.next\n                slow = slow.next\n            return finder\n    return None\n\ndef cycle_demo(values, pos):\n    nodes = [ListNode(v) for v in values]\n    for i in range(len(nodes) - 1):\n        nodes[i].next = nodes[i + 1]\n    if nodes and pos >= 0:\n        nodes[-1].next = nodes[pos]\n    entry = cycle_entry(nodes[0] if nodes else None)\n    return next((i for i, n in enumerate(nodes) if n is entry), -1)\n",
+    "time": "O(n)，n 是从头可达的不同节点数。",
+    "space": "核心 O(1)，构造测试节点数组占 O(n)。",
+    "example": {
+      "input": "values=[3,2,0,-4], 尾节点连到位置1",
+      "output": "入口下标1",
+      "walkthrough": [
+        "快慢指针在环内追赶直到相遇。",
+        "一个指针重置到头部。",
+        "两者等速前进，在值2的同一节点相遇。"
+      ]
+    },
+    "pitfalls": [
+      "相遇点通常不是入口。",
+      "先移动再比较，避免初始同头误判。",
+      "带环链表不能直接调用普通 list_values。"
+    ],
+    "tests": [
+      {
+        "expression": "cycle_demo([3,2,0,-4],1)",
+        "expected": 1
+      },
+      {
+        "expression": "cycle_demo([1],0)",
+        "expected": 0
+      },
+      {
+        "expression": "cycle_demo([1,2],-1)",
+        "expected": -1
+      }
+    ]
+  },
+  {
+    "id": "linked-recap",
+    "chapter": "链表",
+    "title": "链表小结：入口、前驱与身份",
+    "problem": "",
+    "kind": "总结",
+    "summary": "把节点操作写成连接变化，再用前驱不变量与距离关系验证。",
+    "sections": [
+      {
+        "heading": "修改题先找前驱",
+        "paragraphs": [
+          "删除节点和成对交换都需要把结果接回已处理前缀。dummy 提供稳定入口，统一头部特殊情况；prev 明确指出连接应该在哪里改变。反转则将当前节点接到反转前缀前，不需要在原位置找前驱，但必须保留后继。"
+        ]
+      },
+      {
+        "heading": "定位题考虑距离",
+        "paragraphs": [
+          "倒数第 n 个节点通过固定间距定位，交点通过交换起点消除前缀长度差，环入口通过模环长距离关系定位。三者都用了两个指针，但不变量各不相同，不能仅背“快慢指针”这个名字而忽略移动与终止条件。"
+        ]
+      },
+      {
+        "heading": "节点身份不可替代",
+        "paragraphs": [
+          "相交与环关心同一个对象，重复值不能作为证据。测试构造也要共享同一个节点实例，或者显式把 next 接回现有节点。修改链表的测试除了查看值序列，还可以检查节点是否被复用，避免把重建链表误认作原地操作。"
+        ]
+      },
+      {
+        "heading": "检查连接而非只看输出",
+        "paragraphs": [
+          "每次重连列出修改前的后继、修改后的箭头和新的循环入口。空链、单节点、连续删除、奇数配对、删除头尾、无交点与自环构成一组高价值边界。下面的长度函数只适用于无环链表；输入契约决定了它是否会终止。"
+        ]
+      }
+    ],
+    "code": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(values):\n    dummy = ListNode()\n    tail = dummy\n    for value in values:\n        tail.next = ListNode(value)\n        tail = tail.next\n    return dummy.next\n\ndef list_values(head):\n    out = []\n    while head is not None:\n        out.append(head.val)\n        head = head.next\n    return out\n\ndef list_length(head):\n    length = 0\n    while head is not None:\n        length += 1\n        head = head.next\n    return length\n",
+    "time": "无环链表 O(n)。",
+    "space": "O(1)。",
+    "example": {
+      "input": "[5,5,8]",
+      "output": "长度3",
+      "walkthrough": [
+        "每个节点算一次。",
+        "重复值仍是不同节点。",
+        "到 None 后结束。"
+      ]
+    },
+    "pitfalls": [
+      "无环模板不能直接处理环。",
+      "维护外部引用时要留意原地修改的影响。"
+    ],
+    "tests": [
+      {
+        "expression": "list_length(build_list([5,5,8]))",
+        "expected": 3
+      },
+      {
+        "expression": "list_length(None)",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "hash-theory",
+    "chapter": "哈希表",
+    "title": "哈希表：存在、位置与次数",
+    "problem": "",
+    "kind": "理论",
+    "summary": "根据问题需要，选择集合、键值映射或计数表保存历史信息。",
+    "sections": [
+      {
+        "heading": "把查找从扫描变成索引",
+        "paragraphs": [
+          "哈希表将键映射到存储位置，并用相等比较处理可能的哈希碰撞。Python 的 set 用于判断元素是否存在，dict 保存键对应的附加信息。常见操作的时间通常按平均 O(1) 分析，不应把它写成所有情况下都严格 O(1)；极端碰撞可能使操作变慢。"
+        ]
+      },
+      {
+        "heading": "键要保存什么",
+        "paragraphs": [
+          "只关心出现过没有，用集合；关心最后一次出现的位置，用字典；关心重复次数，用计数字典。把集合用于多重集合问题会丢失次数，把值映射到单个位置也可能覆盖较早位置。结构选择应由后续查询需要的信息决定。"
+        ]
+      },
+      {
+        "heading": "哈希键的限制",
+        "paragraphs": [
+          "字典和集合的键必须可哈希，列表与普通字典不能直接做键。多维状态可用元组表示，例如 (row,col)，但元组内部也必须由可哈希对象组成。不能把 Python 的 hash 值本身当作唯一身份，因为不同对象可能发生碰撞；容器会结合相等比较保证查找语义。"
+        ]
+      },
+      {
+        "heading": "计数模板的作用",
+        "paragraphs": [
+          "下面程序对任意可哈希元素统计次数。读到一个元素时在原次数上加一，不修改输入。若键域固定且很小，例如 26 个小写字母，长度固定的数组可以代替字典；若键域稀疏或值范围大，字典更自然。输出排序若有需要应单独计入代价。"
+        ]
+      }
+    ],
+    "code": "def frequencies(values):\n    counts = {}\n    for value in values:\n        counts[value] = counts.get(value, 0) + 1\n    return counts\n",
+    "time": "n 个元素，平均 O(n)；碰撞退化时可能更慢。",
+    "space": "O(u)，u 是不同元素数。",
+    "example": {
+      "input": "['a','b','a']",
+      "output": "{'a':2,'b':1}",
+      "walkthrough": [
+        "第一次 a 建立次数1。",
+        "b 建立次数1。",
+        "第二次 a 将次数更新为2。"
+      ]
+    },
+    "pitfalls": [
+      "集合会丢失重复次数。",
+      "键需要可哈希，不能直接使用列表。"
+    ],
+    "tests": [
+      {
+        "expression": "frequencies(['a','b','a'])",
+        "expected": {
+          "a": 2,
+          "b": 1
+        }
+      },
+      {
+        "expression": "frequencies([])",
+        "expected": {}
+      }
+    ]
+  },
+  {
+    "id": "hash-anagram",
+    "chapter": "哈希表",
+    "title": "242. 有效的字母异位词",
+    "problem": "242",
+    "kind": "题解",
+    "summary": "字母异位词要求每个字符的出现次数完全一致。",
+    "sections": [
+      {
+        "heading": "判定不依赖字符顺序",
+        "paragraphs": [
+          "两个字符串是字母异位词，当且仅当它们包含相同字符及相同次数，可以通过重新排列相互得到。不是只比较字符集合：aab 与 abb 的集合相同，却不是异位词。经典题目限小写英文字母，下面用字典计数也兼容一般 Unicode 字符，不做大小写或组合字符归一化。"
+        ]
+      },
+      {
+        "heading": "把匹配理解为扣除库存",
+        "paragraphs": [
+          "先为 s 的每个字符建立库存。遍历 t 时，每看到一个字符就扣掉一次；若没有库存或库存已用完，立刻返回 False。开始前若长度不同直接失败。长度相同且所有扣除都成功，说明 t 正好消耗 s 中全部字符。"
+        ]
+      },
+      {
+        "heading": "为何无需再扫描全部计数",
+        "paragraphs": [
+          "s 的库存总数等于 len(s)。处理 t 每个字符时消耗一份，库存不会变负。若 len(t)==len(s) 且每次扣除都合法，最后库存总数为零，所有非负计数只能都为零，因此可以直接返回 True。空字符串的库存为空，但零次扣除同样满足该证明。"
+        ]
+      },
+      {
+        "heading": "Python 与字符语义",
+        "paragraphs": [
+          "dict.get(ch,0) 同时处理缺失键和耗尽键。字典的键是单个 Python 字符，é 与由字母加组合符号组成的视觉等价文本不一定判为相同，这是输入语义的问题而不是算法错误。若仅允许 a 到 z，可替换为 26 格数组并用 ord 计算下标。",
+          "可以用排序后的字符列表相等作为另一种思路，但排序通常需要 O(n log n) 时间，还会创建列表。计数解法直接检查定义，更适合强调频次。"
+        ]
+      }
+    ],
+    "code": "def is_anagram(s, t):\n    if len(s) != len(t):\n        return False\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    for ch in t:\n        if counts.get(ch, 0) == 0:\n            return False\n        counts[ch] -= 1\n    return True\n",
+    "time": "字符串总长度 n，平均 O(n)。",
+    "space": "O(u)，u 是 s 的不同字符数；固定小写字符域时 O(1)。",
+    "example": {
+      "input": "s='anagram', t='nagaram'",
+      "output": "True",
+      "walkthrough": [
+        "建立 a:3、n:1、g:1、r:1、m:1。",
+        "按 t 的顺序逐项扣除。",
+        "所有库存恰好消耗完。"
+      ]
+    },
+    "pitfalls": [
+      "字符集合相同不等于次数相同。",
+      "大小写与 Unicode 归一化需按题意处理。"
+    ],
+    "tests": [
+      {
+        "expression": "is_anagram('anagram','nagaram')",
+        "expected": true
+      },
+      {
+        "expression": "is_anagram('aab','abb')",
+        "expected": false
+      },
+      {
+        "expression": "is_anagram('','')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "hash-common-chars",
+    "chapter": "哈希表",
+    "title": "1002. 查找共用字符",
+    "problem": "1002",
+    "kind": "题解",
+    "summary": "逐字符取所有单词出现次数的最小值，保留多重交集。",
+    "sections": [
+      {
+        "heading": "共同字符包含重复",
+        "paragraphs": [
+          "给定非空单词列表，输出在每个单词中都出现的字符，并保留它们共同拥有的重复次数。例如 bella、label、roller 都至少有一个 e 和两个 l，因此结果含 e、l、l。仅用集合交集会丢掉第二个 l。输出顺序可以任意，这里排序以方便学习与测试。"
+        ]
+      },
+      {
+        "heading": "交集是每个计数的下界",
+        "paragraphs": [
+          "用第一个单词的 Counter 作为 common。之后对每个单词建立 current，再令 common[ch]=min(common[ch],current[ch])。某字符若有一个单词不含它，其共同次数立即变为零；缺失 Counter 键读取为零，符合这个定义。无需为未出现在第一个单词中的字符增加新键。"
+        ]
+      },
+      {
+        "heading": "逐步交集的正确性",
+        "paragraphs": [
+          "处理前 k 个单词后，common[ch] 恰好等于这 k 个单词内该字符次数的最小值。初始只有一个单词满足定义，加入下一个单词时再取一次 min，得到更大集合的最小值。最终每个字符能贡献多少份共同字符就确定了，按次数展开得到完整多重交集。"
+        ]
+      },
+      {
+        "heading": "Python 容器与输出",
+        "paragraphs": [
+          "修改字典中的值而不增删键，可安全地在 for ch in common 中遍历。为了约定稳定输出，对键排序后按次数追加。空列表在标准题目之外，这里返回 []；单词可为空，也会让共同结果为空。任意字符版本的排序代价按不同字符数计算，小写限定时最多排序 26 个键。"
+        ]
+      }
+    ],
+    "code": "from collections import Counter\n\ndef common_chars(words):\n    if not words:\n        return []\n    common = Counter(words[0])\n    for word in words[1:]:\n        current = Counter(word)\n        for ch in common:\n            common[ch] = min(common[ch], current[ch])\n    return [ch for ch in sorted(common) for _ in range(common[ch])]\n",
+    "time": "总字符数 S，单词数 k，首词不同字符数 u：平均 O(S+ku+u log u+R)，R 为输出长度；小写固定字符域通常记 O(S+k)。",
+    "space": "计数表 O(u+v)，v 是当前单词不同字符数；结果 O(R)。",
+    "example": {
+      "input": "['bella','label','roller']",
+      "output": "['e','l','l']",
+      "walkthrough": [
+        "第一个单词 l 的次数是2。",
+        "第二个单词仍可提供2个 l。",
+        "第三个单词也提供2个 l，其他共同字符只有1个 e。"
+      ]
+    },
+    "pitfalls": [
+      "集合只能表示一份字符。",
+      "取最小次数，而不是把次数相加。",
+      "输出顺序若不要求可免去排序。"
+    ],
+    "tests": [
+      {
+        "expression": "common_chars(['bella','label','roller'])",
+        "expected": [
+          "e",
+          "l",
+          "l"
+        ]
+      },
+      {
+        "expression": "common_chars(['cool','lock','cook'])",
+        "expected": [
+          "c",
+          "o"
+        ]
+      },
+      {
+        "expression": "common_chars(['','abc'])",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-intersection",
+    "chapter": "哈希表",
+    "title": "349. 两个数组的交集",
+    "problem": "349",
+    "kind": "题解",
+    "summary": "集合同时完成去重与成员查询，输出仅保留共同值。",
+    "sections": [
+      {
+        "heading": "结果不是多重交集",
+        "paragraphs": [
+          "给定两个整数数组，返回同时出现在两者中的不同元素，每个值最多一次。输入可以重复、为空，输出顺序不作要求。例如 [1,2,2,1] 与 [2,2] 的交集是 [2]。若题目要求保留出现次数，则是另一种问题，需要计数或排序双指针。"
+        ]
+      },
+      {
+        "heading": "成员资格与去重",
+        "paragraphs": [
+          "把 nums1 转成集合 available，随后遍历 nums2。若 value 在 available 中，则把它加入 result 集合。available 提供平均常数时间的成员查询，result 保证同一个值不会多次输出。也可以直接用集合交运算，不过显式循环更便于看清两种职责。"
+        ]
+      },
+      {
+        "heading": "正确性两面说明",
+        "paragraphs": [
+          "加入结果的值必须同时属于 nums1 和 nums2，所以不会引入多余值。反过来，任何共同值都至少在 nums2 中被访问一次，此时 available 查询一定成功，因此最终会加入 result。集合去重确保输出的每个共同值恰好一份。空数组会自然导致空结果。"
+        ]
+      },
+      {
+        "heading": "稳定输出与复杂度",
+        "paragraphs": [
+          "为了测试输出顺序可预测，下面对结果排序再转列表。这不是题目必需的步骤，因此复杂度不能只写 O(m+n)：还要计算 r 个交集元素的排序 O(r log r)。如果只关心结果集合，可返回 list(result) 省去排序；若内存紧张，可选较短数组建集合。"
+        ]
+      }
+    ],
+    "code": "def intersection_values(nums1, nums2):\n    available = set(nums1)\n    result = set()\n    for value in nums2:\n        if value in available:\n            result.add(value)\n    return sorted(result)\n",
+    "time": "m、n 为输入长度，r 为不同交集元素数，平均 O(m+n+r log r)。",
+    "space": "O(u+r)，u 是 nums1 不同元素数，含返回列表。",
+    "example": {
+      "input": "[4,9,5] 与 [9,4,9,8,4]",
+      "output": "[4,9]",
+      "walkthrough": [
+        "available={4,9,5}。",
+        "9、4 加入结果，重复命中不增加份数。",
+        "8 不属于 available，被跳过。"
+      ]
+    },
+    "pitfalls": [
+      "349 去重，不能当作保留次数的交集。",
+      "排序是额外步骤，应计入复杂度。"
+    ],
+    "tests": [
+      {
+        "expression": "intersection_values([4,9,5],[9,4,9,8,4])",
+        "expected": [
+          4,
+          9
+        ]
+      },
+      {
+        "expression": "intersection_values([], [1])",
+        "expected": []
+      },
+      {
+        "expression": "intersection_values([2,2],[2,2])",
+        "expected": [
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hash-happy-number",
+    "chapter": "哈希表",
+    "title": "202. 快乐数",
+    "problem": "202",
+    "kind": "题解",
+    "summary": "数位平方和是确定性状态转移，重复状态意味着永远无法首次到达 1。",
+    "sections": [
+      {
+        "heading": "快乐数的变换规则",
+        "paragraphs": [
+          "从一个正整数开始，每轮把它替换为十进制各位数字的平方和。若最终到达 1，称为快乐数；若一直循环而不能到达 1，就不是。19 会经过 82、68、100、1。经典题目要求正整数，下面对零和负整数返回 False，避免混入题意之外的状态。"
+        ]
+      },
+      {
+        "heading": "集合记录已访问状态",
+        "paragraphs": [
+          "维护 seen，开始每轮先看 n 是否为 1，再看它是否已出现。如果是新状态，加入集合并计算下一状态。变换由当前 n 唯一确定，所以一旦重复，后面的路径会完全重复先前路径；若前一次没有走到 1，这一次也不会出现新的终点。"
+        ]
+      },
+      {
+        "heading": "为什么一定会终止",
+        "paragraphs": [
+          "d 位正整数下一状态最多为 81d，而 d 随 n 只按对数增长，大整数会迅速降到有限范围。有限状态中的确定性转移要么到达 1，要么重复，因此集合检测不会无限增长。将这个论证与“看到重复就停止”一起使用，才能解释程序为何既正确又能结束。"
+        ]
+      },
+      {
+        "heading": "Python 的数位拆分",
+        "paragraphs": [
+          "用 divmod(n,10) 得到去掉末位后的整数和末位数字，逐位累加平方，无需创建字符串。next_value 单独封装方便测试。复杂度用实际访问状态数及每个状态位数描述更准确；常见固定范围整数题目可视为很小的有限状态运算，但不能无条件宣称对任意大整数都 O(1)。",
+          "例如 2 会进入 4、16、37、58、89、145、42、20、4 的循环；第二次看到 4 时便可失败返回，不必再走完后面的整圈。"
+        ]
+      }
+    ],
+    "code": "def digit_square_sum(n):\n    total = 0\n    while n:\n        n, digit = divmod(n, 10)\n        total += digit * digit\n    return total\n\ndef is_happy(n):\n    if n <= 0:\n        return False\n    seen = set()\n    while n != 1 and n not in seen:\n        seen.add(n)\n        n = digit_square_sum(n)\n    return n == 1\n",
+    "time": "访问 t 个不同状态，状态最大十进制位数 d，按整数基本操作计 O(td)。",
+    "space": "O(t) 个状态，若计算任意大整数的位存储需另计其字长。",
+    "example": {
+      "input": "n=19",
+      "output": "True",
+      "walkthrough": [
+        "1²+9²=82。",
+        "8²+2²=68，再得到100。",
+        "1²+0²+0²=1，成功。"
+      ]
+    },
+    "pitfalls": [
+      "检测数值状态，不是单独记录出现过的数字。",
+      "重复状态意味着循环，不能仅设置随意迭代次数。",
+      "输入必须符合正整数语义。"
+    ],
+    "tests": [
+      {
+        "expression": "is_happy(19)",
+        "expected": true
+      },
+      {
+        "expression": "is_happy(2)",
+        "expected": false
+      },
+      {
+        "expression": "is_happy(1)",
+        "expected": true
+      },
+      {
+        "expression": "is_happy(0)",
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "hash-two-sum",
+    "chapter": "哈希表",
+    "title": "1. 两数之和",
+    "problem": "1",
+    "kind": "题解",
+    "summary": "查询补数后再登记当前下标，保证两个位置不同。",
+    "sections": [
+      {
+        "heading": "答案是下标而非数值",
+        "paragraphs": [
+          "在整数数组中找到两个不同下标 i、j，使 nums[i]+nums[j]==target，返回这两个下标。不能重复使用同一个位置，但相同数值可以来自不同位置，例如 [3,3]、目标 6。标准题目保证唯一解；下面若无解返回 []，有多个解时返回遍历中首先找到的一组。"
+        ]
+      },
+      {
+        "heading": "将双重枚举改成补数查询",
+        "paragraphs": [
+          "扫描到 value 时，需要的另一个数是 target-value。seen 记录此前出现的数值及其下标，若补数已在字典中，就立即返回此前下标与当前下标。不必在后缀逐个寻找搭档，每个当前元素只做一次补数查询。"
+        ]
+      },
+      {
+        "heading": "查询必须先于登记",
+        "paragraphs": [
+          "在处理下标 j 时，seen 只含下标小于 j 的元素，因此命中补数一定得到不同位置，不会把一个元素与它自己配对。若合法解位于 i<j，当扫到 j 时 i 的值已登记，必能发现解。无解时完整遍历结束，返回空列表。重复值覆盖旧下标不会破坏存在性。"
+        ]
+      },
+      {
+        "heading": "实现及复杂度口径",
+        "paragraphs": [
+          "seen[value]=index 保存任一已出现下标即可。负数、零与重复数都不需要特殊处理。Python 字典按平均常数查找计，整个算法平均线性；相比排序双指针，它直接保留原下标且不改输入。若先排序，则还需要记录每个数的原位置，不能返回排序后的下标。",
+          "只有一个 3 时目标 6 无解；两个 3 时第二次查询会找到第一个 3。用这对测试即可验证查询与登记的顺序是否真正满足不同下标要求。"
+        ]
+      }
+    ],
+    "code": "def two_sum(nums, target):\n    seen = {}\n    for index, value in enumerate(nums):\n        need = target - value\n        if need in seen:\n            return [seen[need], index]\n        seen[value] = index\n    return []\n",
+    "time": "平均 O(n)。",
+    "space": "O(n)。",
+    "example": {
+      "input": "nums=[2,7,11,15], target=9",
+      "output": "[0,1]",
+      "walkthrough": [
+        "2 的补数7未出现，登记2→0。",
+        "7 的补数2已存在。",
+        "返回此前下标0与当前下标1。"
+      ]
+    },
+    "pitfalls": [
+      "先登记再查可能错误复用当前元素。",
+      "返回的是下标，不能返回两个数值。",
+      "不同下标可具有相同数值。"
+    ],
+    "tests": [
+      {
+        "expression": "two_sum([2,7,11,15],9)",
+        "expected": [
+          0,
+          1
+        ]
+      },
+      {
+        "expression": "two_sum([3,3],6)",
+        "expected": [
+          0,
+          1
+        ]
+      },
+      {
+        "expression": "two_sum([3],6)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-four-sum-count",
+    "chapter": "哈希表",
+    "title": "454. 四数相加 II",
+    "problem": "454",
+    "kind": "题解",
+    "summary": "把四数组组合拆成两个二元组和，保留每个和的出现次数。",
+    "sections": [
+      {
+        "heading": "计数对象是四个位置",
+        "paragraphs": [
+          "给定四个数组 a、b、c、d，统计从每个数组各取一个元素，使四者和为零的下标组合数。数组中的重复值对应不同下标，必须重复计入。它与返回去重四元组的第 18 题不同：这里不返回数值列表，也不能用集合去掉相同的两数和。"
+        ]
+      },
+      {
+        "heading": "折半配对",
+        "paragraphs": [
+          "枚举 a 与 b 的所有位置组合，把 x+y 的出现次数存入 counts。再枚举 c 与 d 的所有组合，查找 -(z+w) 在 counts 中出现几次，将该次数累加。每一个后一半组合都与所有符合补数关系的前一半组合构成不同答案。"
+        ]
+      },
+      {
+        "heading": "次数为什么要相乘",
+        "paragraphs": [
+          "若某个和 s 在前半部分由 p 对下标产生，而 -s 在后半部分由 q 对下标产生，它们可独立配对，贡献 p*q 个四元组。代码逐个扫描后半部分，每次加 p，累计 q 次即 p*q。每个合法四元组唯一对应它的前后两对，因此既没有漏计，也没有重复计数。"
+        ]
+      },
+      {
+        "heading": "空间与数组规模",
+        "paragraphs": [
+          "四个数组不必同长；构建成本是 len(a)*len(b)，查询成本是 len(c)*len(d)。counts 的键数不超过前半组合数，若大量重复和则会更少。对于不同规模数组，可以选择组合数较少的两数组建表以减少空间，但要保留另外两数组的配对关系。空数组会使答案自然为零。",
+          "例如前半有两对产生和零，后半有三对产生和零，答案贡献应为六。这个最小例子能直接暴露只保存某个下标或仅保存集合的错误。"
+        ]
+      }
+    ],
+    "code": "def four_sum_count(a, b, c, d):\n    counts = {}\n    for x in a:\n        for y in b:\n            s = x + y\n            counts[s] = counts.get(s, 0) + 1\n    answer = 0\n    for z in c:\n        for w in d:\n            answer += counts.get(-z - w, 0)\n    return answer\n",
+    "time": "平均 O(ab+cd)，字母表示对应数组长度；同长 n 时 O(n²)。",
+    "space": "O(u)，u 为前半不同两数和数量，至多 ab。",
+    "example": {
+      "input": "a=[1,2], b=[-2,-1], c=[-1,2], d=[0,2]",
+      "output": "2",
+      "walkthrough": [
+        "前半和为 -1、0、0、1，零的次数为2。",
+        "后半和为 -1、1、2、4。",
+        "补数1与-1各命中一次，共2。"
+      ]
+    },
+    "pitfalls": [
+      "不能用集合代替次数表。",
+      "这里按下标组合计数，不对数值四元组去重。",
+      "四重循环虽然直观但需要 O(n⁴)。"
+    ],
+    "tests": [
+      {
+        "expression": "four_sum_count([1,2],[-2,-1],[-1,2],[0,2])",
+        "expected": 2
+      },
+      {
+        "expression": "four_sum_count([0,0],[0],[0],[0])",
+        "expected": 2
+      },
+      {
+        "expression": "four_sum_count([], [1], [2], [-3])",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "hash-ransom",
+    "chapter": "哈希表",
+    "title": "383. 赎金信",
+    "problem": "383",
+    "kind": "题解",
+    "summary": "每个杂志字符只能消费一次，逐项扣减库存即可判断能否构造。",
+    "sections": [
+      {
+        "heading": "字符能否提供足够次数",
+        "paragraphs": [
+          "判断 ransom 中的字符能否由 magazine 提供，每个 magazine 字符只能使用一次，但不要求按原顺序连续抽取。ransom 为空总可以构造；magazine 多余字符可不使用。与异位词相比，这里只要求需求计数不大于库存，不要求两边计数完全相等。"
+        ]
+      },
+      {
+        "heading": "库存建立与消费",
+        "paragraphs": [
+          "先遍历 magazine，建立每个字符的数量。然后遍历 ransom，遇到字符 ch 时检查库存是否大于零，若没有就返回 False，否则扣减一。这样重复需求会重复消耗，不会因为字符曾出现过就无限供应。集合只能判断存在性，因此不足以解决此题。"
+        ]
+      },
+      {
+        "heading": "需求前缀不变量",
+        "paragraphs": [
+          "成功处理 ransom 前 k 个字符后，库存等于原 magazine 次数减去该需求前缀次数，且没有负数。如果下一字符缺货，那么完整需求也不可能满足；如果所有字符都能成功消费，就显式找到每种字符所需的供应数量，构造可行。剩余库存不影响答案。"
+        ]
+      },
+      {
+        "heading": "实现和优化",
+        "paragraphs": [
+          "可以先用长度排除需求总数大于库存总数的情况，但长度足够不保证逐字符足够。使用 dict.get(ch,0) 统一缺失与用尽，避免 KeyError。若题目只允许小写英文字母，26 格数组能减少常数开销；一般字符版本则用字典更清楚。程序不会修改两个输入字符串。"
+        ]
+      }
+    ],
+    "code": "def can_construct(ransom, magazine):\n    if len(ransom) > len(magazine):\n        return False\n    counts = {}\n    for ch in magazine:\n        counts[ch] = counts.get(ch, 0) + 1\n    for ch in ransom:\n        if counts.get(ch, 0) == 0:\n            return False\n        counts[ch] -= 1\n    return True\n",
+    "time": "平均 O(m+r)，m、r 是两字符串长度。",
+    "space": "O(u)，u 为 magazine 不同字符数；固定小写字符域为 O(1)。",
+    "example": {
+      "input": "ransom='aa', magazine='aab'",
+      "output": "True",
+      "walkthrough": [
+        "库存 a:2、b:1。",
+        "第一次 a 消费后库存a:1。",
+        "第二次消费后a:0，需求全部满足。"
+      ]
+    },
+    "pitfalls": [
+      "出现过一次不意味着可重复使用。",
+      "长度检查只是必要条件。",
+      "多余库存允许保留，与异位词判定不同。"
+    ],
+    "tests": [
+      {
+        "expression": "can_construct('aa','aab')",
+        "expected": true
+      },
+      {
+        "expression": "can_construct('aa','ab')",
+        "expected": false
+      },
+      {
+        "expression": "can_construct('','')",
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "hash-three-sum",
+    "chapter": "哈希表",
+    "title": "15. 三数之和",
+    "problem": "15",
+    "kind": "题解",
+    "summary": "排序后固定首元素，用相向双指针寻找补和并跳过重复值。",
+    "sections": [
+      {
+        "heading": "返回不同的数值组合",
+        "paragraphs": [
+          "给定整数数组，找出所有和为零的三元组，三个元素必须来自不同下标，但结果按数值组合去重。例如多个零只能贡献 [0,0,0] 一份，前提是至少有三个零。答案不是下标，允许排序副本而不影响输出含义；下面用 sorted 避免修改输入。"
+        ]
+      },
+      {
+        "heading": "固定一个数后利用有序性",
+        "paragraphs": [
+          "排序后枚举首下标 i，再令 left=i+1、right=n-1。若三数和小于零，必须增加较小一侧，left+=1；若大于零，则 right-=1。因为数组有序，和过小时固定 left 配上更小的 right 也不可能成功，和过大时固定 right 配上更大的 left 同样不可能成功。"
+        ]
+      },
+      {
+        "heading": "去重分为两层",
+        "paragraphs": [
+          "首元素与前一个首元素相同时跳过，避免再次寻找相同开头的组合。命中后保存三元组，双指针各移动一步，再分别跳过相同数值，避免同一首元素下返回重复配对。不要在命中前无条件跳过所有重复元素，因为 [0,0,0] 或 [-2,1,1] 需要来自不同位置的重复值。"
+        ]
+      },
+      {
+        "heading": "正确性与 Python 空间",
+        "paragraphs": [
+          "i<left<right 保证三个下标不同。指针每次排除不可能的配对区间，命中后的同值配对只会产生相同数值答案，因此跳过不会丢失新的组合。当 nums[i]>0 时后续所有数非负且首数正，可提前结束。排序副本及 Python 排序工作区占 O(n)，不能写成整体辅助空间 O(1)。"
+        ]
+      }
+    ],
+    "code": "def three_sum(nums):\n    a = sorted(nums)\n    out = []\n    for i in range(len(a) - 2):\n        if i > 0 and a[i] == a[i - 1]:\n            continue\n        if a[i] > 0:\n            break\n        left, right = i + 1, len(a) - 1\n        while left < right:\n            total = a[i] + a[left] + a[right]\n            if total < 0:\n                left += 1\n            elif total > 0:\n                right -= 1\n            else:\n                out.append([a[i], a[left], a[right]])\n                left += 1\n                right -= 1\n                while left < right and a[left] == a[left - 1]:\n                    left += 1\n                while left < right and a[right] == a[right + 1]:\n                    right -= 1\n    return out\n",
+    "time": "排序 O(n log n)，扫描 O(n²)，总 O(n²)。",
+    "space": "辅助 O(n)，结果 O(R)，R 为返回三元组数。",
+    "example": {
+      "input": "[-1,0,1,2,-1,-4]",
+      "output": "[[-1,-1,2],[-1,0,1]]",
+      "walkthrough": [
+        "排序得到 [-4,-1,-1,0,1,2]。",
+        "首数 -4 无解，首数 -1 找到 (-1,2) 和 (0,1)。",
+        "下一个首数仍是 -1，被跳过。"
+      ]
+    },
+    "pitfalls": [
+      "题目结果按数值去重，不是按下标组合计数。",
+      "重复值可以构成合法答案，不能先全局去重。",
+      "命中后两侧都要跳过相同值。"
+    ],
+    "tests": [
+      {
+        "expression": "three_sum([-1,0,1,2,-1,-4])",
+        "expected": [
+          [
+            -1,
+            -1,
+            2
+          ],
+          [
+            -1,
+            0,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "three_sum([0,0,0,0])",
+        "expected": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "expression": "three_sum([-2,1,1])",
+        "expected": [
+          [
+            -2,
+            1,
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hash-four-sum",
+    "chapter": "哈希表",
+    "title": "18. 四数之和",
+    "problem": "18",
+    "kind": "题解",
+    "summary": "固定前两位后双指针配对，用有序上下界剪枝并分层去重。",
+    "sections": [
+      {
+        "heading": "与四数组计数的区别",
+        "paragraphs": [
+          "在同一个数组中选择四个不同下标，返回和等于 target 的所有不同数值四元组。它不统计重复下标组合，所以 [2,2,2,2,2]、target=8 只返回一组。不能先把数组转为集合，因为四个位置可以存相同值。输入少于四个元素自然没有结果。"
+        ]
+      },
+      {
+        "heading": "从三数之和扩展",
+        "paragraphs": [
+          "排序后枚举 i，再枚举 j>i；剩余两个位置用 left=j+1 和 right=n-1 搜索。总和小于 target 时左指针前进，大于 target 时右指针后退；命中则加入四元组并移动两端。每层位置范围保证 i<j<left<right，无需另写下标冲突检查。"
+        ]
+      },
+      {
+        "heading": "去重与边界剪枝",
+        "paragraphs": [
+          "i 与前一 i 同值时跳过；j 只与当前 i 之后的前一个 j 比较，条件是 j>i+1。若固定首数配三个最小后继仍超过目标，可直接停止外层；若配三个最大数还达不到目标，则跳过该首数。第二层同样用最小、最大可行配对剪枝。所有剪枝都是排序给出的严格上下界。"
+        ]
+      },
+      {
+        "heading": "实现的可靠性",
+        "paragraphs": [
+          "不能照搬三数之和的首数大于零就结束，因为 target 未必为零，正数四元组也可能有效。Python 整数可以容纳大数和，其他固定整数语言要考虑溢出。剪枝只减少实际比较，不改变最坏 O(n³)；排序副本和工作区占 O(n)，输出按实际四元组数计入。"
+        ]
+      }
+    ],
+    "code": "def four_sum(nums, target):\n    a = sorted(nums)\n    n = len(a)\n    out = []\n    for i in range(n - 3):\n        if i > 0 and a[i] == a[i - 1]:\n            continue\n        if a[i] + a[i+1] + a[i+2] + a[i+3] > target:\n            break\n        if a[i] + a[n-3] + a[n-2] + a[n-1] < target:\n            continue\n        for j in range(i + 1, n - 2):\n            if j > i + 1 and a[j] == a[j - 1]:\n                continue\n            if a[i] + a[j] + a[j+1] + a[j+2] > target:\n                break\n            if a[i] + a[j] + a[n-2] + a[n-1] < target:\n                continue\n            left, right = j + 1, n - 1\n            while left < right:\n                total = a[i] + a[j] + a[left] + a[right]\n                if total < target:\n                    left += 1\n                elif total > target:\n                    right -= 1\n                else:\n                    out.append([a[i], a[j], a[left], a[right]])\n                    left += 1\n                    right -= 1\n                    while left < right and a[left] == a[left - 1]:\n                        left += 1\n                    while left < right and a[right] == a[right + 1]:\n                        right -= 1\n    return out\n",
+    "time": "最坏 O(n³)，排序 O(n log n) 被主项覆盖。",
+    "space": "辅助 O(n)，输出 O(R)，R 为返回四元组数量。",
+    "example": {
+      "input": "nums=[1,0,-1,0,-2,2], target=0",
+      "output": "[[-2,-1,1,2],[-2,0,0,2],[-1,0,0,1]]",
+      "walkthrough": [
+        "排序为 [-2,-1,0,0,1,2]。",
+        "固定 -2 时找到 (-1,1,2) 与 (0,0,2)。",
+        "固定 -1 时得到 (0,0,1)，跳过重复首位与次位。"
+      ]
+    },
+    "pitfalls": [
+      "第二层去重范围是 j>i+1。",
+      "目标不一定为零，不能用首元素为正剪枝。",
+      "不能通过集合预先删除重复输入值。"
+    ],
+    "tests": [
+      {
+        "expression": "four_sum([1,0,-1,0,-2,2],0)",
+        "expected": [
+          [
+            -2,
+            -1,
+            1,
+            2
+          ],
+          [
+            -2,
+            0,
+            0,
+            2
+          ],
+          [
+            -1,
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      {
+        "expression": "four_sum([2,2,2,2,2],8)",
+        "expected": [
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "expression": "four_sum([],0)",
+        "expected": []
+      }
+    ]
+  },
+  {
+    "id": "hash-recap",
+    "chapter": "哈希表",
+    "title": "哈希表小结：计数、补数与去重",
+    "problem": "",
+    "kind": "总结",
+    "summary": "先区分输出是存在性、位置、组合次数还是不同数值组合。",
+    "sections": [
+      {
+        "heading": "同一元素信息有不同粒度",
+        "paragraphs": [
+          "交集只需集合，异位词和赎金信需要次数，两数之和还要保存下标。共用字符取各词次数最小值，而赎金信只需库存大于等于需求。数据结构里保存的字段决定了之后能回答什么，信息一旦被集合去掉就无法恢复。"
+        ]
+      },
+      {
+        "heading": "补数的两种使用方式",
+        "paragraphs": [
+          "两数之和边读边查询已出现补数，保证位置不同；四数组计数先完整建立两数和表，再与另一侧组合配对，位置来自不同数组而天然独立。后者必须保存和的频率，因为重复和代表更多合法下标组合。"
+        ]
+      },
+      {
+        "heading": "计数与列举要分开",
+        "paragraphs": [
+          "第 454 题计下标组合数，第 15、18 题返回不同数值组合。后两题用排序双指针明确层次并局部跳过重复值，不能为了去重直接删除输入重复元素。题目按哈希章节组织并不代表每一题都必须用哈希表。"
+        ]
+      },
+      {
+        "heading": "复杂度诚实表达",
+        "paragraphs": [
+          "哈希操作通常是平均常数时间；排序输出、建立副本、Counter 的键域和结果本身都影响代价。先写清 n、u、R 分别是什么，再给复杂度。下面用计数表找首次出现一次的元素，展示“统计全部次数后按原序查询”适合需要全局信息又保留顺序的任务。"
+        ]
+      }
+    ],
+    "code": "def first_unique(values):\n    counts = {}\n    for value in values:\n        counts[value] = counts.get(value, 0) + 1\n    for value in values:\n        if counts[value] == 1:\n            return value\n    return None\n",
+    "time": "平均 O(n)。",
+    "space": "O(u)，u 为不同值数。",
+    "example": {
+      "input": "[4,2,4,3,2]",
+      "output": "3",
+      "walkthrough": [
+        "先统计 4:2、2:2、3:1。",
+        "按输入顺序检查，4、2 不是唯一。",
+        "第一个满足次数1的值为3。"
+      ]
+    },
+    "pitfalls": [
+      "在全局信息尚不完整时不能断言元素唯一。",
+      "复杂度需包含复制、排序和输出。"
+    ],
+    "tests": [
+      {
+        "expression": "first_unique([4,2,4,3,2])",
+        "expected": 3
+      },
+      {
+        "expression": "first_unique([1,1])",
+        "expected": null
+      }
+    ]
+  }
+]
